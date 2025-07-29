@@ -1,0 +1,11 @@
+Package: rstudioai
+Type: Package
+Title: RStudio AI Assistant Add-in
+Version: 0.1.0
+Author: Your Name
+Maintainer: Your Name <your@email.com>
+Description: AI-powered, context-aware data science automation in RStudio.
+License: MIT + file LICENSE
+Depends: R (>= 4.0.0)
+Imports: shiny, shinyjs, httr, rstudioapi, plumber, jsonlite
+RoxygenNote: 7.3.2
