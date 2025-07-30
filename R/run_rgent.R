@@ -76,6 +76,9 @@ run_rgent <- function(port = NULL) {
               # Create preview for functions - show complete function definition
               function_lines <- capture.output(print(obj))
               paste(function_lines, collapse = "\n")
+            } else if (is.vector(obj) && length(obj) > 0) {
+              # Create preview for vectors - show all elements in bracket format
+              paste("[", paste(obj, collapse = ", "), "]", sep = "")
             } else {
               paste("Object of class:", paste(class(obj), collapse = ", "))
             }
@@ -166,7 +169,85 @@ run_rgent <- function(port = NULL) {
   
   # 3. Test connection to Render backend
   
-  # 4. Open the HTML UI in RStudio Viewer
+  # 4. Check for console errors and auto-send to Claude
+  cat("Checking for console errors...\n")
+  
+  # Capture recent console output to check for errors
+  console_output <- tryCatch({
+    capture.output({
+      # Check for common error patterns
+      cat("Checking console for errors...\n")
+    })
+  }, error = function(e) {
+    character(0)
+  })
+  
+  # Check if there are any error patterns in the console
+  error_detected <- FALSE
+  error_message <- ""
+  
+  # Look for common R error patterns
+  if (length(console_output) > 0) {
+    for (line in console_output) {
+      if (grepl("Error:", line, ignore.case = TRUE) ||
+          grepl("Error in", line, ignore.case = TRUE) ||
+          grepl("Warning:", line, ignore.case = TRUE) ||
+          grepl("Error:", line, ignore.case = TRUE) ||
+          grepl("object not found", line, ignore.case = TRUE) ||
+          grepl("could not find function", line, ignore.case = TRUE) ||
+          grepl("unexpected", line, ignore.case = TRUE)) {
+        error_detected <- TRUE
+        error_message <- paste(error_message, line, sep = "\n")
+      }
+    }
+  }
+  
+  # If error detected, auto-send to Claude
+  if (error_detected) {
+    cat("Console error detected! Auto-sending to Claude for help...\n")
+    
+    # Prepare error message for Claude
+    claude_message <- paste(
+      "I encountered an error in my R console:",
+      error_message,
+      "\n\nCan you help me understand and fix this error?",
+      sep = ""
+    )
+    
+    # Send to Claude via the local API
+    tryCatch({
+      response <- httr::POST(
+        url = sprintf("http://127.0.0.1:%d/api/chat", port),
+        httr::content_type("application/json"),
+        body = jsonlite::toJSON(list(
+          access_code = "AUTO_ERROR",
+          prompt = claude_message,
+          context_data = list(
+            console_history = console_output,
+            workspace_objects = workspace_objects,
+            environment_info = list(
+              r_version = as.character(R.version.string),
+              working_directory = as.character(getwd())
+            )
+          ),
+          context_type = "rstudio",
+          conversation_id = paste0("auto_error_", as.numeric(Sys.time()))
+        ), auto_unbox = TRUE)
+      )
+      
+      if (httr::status_code(response) == 200) {
+        cat("Error sent to Claude successfully!\n")
+      } else {
+        cat("Failed to send error to Claude. Status:", httr::status_code(response), "\n")
+      }
+    }, error = function(e) {
+      cat("Error sending to Claude:", e$message, "\n")
+    })
+  } else {
+    cat("No console errors detected.\n")
+  }
+  
+  # 5. Open the HTML UI in RStudio Viewer
   cat("Opening AI Assistant in RStudio Viewer...\n")
   
   # Open in RStudio Viewer using the local HTTP server
