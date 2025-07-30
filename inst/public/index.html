@@ -784,6 +784,10 @@
         let currentConversationId = null;
         let isAccessValid = false;
         let accessCode = '';
+        let userSessionInfo = {
+            access_code: null,
+            conversation_id: null
+        };
 
         // Function to get the current port dynamically
         function getCurrentPort() {
@@ -797,6 +801,53 @@
             const hostname = window.location.hostname;
             const port = getCurrentPort();
             return `${protocol}//${hostname}:${port}`;
+        }
+
+        // Function to store user session info for error monitoring
+        async function storeUserSession(accessCode, conversationId) {
+            try {
+                const response = await fetch(`${getContextBaseUrl()}/set-user-session`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_code: accessCode,
+                        conversation_id: conversationId
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    console.log('User session stored for error monitoring:', data);
+                    userSessionInfo = {
+                        access_code: accessCode,
+                        conversation_id: conversationId
+                    };
+                } else {
+                    console.error('Failed to store user session:', data.message);
+                }
+            } catch (error) {
+                console.error('Error storing user session:', error);
+            }
+        }
+
+        // Function to get user session info
+        async function getUserSession() {
+            try {
+                const response = await fetch(`${getContextBaseUrl()}/get-user-session`);
+                const data = await response.json();
+                if (data.success) {
+                    userSessionInfo = {
+                        access_code: data.access_code,
+                        conversation_id: data.conversation_id
+                    };
+                    return userSessionInfo;
+                }
+            } catch (error) {
+                console.error('Error getting user session:', error);
+            }
+            return null;
         }
 
         function autoResize(textarea) {
@@ -1016,6 +1067,10 @@
                 if (response.ok && data.valid) {
                     accessCode = code;
                     isAccessValid = true;
+                    
+                    // Store user session for error monitoring
+                    await storeUserSession(accessCode, currentConversationId);
+                    
                     showStatus('✓ Access granted - Welcome to AI Assistant!', 'success');
                     document.getElementById('access-section').classList.add('hidden');
                     document.getElementById('main-interface').classList.remove('hidden');
@@ -1199,6 +1254,8 @@
                                         // Store conversation ID for future messages
                                         if (data.conversation_id) {
                                             currentConversationId = data.conversation_id;
+                                            // Update user session with new conversation ID
+                                            storeUserSession(accessCode, currentConversationId);
                                         }
                                         
                                         // Finalize the message (remove streaming class)
