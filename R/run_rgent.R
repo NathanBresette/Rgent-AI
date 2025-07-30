@@ -58,7 +58,23 @@ run_rgent <- function(port = NULL) {
             class = paste(class(obj), collapse = ", "),
             rows = if (is.data.frame(obj)) nrow(obj) else length(obj),
             columns = if (is.data.frame(obj)) ncol(obj) else NULL,
-            preview = paste(utils::capture.output(print(utils::head(obj, 3))), collapse = "\n")
+            preview = if (is.data.frame(obj) && nrow(obj) > 0 && ncol(obj) > 0) {
+              # Create preview manually for data frames
+              preview_lines <- character(0)
+              
+              # Add column names
+              preview_lines <- c(paste(names(obj), collapse = "\t"))
+              
+              # Add first 3 rows
+              for (i in 1:min(3, nrow(obj))) {
+                row_data <- sapply(obj[i, ], as.character)
+                preview_lines <- c(preview_lines, paste(row_data, collapse = "\t"))
+              }
+              
+              paste(preview_lines, collapse = "\n")
+            } else {
+              paste("Object of class:", paste(class(obj), collapse = ", "))
+            }
           )
           
           # Add the object to the dictionary with its name as the key
