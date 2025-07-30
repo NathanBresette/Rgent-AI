@@ -72,6 +72,10 @@ run_rgent <- function(port = NULL) {
               }
               
               paste(preview_lines, collapse = "\n")
+            } else if (is.function(obj)) {
+              # Create preview for functions - show complete function definition
+              function_lines <- capture.output(print(obj))
+              paste(function_lines, collapse = "\n")
             } else {
               paste("Object of class:", paste(class(obj), collapse = ", "))
             }
