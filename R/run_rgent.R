@@ -177,25 +177,31 @@ run_rgent <- function(port = NULL) {
     # Store the current error handler
     old_error_handler <- getOption("error")
     
-    # Set up immediate error detection with user integration
-    options(error = function() {
+    # Set up error monitoring that works with RStudio
+    cat("Setting up error monitoring for RStudio...\n")
+    
+    # Store the original error handler
+    old_error_handler <- getOption("error")
+    
+    # Create a custom error handler that works with RStudio
+    custom_error_handler <- function() {
       tryCatch({
-        # Get the error message immediately
+        # Get the error message
         error_msg <- geterrmessage()
         
         # Print to console so user knows what happened
-        message("⚠️ Error intercepted and sent to Claude:")
-        message(error_msg)
+        message("⚠️ Error detected and sending to Claude...")
+        message("Error: ", error_msg)
         
-        # Try to get user session info from the HTML interface
+        # Try to get user session info
         tryCatch({
-          # Get user session info from local storage or session
+          # Get user session info from environment or use defaults
           user_session <- list(
             access_code = Sys.getenv("RSTUDIOAI_ACCESS_CODE") || "AUTO_ERROR",
             conversation_id = Sys.getenv("RSTUDIOAI_CONVERSATION_ID") || paste0("error_", as.numeric(Sys.time()))
           )
           
-          # Send to Claude via local plumber server with user integration
+          # Send to Claude via local plumber server
           response <- httr::POST(
             url = sprintf("http://127.0.0.1:%d/api/chat", port),
             httr::content_type("application/json"),
@@ -240,7 +246,13 @@ run_rgent <- function(port = NULL) {
           old_error_handler()
         }
       })
-    })
+    }
+    
+    # Set the custom error handler
+    options(error = custom_error_handler)
+    
+    cat("Error monitoring set up successfully!\n")
+    cat("Try making an error to test it: undefined_function()\n")
     
     cat("Immediate error monitoring started successfully!\n")
     cat("Errors will be automatically sent to Claude when they occur.\n")
