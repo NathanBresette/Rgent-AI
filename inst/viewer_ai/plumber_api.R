@@ -65,6 +65,16 @@ function() {
   }
 }
 
+#* @get /test
+#* @serializer json
+function() {
+  list(
+    success = TRUE,
+    message = "Plumber server is working!",
+    timestamp = Sys.time()
+  )
+}
+
 #* @get /last-error
 #* @serializer json
 function() {

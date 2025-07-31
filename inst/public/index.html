@@ -1117,10 +1117,24 @@
             errorBtn.disabled = true;
             
             try {
+                console.log('Context base URL:', getContextBaseUrl());
+                
+                // Test if the server is working
+                console.log('Testing server connection...');
+                const testResponse = await fetch(`${getContextBaseUrl()}/test`);
+                console.log('Test response status:', testResponse.status);
+                if (!testResponse.ok) {
+                    throw new Error(`Server test failed: ${testResponse.status}`);
+                }
+                const testData = await testResponse.json();
+                console.log('Server test result:', testData);
+                
                 // First capture any recent error
+                console.log('Attempting to capture error...');
                 const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
                     method: 'POST'
                 });
+                console.log('Capture response status:', captureResponse.status);
                 const captureData = await captureResponse.json();
                 
                 if (!captureData.success) {
