@@ -822,12 +822,20 @@
             const port = window.location.port;
             return port || '8888'; // fallback to 8888 if no port detected
         }
+        
+        // Function to get the plumber API port (different from web interface port)
+        function getPlumberPort() {
+            // Try to get the port from the URL or use the default plumber port
+            const urlParams = new URLSearchParams(window.location.search);
+            const plumberPort = urlParams.get('plumber_port');
+            return plumberPort || '32349'; // Default plumber port
+        }
 
         // Function to get the base URL for context fetching
         function getContextBaseUrl() {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
-            const port = getCurrentPort();
+            const port = getPlumberPort();
             return `${protocol}//${hostname}:${port}`;
         }
 

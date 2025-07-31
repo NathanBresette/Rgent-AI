@@ -200,8 +200,8 @@ run_rgent <- function(port = NULL) {
   cat("Opening AI Assistant in RStudio Viewer...\n")
   cat("Opening AI Assistant in RStudio Viewer...\n")
   
-  # Open in RStudio Viewer using the local HTTP server
-  viewer_url <- sprintf("http://127.0.0.1:%d/", port)
+  # Open in RStudio Viewer using the local HTTP server with plumber port info
+  viewer_url <- sprintf("http://127.0.0.1:%d/?plumber_port=%d", port, port)
   cat("Opening URL:", viewer_url, "\n")
   
   if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
