@@ -239,6 +239,9 @@ run_rgent <- function(port = NULL) {
       })
     })
     
+    # Test that the error handler was set
+    cat("Error handler set. Current error handler:", class(getOption("error")), "\n")
+    
 
     
     cat("Error monitoring set up successfully!\n")
