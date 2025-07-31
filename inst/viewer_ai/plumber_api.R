@@ -28,26 +28,38 @@ capture_error <- function() {
   tryCatch({
     # Try to get the last error from R's error handling
     error_msg <- geterrmessage()
+    cat("geterrmessage() returned:", error_msg, "\n")
     if (nchar(error_msg) > 0) {
       last_error <<- error_msg
-      cat("Error captured:", error_msg, "\n")
+      cat("Error captured from geterrmessage():", error_msg, "\n")
+    } else {
+      cat("No error from geterrmessage()\n")
     }
   }, error = function(e) {
-    # If we can't get the error message, try to capture from console
+    cat("Error in geterrmessage():", e$message, "\n")
+  })
+  
+  # Also try to capture from console output
+  tryCatch({
     console_output <- capture.output({
       # This will capture any recent console output
     })
+    cat("Console output length:", length(console_output), "\n")
     if (length(console_output) > 0) {
+      cat("Console output:", paste(console_output, collapse = " | "), "\n")
       # Look for error patterns in console output
       for (line in rev(console_output)) {
         if (grepl("Error:", line, ignore.case = TRUE) || 
-            grepl("Error in", line, ignore.case = TRUE)) {
+            grepl("Error in", line, ignore.case = TRUE) ||
+            grepl("Warning:", line, ignore.case = TRUE)) {
           last_error <<- line
           cat("Error captured from console:", line, "\n")
           break
         }
       }
     }
+  }, error = function(e) {
+    cat("Error capturing console output:", e$message, "\n")
   })
 }
 

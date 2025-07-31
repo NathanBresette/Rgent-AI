@@ -629,7 +629,7 @@
                             <button id="send-btn" class="send-btn" onclick="sendToAI()">
                                 Send
                             </button>
-                            <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Send last error to Claude">
+                            <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Capture last error and add to chat">
                                 ⚠️ Error
                             </button>
                         </div>
@@ -1151,6 +1151,10 @@
                 const response = await fetch(`${getContextBaseUrl()}/last-error`);
                 const data = await response.json();
                 
+                console.log('Last error data:', data);
+                console.log('Error message:', data.error);
+                console.log('Has error:', data.has_error);
+                
                 if (!data.success) {
                     showStatus('Failed to get last error: ' + data.error, 'error');
                     return;
@@ -1161,29 +1165,17 @@
                     return;
                 }
                 
-                // Add user message showing the error
-                addMessage(`⚠️ Error: ${data.error}`, true);
+                // Add user message showing the error and put it in the input box
+                addMessage(`⚠️ Captured Error: ${data.error}`, true);
                 
-                // Send error to Claude
-                const errorResponse = await fetch(`${getContextBaseUrl()}/send-error-to-claude`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        error: data.error
-                    })
-                });
+                // Put the error in the input box for user to review and send
+                const promptInput = document.getElementById('prompt');
+                promptInput.value = `I encountered this error: ${data.error}\n\nCan you help me understand and fix this error?`;
                 
-                const errorData = await errorResponse.json();
+                // Focus on the input box
+                promptInput.focus();
                 
-                if (errorData.success) {
-                    showStatus('Error sent to Claude successfully!', 'success');
-                    // Add typing indicator for Claude's response
-                    addMessage('', false, true);
-                } else {
-                    showStatus('Failed to send error to Claude: ' + errorData.message, 'error');
-                }
+                showStatus('Error captured and added to chat. Review and click Send to get help.', 'success');
                 
             } catch (error) {
                 console.error('Error sending last error:', error);
