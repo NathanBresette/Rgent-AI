@@ -1139,13 +1139,8 @@
                 const testData = await testResponse.json();
                 console.log('Server test result:', testData);
                 
-                // First clear any old errors, then capture recent error
-                console.log('Clearing old errors...');
-                await fetch(`${getContextBaseUrl()}/clear-error`, {
-                    method: 'POST'
-                });
-                
-                            console.log('Attempting to capture error...');
+                            // Attempt to capture recent error
+            console.log('Attempting to capture error...');
             const captureResponse = await fetch(`${getContextBaseUrl()}/capture-current-error`, {
                 method: 'POST'
             });

@@ -133,6 +133,16 @@ run_rgent <- function(port = NULL) {
       # Also save as a simple string for the plumber process to access
       assign("main_session_error", err, envir = .GlobalEnv)
       cat("Error captured and saved to .GlobalEnv:", err, "\n")
+      
+      # Also save to a file that the plumber process can read
+      error_data <- list(
+        error_message = err,
+        timestamp = Sys.time(),
+        session_id = Sys.getpid()
+      )
+      saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
+      cat("Error also saved to temp file for plumber process\n")
+      
       return(TRUE)
     } else {
       cat("No current error message found\n")

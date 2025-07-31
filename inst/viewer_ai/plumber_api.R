@@ -74,19 +74,36 @@ function() {
   tryCatch({
     cat("=== GET LAST ERROR CALLED ===\n")
     
-    # First try to get error from geterrmessage() in this process
     current_error <- ""
-    tryCatch({
-      error_msg <- geterrmessage()
-      if (nchar(error_msg) > 0) {
-        current_error <- error_msg
-        cat("Current error from geterrmessage():", current_error, "\n")
-      }
-    }, error = function(e) {
-      cat("Error in geterrmessage():", e$message, "\n")
-    })
     
-    # If no error from geterrmessage(), check .Last.error in this process
+    # First try to read from the error file (most reliable for cross-process communication)
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    if (file.exists(error_file)) {
+      tryCatch({
+        error_data <- readRDS(error_file)
+        if (!is.null(error_data$error_message) && nchar(error_data$error_message) > 0) {
+          current_error <- error_data$error_message
+          cat("Current error from file:", current_error, "\n")
+        }
+      }, error = function(e) {
+        cat("Error reading error file:", e$message, "\n")
+      })
+    }
+    
+    # If no error from file, try geterrmessage() in this process
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        error_msg <- geterrmessage()
+        if (nchar(error_msg) > 0) {
+          current_error <- error_msg
+          cat("Current error from geterrmessage():", current_error, "\n")
+        }
+      }, error = function(e) {
+        cat("Error in geterrmessage():", e$message, "\n")
+      })
+    }
+    
+    # If still no error, check .Last.error in this process
     if (nchar(current_error) == 0) {
       tryCatch({
         if (exists(".Last.error", envir = .GlobalEnv)) {
@@ -99,18 +116,6 @@ function() {
         }
       }, error = function(e) {
         cat("Error accessing .Last.error:", e$message, "\n")
-      })
-    }
-    
-    # If still no error, check if we have a stored error from the main session
-    if (nchar(current_error) == 0) {
-      tryCatch({
-        if (exists("main_session_error", envir = .GlobalEnv)) {
-          current_error <- get("main_session_error", envir = .GlobalEnv)
-          cat("Current error from main session:", current_error, "\n")
-        }
-      }, error = function(e) {
-        cat("Error accessing main session error:", e$message, "\n")
       })
     }
     
@@ -219,6 +224,18 @@ function() {
     }, error = function(e) {
       cat("Error in geterrmessage():", e$message, "\n")
     })
+    
+    # If no error from geterrmessage(), check if we have a stored error from the main session
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        if (exists("main_session_error", envir = .GlobalEnv)) {
+          current_error <- get("main_session_error", envir = .GlobalEnv)
+          cat("Current error from main session:", current_error, "\n")
+        }
+      }, error = function(e) {
+        cat("Error accessing main session error:", e$message, "\n")
+      })
+    }
     
     # If we found an error, save it to .Last.error
     if (nchar(current_error) > 0) {
