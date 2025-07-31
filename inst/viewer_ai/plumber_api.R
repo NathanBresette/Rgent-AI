@@ -78,22 +78,31 @@ function() {
     
     # First try to read from the error file (most reliable for cross-process communication)
     error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    cat("Checking for error file:", error_file, "\n")
+    cat("File exists:", file.exists(error_file), "\n")
+    
     if (file.exists(error_file)) {
       tryCatch({
         error_data <- readRDS(error_file)
+        cat("Error data from file:", str(error_data), "\n")
         if (!is.null(error_data$error_message) && nchar(error_data$error_message) > 0) {
           current_error <- error_data$error_message
           cat("Current error from file:", current_error, "\n")
+        } else {
+          cat("No error message in file data\n")
         }
       }, error = function(e) {
         cat("Error reading error file:", e$message, "\n")
       })
+    } else {
+      cat("Error file does not exist\n")
     }
     
     # If no error from file, try geterrmessage() in this process
     if (nchar(current_error) == 0) {
       tryCatch({
         error_msg <- geterrmessage()
+        cat("geterrmessage() returned:", error_msg, "\n")
         if (nchar(error_msg) > 0) {
           current_error <- error_msg
           cat("Current error from geterrmessage():", current_error, "\n")
@@ -109,10 +118,13 @@ function() {
         if (exists(".Last.error", envir = .GlobalEnv)) {
           err <- get(".Last.error", envir = .GlobalEnv)
           msg <- conditionMessage(err)
+          cat("Last.error in this process:", msg, "\n")
           if (nchar(msg) > 0) {
             current_error <- msg
             cat("Current error from .Last.error:", current_error, "\n")
           }
+        } else {
+          cat("No .Last.error in this process\n")
         }
       }, error = function(e) {
         cat("Error accessing .Last.error:", e$message, "\n")
@@ -121,11 +133,26 @@ function() {
     
     cat("Final error to return:", current_error, "\n")
     
-    list(
+    # Defensive return - ensure we don't trigger errors in the return itself
+    result <- list(
       success = TRUE,
-      error = current_error,
+      error = ifelse(nchar(current_error) > 0, current_error, ""),
       has_error = nchar(current_error) > 0
     )
+    
+    # Validate the result before returning
+    if (!is.list(result) || !all(c("success", "error", "has_error") %in% names(result))) {
+      cat("Invalid result structure, returning safe fallback\n")
+      result <- list(
+        success = TRUE,
+        error = "",
+        has_error = FALSE
+      )
+    }
+    
+    cat("Returning result:", str(result), "\n")
+    result
+    
   }, error = function(e) {
     cat("Error in last-error endpoint:", e$message, "\n")
     list(
@@ -156,6 +183,42 @@ function(req) {
     list(
       success = FALSE,
       message = paste("Error setting test error:", e$message)
+    )
+  })
+}
+
+#* @get /test-error-file
+#* @serializer json
+function() {
+  tryCatch({
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    cat("Testing error file access\n")
+    cat("File exists:", file.exists(error_file), "\n")
+    
+    if (file.exists(error_file)) {
+      error_data <- readRDS(error_file)
+      cat("Error data:", str(error_data), "\n")
+      
+      list(
+        success = TRUE,
+        file_exists = TRUE,
+        error_message = error_data$error_message,
+        timestamp = as.character(error_data$timestamp),
+        session_id = error_data$session_id
+      )
+    } else {
+      list(
+        success = TRUE,
+        file_exists = FALSE,
+        error_message = NULL,
+        timestamp = NULL,
+        session_id = NULL
+      )
+    }
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error testing file:", e$message)
     )
   })
 }
