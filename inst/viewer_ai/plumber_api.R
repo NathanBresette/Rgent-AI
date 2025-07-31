@@ -172,8 +172,26 @@ function(req) {
       test_error <- "Test error message"
     }
     
+    # Set the error in multiple places for testing
     last_error <<- test_error
+    
+    # Save to .Last.error
+    e <- simpleError(test_error)
+    assign(".Last.error", e, envir = .GlobalEnv)
+    
+    # Save to main session error
+    assign("main_session_error", test_error, envir = .GlobalEnv)
+    
+    # Save to error file
+    error_data <- list(
+      error_message = test_error,
+      timestamp = Sys.time(),
+      session_id = Sys.getpid()
+    )
+    saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
+    
     cat("Set test error to:", test_error, "\n")
+    cat("Error saved to .Last.error, main_session_error, and error file\n")
     
     list(
       success = TRUE,
@@ -183,6 +201,57 @@ function(req) {
     list(
       success = FALSE,
       message = paste("Error setting test error:", e$message)
+    )
+  })
+}
+
+#* @get /debug-error-capture
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== DEBUG ERROR CAPTURE ===\n")
+    
+    debug_info <- list(
+      geterrmessage = geterrmessage(),
+      has_last_error = exists(".Last.error", envir = .GlobalEnv),
+      has_main_session_error = exists("main_session_error", envir = .GlobalEnv),
+      error_file_exists = file.exists(file.path(tempdir(), "rstudioai_error.rds")),
+      error_monitoring_active = error_monitoring_active,
+      session_pid = Sys.getpid(),
+      temp_dir = tempdir()
+    )
+    
+    # Get .Last.error if it exists
+    if (debug_info$has_last_error) {
+      err <- get(".Last.error", envir = .GlobalEnv)
+      debug_info$last_error_message <- conditionMessage(err)
+    }
+    
+    # Get main session error if it exists
+    if (debug_info$has_main_session_error) {
+      debug_info$main_session_error_message <- get("main_session_error", envir = .GlobalEnv)
+    }
+    
+    # Get error file content if it exists
+    if (debug_info$error_file_exists) {
+      tryCatch({
+        error_data <- readRDS(file.path(tempdir(), "rstudioai_error.rds"))
+        debug_info$error_file_content <- error_data
+      }, error = function(e) {
+        debug_info$error_file_read_error <- e$message
+      })
+    }
+    
+    cat("Debug info:", str(debug_info), "\n")
+    
+    list(
+      success = TRUE,
+      debug_info = debug_info
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error in debug endpoint:", e$message)
     )
   })
 }
@@ -300,6 +369,22 @@ function() {
       })
     }
     
+    # If still no error, check the error file
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        error_file <- file.path(tempdir(), "rstudioai_error.rds")
+        if (file.exists(error_file)) {
+          error_data <- readRDS(error_file)
+          if (!is.null(error_data$error_message) && nchar(error_data$error_message) > 0) {
+            current_error <- error_data$error_message
+            cat("Current error from file:", current_error, "\n")
+          }
+        }
+      }, error = function(e) {
+        cat("Error reading error file:", e$message, "\n")
+      })
+    }
+    
     # If we found an error, save it to .Last.error
     if (nchar(current_error) > 0) {
       e <- simpleError(current_error)
@@ -309,13 +394,15 @@ function() {
     
     list(
       success = TRUE,
+      has_error = nchar(current_error) > 0,
       message = ifelse(nchar(current_error) > 0, 
                       paste("Error captured:", current_error), 
-                      "No current error found")
+                      "No current error found. Try running a command that produces an error first, then click the error button again.")
     )
   }, error = function(e) {
     list(
       success = FALSE,
+      has_error = FALSE,
       message = paste("Error capturing current error:", e$message)
     )
   })

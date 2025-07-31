@@ -291,6 +291,29 @@
             cursor: not-allowed;
         }
 
+        .debug-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .debug-btn:hover {
+            background: #5a6268;
+        }
+
+        .debug-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -634,6 +657,9 @@
                             <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Capture last error and add to chat">
                                 ⚠️ Error
                             </button>
+                            <button id="debug-btn" class="debug-btn" onclick="debugErrorCapture()" title="Debug error capture system">
+                                🔍 Debug
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -884,6 +910,24 @@
                 console.error('Error getting user session:', error);
             }
             return null;
+        }
+
+        // Function to start error monitoring
+        async function startErrorMonitoring() {
+            try {
+                console.log('Starting error monitoring...');
+                const response = await fetch(`${getContextBaseUrl()}/start-error-monitoring`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ Error monitoring started:', data.message);
+                } else {
+                    console.warn('⚠️ Failed to start error monitoring:', data.message);
+                }
+            } catch (error) {
+                console.error('❌ Error starting error monitoring:', error);
+            }
         }
 
         function autoResize(textarea) {
@@ -1148,12 +1192,12 @@
                 const captureData = await captureResponse.json();
                 
                 if (!captureData.success) {
-                    showStatus('Failed to capture error: ' + captureData.error, 'error');
+                    showStatus('Failed to capture error: ' + captureData.message, 'error');
                     return;
                 }
                 
                 if (!captureData.has_error) {
-                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
+                    showStatus(captureData.message, 'info');
                     return;
                 }
                 
@@ -1192,6 +1236,24 @@
                 showStatus('Failed to send error: ' + error.message, 'error');
             } finally {
                 errorBtn.disabled = false;
+            }
+        }
+
+        async function debugErrorCapture() {
+            try {
+                console.log('Debugging error capture system...');
+                const response = await fetch(`${getContextBaseUrl()}/debug-error-capture`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Debug info:', data.debug_info);
+                    showStatus('Debug info logged to console. Check browser console for details.', 'info');
+                } else {
+                    showStatus('Debug failed: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error debugging:', error);
+                showStatus('Debug failed: ' + error.message, 'error');
             }
         }
 
@@ -1615,6 +1677,9 @@
             
             // Then detect and apply current RStudio theme
             await detectAndApplyRStudioTheme();
+            
+            // Start error monitoring automatically
+            await startErrorMonitoring();
         });
     </script>
 </body>
