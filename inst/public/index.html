@@ -314,6 +314,29 @@
             cursor: not-allowed;
         }
 
+        .clear-btn {
+            background: #ffc107;
+            color: #212529;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .clear-btn:hover {
+            background: #e0a800;
+        }
+
+        .clear-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -659,6 +682,9 @@
                             </button>
                             <button id="debug-btn" class="debug-btn" onclick="debugErrorCapture()" title="Debug error capture system">
                                 🔍 Debug
+                            </button>
+                            <button id="clear-btn" class="clear-btn" onclick="clearErrors()" title="Clear old error data">
+                                🗑️ Clear
                             </button>
                         </div>
                     </div>
@@ -1254,6 +1280,26 @@
             } catch (error) {
                 console.error('Error debugging:', error);
                 showStatus('Debug failed: ' + error.message, 'error');
+            }
+        }
+
+        async function clearErrors() {
+            try {
+                console.log('Clearing old error data...');
+                const response = await fetch(`${getContextBaseUrl()}/clear-errors`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Errors cleared:', data.message);
+                    showStatus('Old error data cleared successfully!', 'success');
+                } else {
+                    showStatus('Failed to clear errors: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error clearing errors:', error);
+                showStatus('Failed to clear errors: ' + error.message, 'error');
             }
         }
 

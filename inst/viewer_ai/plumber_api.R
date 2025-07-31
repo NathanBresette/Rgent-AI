@@ -344,6 +344,22 @@ function() {
   tryCatch({
     cat("=== CAPTURE CURRENT ERROR CALLED ===\n")
     
+    # Clear old error data first
+    cat("Clearing old error data...\n")
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      rm(".Last.error", envir = .GlobalEnv)
+    }
+    if (exists("main_session_error", envir = .GlobalEnv)) {
+      rm("main_session_error", envir = .GlobalEnv)
+    }
+    
+    # Clear error file
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    if (file.exists(error_file)) {
+      unlink(error_file)
+      cat("Cleared old error file\n")
+    }
+    
     # Try to get the current error from geterrmessage()
     current_error <- ""
     
@@ -404,6 +420,45 @@ function() {
       success = FALSE,
       has_error = FALSE,
       message = paste("Error capturing current error:", e$message)
+    )
+  })
+}
+
+#* @post /clear-errors
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== CLEAR ERRORS CALLED ===\n")
+    
+    # Clear all error storage locations
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      rm(".Last.error", envir = .GlobalEnv)
+      cat("Cleared .Last.error\n")
+    }
+    
+    if (exists("main_session_error", envir = .GlobalEnv)) {
+      rm("main_session_error", envir = .GlobalEnv)
+      cat("Cleared main_session_error\n")
+    }
+    
+    # Clear error file
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    if (file.exists(error_file)) {
+      unlink(error_file)
+      cat("Cleared error file\n")
+    }
+    
+    # Clear the global last_error variable
+    last_error <<- ""
+    
+    list(
+      success = TRUE,
+      message = "All error data cleared successfully"
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error clearing errors:", e$message)
     )
   })
 }
