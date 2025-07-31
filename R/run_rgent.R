@@ -183,73 +183,63 @@ run_rgent <- function(port = NULL) {
     # Store the original error handler
     old_error_handler <- getOption("error")
     
-    # Create a custom error handler that works with RStudio
-    custom_error_handler <- function() {
+    # Create send_to_claude function
+    send_to_claude <- function(error_msg) {
       tryCatch({
-        # Get the error message
-        error_msg <- geterrmessage()
+        # Get user session info from environment or use defaults
+        user_session <- list(
+          access_code = Sys.getenv("RSTUDIOAI_ACCESS_CODE") || "AUTO_ERROR",
+          conversation_id = Sys.getenv("RSTUDIOAI_CONVERSATION_ID") || paste0("error_", as.numeric(Sys.time()))
+        )
         
-        # Print to console so user knows what happened
-        message("⚠️ Error detected and sending to Claude...")
-        message("Error: ", error_msg)
-        
-        # Try to get user session info
-        tryCatch({
-          # Get user session info from environment or use defaults
-          user_session <- list(
-            access_code = Sys.getenv("RSTUDIOAI_ACCESS_CODE") || "AUTO_ERROR",
-            conversation_id = Sys.getenv("RSTUDIOAI_CONVERSATION_ID") || paste0("error_", as.numeric(Sys.time()))
-          )
-          
-          # Send to Claude via local plumber server
-          response <- httr::POST(
-            url = sprintf("http://127.0.0.1:%d/api/chat", port),
-            httr::content_type("application/json"),
-            body = jsonlite::toJSON(list(
-              access_code = user_session$access_code,
-              prompt = paste0("⚠️ The user just encountered this error in their R console:\n\n", error_msg, "\n\nCan you help fix it?"),
-              context_data = list(
-                console_history = character(0),
-                workspace_objects = workspace_objects,
-                environment_info = list(
-                  r_version = as.character(R.version.string),
-                  working_directory = as.character(getwd())
-                )
-              ),
-              context_type = "rstudio",
-              conversation_id = user_session$conversation_id,
-              metadata = list(
-                source = "console_error", 
-                timestamp = as.character(Sys.time())
+        # Send to Claude via local plumber server
+        response <- httr::POST(
+          url = sprintf("http://127.0.0.1:%d/api/chat", port),
+          httr::content_type("application/json"),
+          body = jsonlite::toJSON(list(
+            access_code = user_session$access_code,
+            prompt = paste0("⚠️ The user just encountered this error in their R console:\n\n", error_msg, "\n\nCan you help fix it?"),
+            context_data = list(
+              console_history = character(0),
+              workspace_objects = workspace_objects,
+              environment_info = list(
+                r_version = as.character(R.version.string),
+                working_directory = as.character(getwd())
               )
-            ), auto_unbox = TRUE)
-          )
-          
-          if (httr::status_code(response) == 200) {
-            message("✅ Error sent to Claude successfully!")
-            message("💡 Check your AI Assistant for Claude's response!")
-          } else {
-            message("❌ Failed to send error to Claude")
-          }
-        }, error = function(e) {
-          message("❌ Error sending to Claude:", e$message)
-        })
+            ),
+            context_type = "rstudio",
+            conversation_id = user_session$conversation_id,
+            metadata = list(
+              source = "console_error", 
+              timestamp = as.character(Sys.time())
+            )
+          ), auto_unbox = TRUE)
+        )
         
-        # Call the original error handler if it exists
-        if (!is.null(old_error_handler)) {
-          old_error_handler()
+        if (httr::status_code(response) == 200) {
+          message("✅ Error sent to Claude successfully!")
+          message("💡 Check your AI Assistant for Claude's response!")
+        } else {
+          message("❌ Failed to send error to Claude")
         }
       }, error = function(e) {
-        # If our error handler fails, restore original and call it
-        options(error = old_error_handler)
-        if (!is.null(old_error_handler)) {
-          old_error_handler()
-        }
+        message("❌ Error sending to Claude:", e$message)
       })
     }
     
-    # Set the custom error handler
-    options(error = custom_error_handler)
+    # Set up the error handler exactly as requested
+    options(error = function() {
+      err <- geterrmessage()
+      message("Custom error handler fired!")
+
+      tryCatch({
+        send_to_claude(err)
+      }, error = function(e) {
+        message("Error during custom handler:", conditionMessage(e))
+      })
+    })
+    
+
     
     cat("Error monitoring set up successfully!\n")
     cat("Try making an error to test it: undefined_function()\n")
