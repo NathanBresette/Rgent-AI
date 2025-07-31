@@ -121,32 +121,31 @@ run_rgent <- function(port = NULL) {
       pr$run(host = "127.0.0.1", port = server_port)
     }, args = list(api_file = plumber_api_file, server_port = port, workspace_data = workspace_objects))
     
-    # Set up error monitoring in the main R session
-    cat("Setting up error monitoring in main R session...\n")
-    
-    # Create a function to update the current error
-    update_current_error <- function() {
-      error_msg <- geterrmessage()
-      if (nchar(error_msg) > 0) {
-        .GlobalEnv$current_r_error <- error_msg
-        cat("Error captured in main session:", error_msg, "\n")
-      }
+      # Set up error monitoring in the main R session
+  cat("Setting up error monitoring in main R session...\n")
+  
+  # Capture errors globally with full condition object
+  options(error = function() {
+    err <- geterrmessage()
+    if (nchar(err) > 0) {
+      # Create a simple error condition object
+      e <- simpleError(err)
+      assign(".Last.error", e, envir = .GlobalEnv)
+      cat("Error captured and saved to .GlobalEnv:", err, "\n")
     }
-    
-    # Set up error handler to capture errors
-    options(error = function() {
-      update_current_error()
-    })
-    
-    # Also capture errors from .Last.error
-    if (exists(".Last.error", envir = .GlobalEnv)) {
-      last_error <- get(".Last.error", envir = .GlobalEnv)
-      if (!is.null(last_error)) {
-        error_msg <- paste(capture.output(print(last_error)), collapse = " ")
-        .GlobalEnv$current_r_error <- error_msg
-        cat("Initial error captured:", error_msg, "\n")
-      }
+  })
+  
+  # Add a function to manually update the current error (for testing)
+  .GlobalEnv$update_error_now <- function() {
+    err <- geterrmessage()
+    if (nchar(err) > 0) {
+      e <- simpleError(err)
+      assign(".Last.error", e, envir = .GlobalEnv)
+      cat("Error manually updated in .GlobalEnv:", err, "\n")
+    } else {
+      cat("No current error message found\n")
     }
+  }
 
     cat("plumber_process class:", class(plumber_process), "\n")
 
@@ -220,32 +219,14 @@ run_rgent <- function(port = NULL) {
       process <- get("plumber_process", envir = .GlobalEnv)
       if (process$is_alive()) {
         cat("✅ Plumber process is alive\n")
-        cat("Process output:\n")
-        tryCatch({
-          cat(process$read_all_output(), sep = "\n")
-        }, error = function(e) {
-          cat("No output available\n")
-        })
-        cat("Process errors:\n")
-        tryCatch({
-          cat(process$read_all_error(), sep = "\n")
-        }, error = function(e) {
-          cat("No errors available\n")
-        })
+        cat("Process ID:", process$get_pid(), "\n")
+        cat("Process status: running\n")
+        
+        # Don't try to read output/errors as it can hang
+        cat("Process output: (not reading to avoid hanging)\n")
+        cat("Process errors: (not reading to avoid hanging)\n")
       } else {
         cat("❌ Plumber process is dead\n")
-        cat("Process output before death:\n")
-        tryCatch({
-          cat(process$read_all_output(), sep = "\n")
-        }, error = function(e) {
-          cat("No output available\n")
-        })
-        cat("Process errors before death:\n")
-        tryCatch({
-          cat(process$read_all_error(), sep = "\n")
-        }, error = function(e) {
-          cat("No errors available\n")
-        })
       }
     } else {
       cat("❌ Plumber process not found\n")

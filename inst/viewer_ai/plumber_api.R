@@ -23,83 +23,23 @@ user_session_info <- list(
 # Global variable to store the last error
 last_error <- ""
 
-# Simple error capture function
+# Simple error capture function (simplified)
 capture_error <- function() {
   cat("=== CAPTURE_ERROR FUNCTION START ===\n")
   
-  # Try to get the last error from R's error handling
-  tryCatch({
-    error_msg <- geterrmessage()
-    cat("geterrmessage() returned:", error_msg, "\n")
-    if (nchar(error_msg) > 0) {
-      last_error <<- error_msg
-      cat("Error captured from geterrmessage():", error_msg, "\n")
-      return()  # Found an error, exit early
+  # Check if .Last.error exists
+  if (exists(".Last.error", envir = .GlobalEnv)) {
+    err <- get(".Last.error", envir = .GlobalEnv)
+    msg <- conditionMessage(err)
+    if (nchar(msg) > 0) {
+      last_error <<- msg
+      cat("Error captured from .Last.error:", msg, "\n")
     } else {
-      cat("No error from geterrmessage()\n")
+      cat("No error found in .Last.error\n")
     }
-  }, error = function(e) {
-    cat("Error in geterrmessage():", e$message, "\n")
-  })
-  
-  # Try to get error from .Last.error if it exists
-  tryCatch({
-    if (exists(".Last.error", envir = .GlobalEnv)) {
-      last_error_obj <- get(".Last.error", envir = .GlobalEnv)
-      if (!is.null(last_error_obj)) {
-        error_msg <- paste(capture.output(print(last_error_obj)), collapse = " ")
-        cat("Error from .Last.error:", error_msg, "\n")
-        if (nchar(error_msg) > 0) {
-          last_error <<- error_msg
-          cat("Error captured from .Last.error:", error_msg, "\n")
-          return()  # Found an error, exit early
-        }
-      }
-    }
-  }, error = function(e) {
-    cat("Error accessing .Last.error:", e$message, "\n")
-  })
-  
-  # Try to get error from last.warning if it exists
-  tryCatch({
-    if (exists("last.warning", envir = .GlobalEnv)) {
-      last_warnings <- get("last.warning", envir = .GlobalEnv)
-      if (length(last_warnings) > 0) {
-        warning_msg <- paste(capture.output(print(last_warnings)), collapse = " ")
-        cat("Warning from last.warning:", warning_msg, "\n")
-        if (nchar(warning_msg) > 0) {
-          last_error <<- warning_msg
-          cat("Warning captured from last.warning:", warning_msg, "\n")
-          return()  # Found a warning, exit early
-        }
-      }
-    }
-  }, error = function(e) {
-    cat("Error accessing last.warning:", e$message, "\n")
-  })
-  
-  # Also try to capture from console output
-  tryCatch({
-    console_output <- capture.output({
-      # This will capture any recent console output
-    })
-    cat("Console output length:", length(console_output), "\n")
-    if (length(console_output) > 0) {
-      cat("Console output:", paste(console_output, collapse = " | "), "\n")
-      # Look for error patterns in console output
-      for (line in rev(console_output)) {
-        if (grepl("Error:", line, ignore.case = TRUE) || 
-            grepl("Error in", line, ignore.case = TRUE) ||
-            grepl("Warning:", line, ignore.case = TRUE)) {
-          last_error <<- line
-          cat("Error captured from console:", line, "\n")
-          break
-        }
-      }
-    }
-  }, error = function(e) {
-    cat("Error capturing console output:", e$message, "\n")
-  })
+  } else {
+    cat("No .Last.error found\n")
+  }
   
   cat("=== CAPTURE_ERROR FUNCTION END ===\n")
 }
@@ -134,64 +74,25 @@ function() {
   tryCatch({
     cat("=== GET LAST ERROR CALLED ===\n")
     
-    # Check if we have a current error passed from the main session
-    current_error <- ""
-    
-    # Try to get the current error from the main session via global variable
-    tryCatch({
-      if (exists("current_r_error", envir = .GlobalEnv)) {
-        current_error <- get("current_r_error", envir = .GlobalEnv)
-        cat("Current error from main session:", current_error, "\n")
-      }
-    }, error = function(e) {
-      cat("Error getting error from main session:", e$message, "\n")
-    })
-    
-    # If no error from main session, try geterrmessage() in this process
-    if (nchar(current_error) == 0) {
-      tryCatch({
-        error_msg <- geterrmessage()
-        if (nchar(error_msg) > 0) {
-          current_error <- error_msg
-          cat("Current error from geterrmessage():", current_error, "\n")
-        }
-      }, error = function(e) {
-        cat("Error in geterrmessage():", e$message, "\n")
-      })
+    # Check if .Last.error exists in the main session
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      err <- get(".Last.error", envir = .GlobalEnv)
+      msg <- conditionMessage(err)
+      cat("Current error from .Last.error:", msg, "\n")
+      
+      list(
+        success = TRUE,
+        error = msg,
+        has_error = nchar(msg) > 0
+      )
+    } else {
+      cat("No .Last.error found\n")
+      list(
+        success = TRUE,
+        error = "",
+        has_error = FALSE
+      )
     }
-    
-    # If still no error, try .Last.error
-    if (nchar(current_error) == 0) {
-      tryCatch({
-        if (exists(".Last.error", envir = .GlobalEnv)) {
-          last_error_obj <- get(".Last.error", envir = .GlobalEnv)
-          if (!is.null(last_error_obj)) {
-            error_msg <- paste(capture.output(print(last_error_obj)), collapse = " ")
-            if (nchar(error_msg) > 0) {
-              current_error <- error_msg
-              cat("Current error from .Last.error:", current_error, "\n")
-            }
-          }
-        }
-      }, error = function(e) {
-        cat("Error accessing .Last.error:", e$message, "\n")
-      })
-    }
-    
-    # If still no error, use the stored last_error as fallback
-    if (nchar(current_error) == 0) {
-      current_error <- last_error
-      cat("Using stored last_error as fallback:", current_error, "\n")
-    }
-    
-    cat("Final error to return:", current_error, "\n")
-    cat("Error length:", nchar(current_error), "\n")
-    
-    list(
-      success = TRUE,
-      error = current_error,
-      has_error = nchar(current_error) > 0
-    )
   }, error = function(e) {
     cat("Error in last-error endpoint:", e$message, "\n")
     list(
