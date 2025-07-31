@@ -229,7 +229,7 @@
             font-size: 16px;
             font-family: inherit;
             resize: none;
-            min-height: 44px;
+            min-height: 48px;
             max-height: 200px;
             outline: none;
             transition: border-color 0.2s;
@@ -238,6 +238,8 @@
             overflow-wrap: break-word;
             background: var(--rstudio-card-bg, white);
             color: var(--rstudio-fg, #333);
+            line-height: 1.4;
+            overflow: hidden;
         }
 
         textarea:focus {
@@ -621,7 +623,7 @@
                             <div class="input-field">
                                 <textarea 
                                     id="prompt" 
-                                    placeholder="Ask me anything about R programming..."
+                                    placeholder="Ask me about your environment..."
                                     rows="1"
                                     oninput="autoResize(this)"
                                 ></textarea>
@@ -1129,7 +1131,12 @@
                 const testData = await testResponse.json();
                 console.log('Server test result:', testData);
                 
-                // First capture any recent error
+                // First clear any old errors, then capture recent error
+                console.log('Clearing old errors...');
+                await fetch(`${getContextBaseUrl()}/clear-error`, {
+                    method: 'POST'
+                });
+                
                 console.log('Attempting to capture error...');
                 const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
                     method: 'POST'
@@ -1165,17 +1172,17 @@
                     return;
                 }
                 
-                // Add user message showing the error and put it in the input box
-                addMessage(`⚠️ Captured Error: ${data.error}`, true);
-                
                 // Put the error in the input box for user to review and send
                 const promptInput = document.getElementById('prompt');
                 promptInput.value = `I encountered this error: ${data.error}\n\nCan you help me understand and fix this error?`;
                 
+                // Auto-resize the textarea to fit the content
+                autoResize(promptInput);
+                
                 // Focus on the input box
                 promptInput.focus();
                 
-                showStatus('Error captured and added to chat. Review and click Send to get help.', 'success');
+                showStatus('Error captured and added to input box. Review and click Send to get help.', 'success');
                 
             } catch (error) {
                 console.error('Error sending last error:', error);
