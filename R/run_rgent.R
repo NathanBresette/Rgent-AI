@@ -227,32 +227,28 @@ run_rgent <- function(port = NULL) {
       })
     }
     
+    # Store the old error handler
+    old_error <- getOption("error")
+    
     # Set up the error handler exactly as requested
     options(error = function() {
-      err <- geterrmessage()
-      message("Custom error handler fired!")
-
+      err_msg <- geterrmessage()
+      message("🧠 Custom error handler: ", err_msg)
+      
       tryCatch({
-        send_to_claude(err)
+        send_to_claude(err_msg)
       }, error = function(e) {
-        message("Error during custom handler:", conditionMessage(e))
+        message("⚠️ Error in sending: ", conditionMessage(e))
       })
+      
+      # Call old error handler properly if it exists and is a function
+      if (!is.null(old_error) && is.function(old_error)) {
+        old_error()
+      } else if (!is.null(old_error)) {
+        # old_error might be a call or something else, so evaluate it safely
+        try(eval(old_error), silent = TRUE)
+      }
     })
-    
-    # Also set a custom error handler that works with RStudio
-    if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
-      # Try to override RStudio's internal error handling
-      options(error = function() {
-        err <- geterrmessage()
-        message("Custom error handler fired!")
-
-        tryCatch({
-          send_to_claude(err)
-        }, error = function(e) {
-          message("Error during custom handler:", conditionMessage(e))
-        })
-      })
-    }
     
     # Test that the error handler was set
     cat("Error handler set. Current error handler:", class(getOption("error")), "\n")
