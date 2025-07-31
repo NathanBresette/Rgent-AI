@@ -239,8 +239,31 @@ run_rgent <- function(port = NULL) {
       })
     })
     
+    # Also set a custom error handler that works with RStudio
+    if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+      # Try to override RStudio's internal error handling
+      options(error = function() {
+        err <- geterrmessage()
+        message("Custom error handler fired!")
+
+        tryCatch({
+          send_to_claude(err)
+        }, error = function(e) {
+          message("Error during custom handler:", conditionMessage(e))
+        })
+      })
+    }
+    
     # Test that the error handler was set
     cat("Error handler set. Current error handler:", class(getOption("error")), "\n")
+    
+    # Test the error handler immediately
+    cat("Testing error handler...\n")
+    tryCatch({
+      stop("Test error")
+    }, error = function(e) {
+      cat("Test error caught by tryCatch\n")
+    })
     
 
     
