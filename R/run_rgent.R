@@ -120,6 +120,33 @@ run_rgent <- function(port = NULL) {
       pr <- plumber::plumb(api_file)
       pr$run(host = "127.0.0.1", port = server_port)
     }, args = list(api_file = plumber_api_file, server_port = port, workspace_data = workspace_objects))
+    
+    # Set up error monitoring in the main R session
+    cat("Setting up error monitoring in main R session...\n")
+    
+    # Create a function to update the current error
+    update_current_error <- function() {
+      error_msg <- geterrmessage()
+      if (nchar(error_msg) > 0) {
+        .GlobalEnv$current_r_error <- error_msg
+        cat("Error captured in main session:", error_msg, "\n")
+      }
+    }
+    
+    # Set up error handler to capture errors
+    options(error = function() {
+      update_current_error()
+    })
+    
+    # Also capture errors from .Last.error
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      last_error <- get(".Last.error", envir = .GlobalEnv)
+      if (!is.null(last_error)) {
+        error_msg <- paste(capture.output(print(last_error)), collapse = " ")
+        .GlobalEnv$current_r_error <- error_msg
+        cat("Initial error captured:", error_msg, "\n")
+      }
+    }
 
     cat("plumber_process class:", class(plumber_process), "\n")
 

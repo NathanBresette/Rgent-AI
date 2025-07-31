@@ -134,21 +134,33 @@ function() {
   tryCatch({
     cat("=== GET LAST ERROR CALLED ===\n")
     
-    # Always try to get the current error from the main R session
+    # Check if we have a current error passed from the main session
     current_error <- ""
     
-    # Try geterrmessage() first
+    # Try to get the current error from the main session via global variable
     tryCatch({
-      error_msg <- geterrmessage()
-      if (nchar(error_msg) > 0) {
-        current_error <- error_msg
-        cat("Current error from geterrmessage():", current_error, "\n")
+      if (exists("current_r_error", envir = .GlobalEnv)) {
+        current_error <- get("current_r_error", envir = .GlobalEnv)
+        cat("Current error from main session:", current_error, "\n")
       }
     }, error = function(e) {
-      cat("Error in geterrmessage():", e$message, "\n")
+      cat("Error getting error from main session:", e$message, "\n")
     })
     
-    # If no error from geterrmessage(), try .Last.error
+    # If no error from main session, try geterrmessage() in this process
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        error_msg <- geterrmessage()
+        if (nchar(error_msg) > 0) {
+          current_error <- error_msg
+          cat("Current error from geterrmessage():", current_error, "\n")
+        }
+      }, error = function(e) {
+        cat("Error in geterrmessage():", e$message, "\n")
+      })
+    }
+    
+    # If still no error, try .Last.error
     if (nchar(current_error) == 0) {
       tryCatch({
         if (exists(".Last.error", envir = .GlobalEnv)) {
