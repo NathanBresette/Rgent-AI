@@ -25,18 +25,57 @@ last_error <- ""
 
 # Simple error capture function
 capture_error <- function() {
+  cat("=== CAPTURE_ERROR FUNCTION START ===\n")
+  
+  # Try to get the last error from R's error handling
   tryCatch({
-    # Try to get the last error from R's error handling
     error_msg <- geterrmessage()
     cat("geterrmessage() returned:", error_msg, "\n")
     if (nchar(error_msg) > 0) {
       last_error <<- error_msg
       cat("Error captured from geterrmessage():", error_msg, "\n")
+      return()  # Found an error, exit early
     } else {
       cat("No error from geterrmessage()\n")
     }
   }, error = function(e) {
     cat("Error in geterrmessage():", e$message, "\n")
+  })
+  
+  # Try to get error from .Last.error if it exists
+  tryCatch({
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      last_error_obj <- get(".Last.error", envir = .GlobalEnv)
+      if (!is.null(last_error_obj)) {
+        error_msg <- paste(capture.output(print(last_error_obj)), collapse = " ")
+        cat("Error from .Last.error:", error_msg, "\n")
+        if (nchar(error_msg) > 0) {
+          last_error <<- error_msg
+          cat("Error captured from .Last.error:", error_msg, "\n")
+          return()  # Found an error, exit early
+        }
+      }
+    }
+  }, error = function(e) {
+    cat("Error accessing .Last.error:", e$message, "\n")
+  })
+  
+  # Try to get error from last.warning if it exists
+  tryCatch({
+    if (exists("last.warning", envir = .GlobalEnv)) {
+      last_warnings <- get("last.warning", envir = .GlobalEnv)
+      if (length(last_warnings) > 0) {
+        warning_msg <- paste(capture.output(print(last_warnings)), collapse = " ")
+        cat("Warning from last.warning:", warning_msg, "\n")
+        if (nchar(warning_msg) > 0) {
+          last_error <<- warning_msg
+          cat("Warning captured from last.warning:", warning_msg, "\n")
+          return()  # Found a warning, exit early
+        }
+      }
+    }
+  }, error = function(e) {
+    cat("Error accessing last.warning:", e$message, "\n")
   })
   
   # Also try to capture from console output
@@ -61,6 +100,8 @@ capture_error <- function() {
   }, error = function(e) {
     cat("Error capturing console output:", e$message, "\n")
   })
+  
+  cat("=== CAPTURE_ERROR FUNCTION END ===\n")
 }
 
 
@@ -91,12 +132,17 @@ function() {
 #* @serializer json
 function() {
   tryCatch({
+    cat("=== GET LAST ERROR CALLED ===\n")
+    cat("Current last_error:", last_error, "\n")
+    cat("Error length:", nchar(last_error), "\n")
+    
     list(
       success = TRUE,
       error = last_error,
       has_error = nchar(last_error) > 0
     )
   }, error = function(e) {
+    cat("Error in last-error endpoint:", e$message, "\n")
     list(
       success = FALSE,
       error = paste("Error getting last error:", e$message),
@@ -105,17 +151,49 @@ function() {
   })
 }
 
+#* @post /set-test-error
+#* @serializer json
+function(req) {
+  tryCatch({
+    test_error <- req$body$error
+    if (is.null(test_error)) {
+      test_error <- "Test error message"
+    }
+    
+    last_error <<- test_error
+    cat("Set test error to:", test_error, "\n")
+    
+    list(
+      success = TRUE,
+      message = paste("Test error set to:", test_error)
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error setting test error:", e$message)
+    )
+  })
+}
+
 #* @post /capture-error
 #* @serializer json
 function() {
   tryCatch({
+    cat("=== CAPTURE ERROR CALLED ===\n")
+    cat("Current last_error before capture:", last_error, "\n")
+    
     capture_error()
+    
+    cat("Last error after capture:", last_error, "\n")
+    cat("Error length:", nchar(last_error), "\n")
+    
     list(
       success = TRUE,
       error = last_error,
       has_error = nchar(last_error) > 0
     )
   }, error = function(e) {
+    cat("Error in capture-error endpoint:", e$message, "\n")
     list(
       success = FALSE,
       error = paste("Error capturing error:", e$message),
