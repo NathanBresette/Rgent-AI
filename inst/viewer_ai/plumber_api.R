@@ -133,13 +133,52 @@ function() {
 function() {
   tryCatch({
     cat("=== GET LAST ERROR CALLED ===\n")
-    cat("Current last_error:", last_error, "\n")
-    cat("Error length:", nchar(last_error), "\n")
+    
+    # Always try to get the current error from the main R session
+    current_error <- ""
+    
+    # Try geterrmessage() first
+    tryCatch({
+      error_msg <- geterrmessage()
+      if (nchar(error_msg) > 0) {
+        current_error <- error_msg
+        cat("Current error from geterrmessage():", current_error, "\n")
+      }
+    }, error = function(e) {
+      cat("Error in geterrmessage():", e$message, "\n")
+    })
+    
+    # If no error from geterrmessage(), try .Last.error
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        if (exists(".Last.error", envir = .GlobalEnv)) {
+          last_error_obj <- get(".Last.error", envir = .GlobalEnv)
+          if (!is.null(last_error_obj)) {
+            error_msg <- paste(capture.output(print(last_error_obj)), collapse = " ")
+            if (nchar(error_msg) > 0) {
+              current_error <- error_msg
+              cat("Current error from .Last.error:", current_error, "\n")
+            }
+          }
+        }
+      }, error = function(e) {
+        cat("Error accessing .Last.error:", e$message, "\n")
+      })
+    }
+    
+    # If still no error, use the stored last_error as fallback
+    if (nchar(current_error) == 0) {
+      current_error <- last_error
+      cat("Using stored last_error as fallback:", current_error, "\n")
+    }
+    
+    cat("Final error to return:", current_error, "\n")
+    cat("Error length:", nchar(current_error), "\n")
     
     list(
       success = TRUE,
-      error = last_error,
-      has_error = nchar(last_error) > 0
+      error = current_error,
+      has_error = nchar(current_error) > 0
     )
   }, error = function(e) {
     cat("Error in last-error endpoint:", e$message, "\n")
@@ -171,6 +210,25 @@ function(req) {
     list(
       success = FALSE,
       message = paste("Error setting test error:", e$message)
+    )
+  })
+}
+
+#* @post /clear-error
+#* @serializer json
+function() {
+  tryCatch({
+    last_error <<- ""
+    cat("Cleared stored error\n")
+    
+    list(
+      success = TRUE,
+      message = "Stored error cleared"
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error clearing error:", e$message)
     )
   })
 }
