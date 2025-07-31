@@ -211,5 +211,87 @@ run_rgent <- function(port = NULL) {
     stop("RStudio Viewer is not available. Please run this addin inside RStudio.")
   }
   
+  # Return the plumber process so it can be accessed globally
+  .GlobalEnv$plumber_process <- plumber_process
+  
+  # Add a helper function to check plumber status
+  .GlobalEnv$check_plumber_status <- function() {
+    if (exists("plumber_process", envir = .GlobalEnv)) {
+      process <- get("plumber_process", envir = .GlobalEnv)
+      if (process$is_alive()) {
+        cat("✅ Plumber process is alive\n")
+        cat("Process output:\n")
+        tryCatch({
+          cat(process$read_all_output(), sep = "\n")
+        }, error = function(e) {
+          cat("No output available\n")
+        })
+        cat("Process errors:\n")
+        tryCatch({
+          cat(process$read_all_error(), sep = "\n")
+        }, error = function(e) {
+          cat("No errors available\n")
+        })
+      } else {
+        cat("❌ Plumber process is dead\n")
+        cat("Process output before death:\n")
+        tryCatch({
+          cat(process$read_all_output(), sep = "\n")
+        }, error = function(e) {
+          cat("No output available\n")
+        })
+        cat("Process errors before death:\n")
+        tryCatch({
+          cat(process$read_all_error(), sep = "\n")
+        }, error = function(e) {
+          cat("No errors available\n")
+        })
+      }
+    } else {
+      cat("❌ Plumber process not found\n")
+    }
+  }
+  
+  # Add a function to restart the plumber API
+  .GlobalEnv$restart_plumber <- function() {
+    cat("🔄 Restarting plumber API...\n")
+    
+    # Kill existing process if it exists
+    if (exists("plumber_process", envir = .GlobalEnv)) {
+      process <- get("plumber_process", envir = .GlobalEnv)
+      if (process$is_alive()) {
+        process$kill()
+        cat("Killed existing plumber process\n")
+      }
+    }
+    
+    # Start new process
+    plumber_api_file <- file.path(system.file("viewer_ai", package = "rstudioai"), "plumber_api.R")
+    
+    if (file.exists(plumber_api_file)) {
+      new_process <- callr::r_bg(function(api_file, server_port, workspace_data) {
+        # Store workspace data in global variables that the plumber API can access
+        .GlobalEnv$captured_workspace_objects <- workspace_data
+        
+        pr <- plumber::plumb(api_file)
+        pr$run(host = "127.0.0.1", port = server_port)
+      }, args = list(api_file = plumber_api_file, server_port = port, workspace_data = workspace_objects))
+      
+      .GlobalEnv$plumber_process <- new_process
+      
+      # Wait for server to start
+      Sys.sleep(3)
+      
+      cat("✅ Plumber API restarted on port", port, "\n")
+      cat("Use check_plumber_status() to verify\n")
+    } else {
+      cat("❌ Plumber API file not found\n")
+    }
+  }
+  
+  cat("✅ Plumber process saved to global environment\n")
+  cat("Use check_plumber_status() to check process status\n")
+  cat("Use restart_plumber() to restart if needed\n")
+  
   invisible(TRUE)
 } 
