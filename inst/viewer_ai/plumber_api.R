@@ -173,6 +173,46 @@ function() {
   })
 }
 
+#* @post /capture-current-error
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== CAPTURE CURRENT ERROR CALLED ===\n")
+    
+    # Try to get the current error from geterrmessage()
+    current_error <- ""
+    
+    tryCatch({
+      error_msg <- geterrmessage()
+      if (nchar(error_msg) > 0) {
+        current_error <- error_msg
+        cat("Current error from geterrmessage():", current_error, "\n")
+      }
+    }, error = function(e) {
+      cat("Error in geterrmessage():", e$message, "\n")
+    })
+    
+    # If we found an error, save it to .Last.error
+    if (nchar(current_error) > 0) {
+      e <- simpleError(current_error)
+      assign(".Last.error", e, envir = .GlobalEnv)
+      cat("Error saved to .Last.error:", current_error, "\n")
+    }
+    
+    list(
+      success = TRUE,
+      message = ifelse(nchar(current_error) > 0, 
+                      paste("Error captured:", current_error), 
+                      "No current error found")
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error capturing current error:", e$message)
+    )
+  })
+}
+
 #* @post /send-error-to-claude
 #* @serializer json
 function(req) {

@@ -1145,10 +1145,10 @@
                     method: 'POST'
                 });
                 
-                console.log('Attempting to capture error...');
-                const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
-                    method: 'POST'
-                });
+                            console.log('Attempting to capture error...');
+            const captureResponse = await fetch(`${getContextBaseUrl()}/capture-current-error`, {
+                method: 'POST'
+            });
                 console.log('Capture response status:', captureResponse.status);
                 const captureData = await captureResponse.json();
                 

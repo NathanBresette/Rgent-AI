@@ -124,28 +124,30 @@ run_rgent <- function(port = NULL) {
       # Set up error monitoring in the main R session
   cat("Setting up error monitoring in main R session...\n")
   
-  # Capture errors globally with full condition object
-  options(error = function() {
+  # Create a function to capture the current error
+  capture_current_error <- function() {
     err <- geterrmessage()
     if (nchar(err) > 0) {
-      # Create a simple error condition object
       e <- simpleError(err)
       assign(".Last.error", e, envir = .GlobalEnv)
       cat("Error captured and saved to .GlobalEnv:", err, "\n")
+      return(TRUE)
+    } else {
+      cat("No current error message found\n")
+      return(FALSE)
     }
-  })
+  }
+  
+  # Add the function to global environment
+  .GlobalEnv$capture_current_error <- capture_current_error
   
   # Add a function to manually update the current error (for testing)
   .GlobalEnv$update_error_now <- function() {
-    err <- geterrmessage()
-    if (nchar(err) > 0) {
-      e <- simpleError(err)
-      assign(".Last.error", e, envir = .GlobalEnv)
-      cat("Error manually updated in .GlobalEnv:", err, "\n")
-    } else {
-      cat("No current error message found\n")
-    }
+    capture_current_error()
   }
+  
+  # Try to capture any existing error
+  capture_current_error()
 
     cat("plumber_process class:", class(plumber_process), "\n")
 
