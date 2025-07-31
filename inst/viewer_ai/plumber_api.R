@@ -205,48 +205,141 @@ function(req) {
   })
 }
 
+#* @post /create-fresh-error
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== CREATING FRESH ERROR ===\n")
+    
+    # First clear all existing errors
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      rm(".Last.error", envir = .GlobalEnv)
+    }
+    if (exists("main_session_error", envir = .GlobalEnv)) {
+      rm("main_session_error", envir = .GlobalEnv)
+    }
+    last_error <<- ""
+    
+    # Clear error file
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    if (file.exists(error_file)) {
+      unlink(error_file)
+    }
+    
+    # Create a fresh error by running a command that will fail
+    tryCatch({
+      # This should create a fresh error
+      stop("Fresh test error created at ", Sys.time())
+    }, error = function(e) {
+      # Capture the fresh error
+      fresh_error <- conditionMessage(e)
+      cat("Created fresh error:", fresh_error, "\n")
+      
+      # Save it to all locations
+      last_error <<- fresh_error
+      assign(".Last.error", e, envir = .GlobalEnv)
+      assign("main_session_error", fresh_error, envir = .GlobalEnv)
+      
+      # Save to error file
+      error_data <- list(
+        error_message = fresh_error,
+        timestamp = Sys.time(),
+        session_id = Sys.getpid()
+      )
+      saveRDS(error_data, error_file)
+      
+      cat("Fresh error saved to all locations\n")
+    })
+    
+    list(
+      success = TRUE,
+      message = "Fresh error created and saved"
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error creating fresh error:", e$message)
+    )
+  })
+}
+
 #* @get /debug-error-capture
 #* @serializer json
 function() {
   tryCatch({
     cat("=== DEBUG ERROR CAPTURE ===\n")
     
-    debug_info <- list(
-      geterrmessage = geterrmessage(),
-      has_last_error = exists(".Last.error", envir = .GlobalEnv),
-      has_main_session_error = exists("main_session_error", envir = .GlobalEnv),
-      error_file_exists = file.exists(file.path(tempdir(), "rstudioai_error.rds")),
-      error_monitoring_active = error_monitoring_active,
-      session_pid = Sys.getpid(),
-      temp_dir = tempdir()
+    # Check all possible error sources
+    error_sources <- list()
+    
+    # 1. Check geterrmessage()
+    tryCatch({
+      error_msg <- geterrmessage()
+      error_sources$geterrmessage <- error_msg
+      cat("geterrmessage():", error_msg, "\n")
+    }, error = function(e) {
+      error_sources$geterrmessage_error <- e$message
+    })
+    
+    # 2. Check .Last.error
+    tryCatch({
+      if (exists(".Last.error", envir = .GlobalEnv)) {
+        err <- get(".Last.error", envir = .GlobalEnv)
+        error_sources$last_error <- conditionMessage(err)
+        cat(".Last.error:", conditionMessage(err), "\n")
+      } else {
+        error_sources$last_error <- NULL
+        cat("No .Last.error found\n")
+      }
+    }, error = function(e) {
+      error_sources$last_error_error <- e$message
+    })
+    
+    # 3. Check main_session_error
+    tryCatch({
+      if (exists("main_session_error", envir = .GlobalEnv)) {
+        error_sources$main_session_error <- get("main_session_error", envir = .GlobalEnv)
+        cat("main_session_error:", get("main_session_error", envir = .GlobalEnv), "\n")
+      } else {
+        error_sources$main_session_error <- NULL
+        cat("No main_session_error found\n")
+      }
+    }, error = function(e) {
+      error_sources$main_session_error_error <- e$message
+    })
+    
+    # 4. Check error file
+    tryCatch({
+      error_file <- file.path(tempdir(), "rstudioai_error.rds")
+      if (file.exists(error_file)) {
+        error_data <- readRDS(error_file)
+        error_sources$error_file <- error_data
+        cat("Error file content:", str(error_data), "\n")
+      } else {
+        error_sources$error_file <- NULL
+        cat("No error file found\n")
+      }
+    }, error = function(e) {
+      error_sources$error_file_error <- e$message
+    })
+    
+    # 5. Check global last_error variable
+    error_sources$global_last_error <- last_error
+    cat("Global last_error:", last_error, "\n")
+    
+    # 6. Check session info
+    error_sources$session_info <- list(
+      pid = Sys.getpid(),
+      temp_dir = tempdir(),
+      error_monitoring_active = error_monitoring_active
     )
     
-    # Get .Last.error if it exists
-    if (debug_info$has_last_error) {
-      err <- get(".Last.error", envir = .GlobalEnv)
-      debug_info$last_error_message <- conditionMessage(err)
-    }
-    
-    # Get main session error if it exists
-    if (debug_info$has_main_session_error) {
-      debug_info$main_session_error_message <- get("main_session_error", envir = .GlobalEnv)
-    }
-    
-    # Get error file content if it exists
-    if (debug_info$error_file_exists) {
-      tryCatch({
-        error_data <- readRDS(file.path(tempdir(), "rstudioai_error.rds"))
-        debug_info$error_file_content <- error_data
-      }, error = function(e) {
-        debug_info$error_file_read_error <- e$message
-      })
-    }
-    
-    cat("Debug info:", str(debug_info), "\n")
+    cat("Session PID:", Sys.getpid(), "\n")
+    cat("Error monitoring active:", error_monitoring_active, "\n")
     
     list(
       success = TRUE,
-      debug_info = debug_info
+      error_sources = error_sources
     )
   }, error = function(e) {
     list(
@@ -450,6 +543,14 @@ function() {
     
     # Clear the global last_error variable
     last_error <<- ""
+    
+    # Force clear geterrmessage() by running a successful command
+    tryCatch({
+      # This should clear any lingering error state
+      invisible(1 + 1)
+    }, error = function(e) {
+      cat("Error clearing geterrmessage state:", e$message, "\n")
+    })
     
     list(
       success = TRUE,

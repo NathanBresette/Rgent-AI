@@ -337,6 +337,29 @@
             cursor: not-allowed;
         }
 
+        .test-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .test-btn:hover {
+            background: #138496;
+        }
+
+        .test-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -685,6 +708,9 @@
                             </button>
                             <button id="clear-btn" class="clear-btn" onclick="clearErrors()" title="Clear old error data">
                                 🗑️ Clear
+                            </button>
+                            <button id="test-btn" class="test-btn" onclick="createFreshError()" title="Create a fresh test error">
+                                🧪 Test
                             </button>
                         </div>
                     </div>
@@ -1300,6 +1326,26 @@
             } catch (error) {
                 console.error('Error clearing errors:', error);
                 showStatus('Failed to clear errors: ' + error.message, 'error');
+            }
+        }
+
+        async function createFreshError() {
+            try {
+                console.log('Creating fresh test error...');
+                const response = await fetch(`${getContextBaseUrl()}/create-fresh-error`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Fresh error created:', data.message);
+                    showStatus('Fresh test error created! Now click the Error button to capture it.', 'success');
+                } else {
+                    showStatus('Failed to create test error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error creating test error:', error);
+                showStatus('Failed to create test error: ' + error.message, 'error');
             }
         }
 
