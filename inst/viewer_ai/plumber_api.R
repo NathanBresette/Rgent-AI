@@ -20,6 +20,37 @@ user_session_info <- list(
   conversation_id = NULL
 )
 
+# Global variable to store the last error
+last_error <- ""
+
+# Simple error capture function
+capture_error <- function() {
+  tryCatch({
+    # Try to get the last error from R's error handling
+    error_msg <- geterrmessage()
+    if (nchar(error_msg) > 0) {
+      last_error <<- error_msg
+      cat("Error captured:", error_msg, "\n")
+    }
+  }, error = function(e) {
+    # If we can't get the error message, try to capture from console
+    console_output <- capture.output({
+      # This will capture any recent console output
+    })
+    if (length(console_output) > 0) {
+      # Look for error patterns in console output
+      for (line in rev(console_output)) {
+        if (grepl("Error:", line, ignore.case = TRUE) || 
+            grepl("Error in", line, ignore.case = TRUE)) {
+          last_error <<- line
+          cat("Error captured from console:", line, "\n")
+          break
+        }
+      }
+    }
+  })
+}
+
 
 
 #* @get /
@@ -32,6 +63,87 @@ function() {
   } else {
     "<h1>HTML file not found</h1>"
   }
+}
+
+#* @get /last-error
+#* @serializer json
+function() {
+  tryCatch({
+    list(
+      success = TRUE,
+      error = last_error,
+      has_error = nchar(last_error) > 0
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      error = paste("Error getting last error:", e$message),
+      has_error = FALSE
+    )
+  })
+}
+
+#* @post /capture-error
+#* @serializer json
+function() {
+  tryCatch({
+    capture_error()
+    list(
+      success = TRUE,
+      error = last_error,
+      has_error = nchar(last_error) > 0
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      error = paste("Error capturing error:", e$message),
+      has_error = FALSE
+    )
+  })
+}
+
+#* @post /send-error-to-claude
+#* @serializer json
+function(req) {
+  tryCatch({
+    error_msg <- req$body$error
+    if (is.null(error_msg) || nchar(error_msg) == 0) {
+      return(list(success = FALSE, message = "No error message provided"))
+    }
+    
+    # Send to Claude via the main backend
+    backend_url <- "https://rgent.onrender.com"
+    response <- httr::POST(
+      url = sprintf("%s/api/chat", backend_url),
+      httr::content_type("application/json"),
+      body = jsonlite::toJSON(list(
+        access_code = user_session_info$access_code || "AUTO_ERROR",
+        prompt = paste0("⚠️ The user just encountered this error in their R console:\n\n", error_msg, "\n\nCan you help fix it?"),
+        context_data = list(
+          console_history = character(0),
+          workspace_objects = list(), # Will be captured by the main backend
+          environment_info = list(
+            r_version = as.character(R.version.string),
+            working_directory = as.character(getwd())
+          )
+        ),
+        context_type = "rstudio",
+        conversation_id = user_session_info$conversation_id || paste0("error_", as.numeric(Sys.time())),
+        metadata = list(
+          source = "console_error", 
+          timestamp = as.character(Sys.time())
+        )
+      ), auto_unbox = TRUE)
+    )
+    
+    if (httr::status_code(response) == 200) {
+      list(success = TRUE, message = "Error sent to Claude successfully!")
+    } else {
+      list(success = FALSE, message = sprintf("Failed to send error: %d", httr::status_code(response)))
+    }
+  }, error = function(e) {
+    list(success = FALSE, message = paste("Error sending to Claude:", e$message))
+  })
 }
 
 #* @get /monitor-errors

@@ -266,6 +266,29 @@
             cursor: not-allowed;
         }
 
+        .error-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .error-btn:hover {
+            background: #c82333;
+        }
+
+        .error-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -605,6 +628,9 @@
                             </div>
                             <button id="send-btn" class="send-btn" onclick="sendToAI()">
                                 Send
+                            </button>
+                            <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Send last error to Claude">
+                                ⚠️ Error
                             </button>
                         </div>
                     </div>
@@ -1081,6 +1107,75 @@
                 }
             } catch (error) {
                 showStatus('✗ Error: ' + error.message, 'error');
+            }
+        }
+
+        async function sendLastError() {
+            console.log('sendLastError function called');
+            
+            const errorBtn = document.getElementById('error-btn');
+            errorBtn.disabled = true;
+            
+            try {
+                // First capture any recent error
+                const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
+                    method: 'POST'
+                });
+                const captureData = await captureResponse.json();
+                
+                if (!captureData.success) {
+                    showStatus('Failed to capture error: ' + captureData.error, 'error');
+                    return;
+                }
+                
+                if (!captureData.has_error) {
+                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
+                    return;
+                }
+                
+                // Get the captured error
+                const response = await fetch(`${getContextBaseUrl()}/last-error`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showStatus('Failed to get last error: ' + data.error, 'error');
+                    return;
+                }
+                
+                if (!data.has_error) {
+                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
+                    return;
+                }
+                
+                // Add user message showing the error
+                addMessage(`⚠️ Error: ${data.error}`, true);
+                
+                // Send error to Claude
+                const errorResponse = await fetch(`${getContextBaseUrl()}/send-error-to-claude`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: data.error
+                    })
+                });
+                
+                const errorData = await errorResponse.json();
+                
+                if (errorData.success) {
+                    showStatus('Error sent to Claude successfully!', 'success');
+                    // Add typing indicator for Claude's response
+                    addMessage('', false, true);
+                } else {
+                    showStatus('Failed to send error to Claude: ' + errorData.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error sending last error:', error);
+                showStatus('Failed to send error: ' + error.message, 'error');
+            } finally {
+                errorBtn.disabled = false;
             }
         }
 
