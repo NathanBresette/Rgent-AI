@@ -74,25 +74,53 @@ function() {
   tryCatch({
     cat("=== GET LAST ERROR CALLED ===\n")
     
-    # Check if .Last.error exists in the main session
-    if (exists(".Last.error", envir = .GlobalEnv)) {
-      err <- get(".Last.error", envir = .GlobalEnv)
-      msg <- conditionMessage(err)
-      cat("Current error from .Last.error:", msg, "\n")
-      
-      list(
-        success = TRUE,
-        error = msg,
-        has_error = nchar(msg) > 0
-      )
-    } else {
-      cat("No .Last.error found\n")
-      list(
-        success = TRUE,
-        error = "",
-        has_error = FALSE
-      )
+    # First try to get error from geterrmessage() in this process
+    current_error <- ""
+    tryCatch({
+      error_msg <- geterrmessage()
+      if (nchar(error_msg) > 0) {
+        current_error <- error_msg
+        cat("Current error from geterrmessage():", current_error, "\n")
+      }
+    }, error = function(e) {
+      cat("Error in geterrmessage():", e$message, "\n")
+    })
+    
+    # If no error from geterrmessage(), check .Last.error in this process
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        if (exists(".Last.error", envir = .GlobalEnv)) {
+          err <- get(".Last.error", envir = .GlobalEnv)
+          msg <- conditionMessage(err)
+          if (nchar(msg) > 0) {
+            current_error <- msg
+            cat("Current error from .Last.error:", current_error, "\n")
+          }
+        }
+      }, error = function(e) {
+        cat("Error accessing .Last.error:", e$message, "\n")
+      })
     }
+    
+    # If still no error, check if we have a stored error from the main session
+    if (nchar(current_error) == 0) {
+      tryCatch({
+        if (exists("main_session_error", envir = .GlobalEnv)) {
+          current_error <- get("main_session_error", envir = .GlobalEnv)
+          cat("Current error from main session:", current_error, "\n")
+        }
+      }, error = function(e) {
+        cat("Error accessing main session error:", e$message, "\n")
+      })
+    }
+    
+    cat("Final error to return:", current_error, "\n")
+    
+    list(
+      success = TRUE,
+      error = current_error,
+      has_error = nchar(current_error) > 0
+    )
   }, error = function(e) {
     cat("Error in last-error endpoint:", e$message, "\n")
     list(

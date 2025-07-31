@@ -130,6 +130,8 @@ run_rgent <- function(port = NULL) {
     if (nchar(err) > 0) {
       e <- simpleError(err)
       assign(".Last.error", e, envir = .GlobalEnv)
+      # Also save as a simple string for the plumber process to access
+      assign("main_session_error", err, envir = .GlobalEnv)
       cat("Error captured and saved to .GlobalEnv:", err, "\n")
       return(TRUE)
     } else {
