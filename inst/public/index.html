@@ -1241,7 +1241,7 @@
             }, 30000);
         }
 
-        function insertCode(blockId, code) {
+        async function insertCode(blockId, code) {
             // Unescape the code to restore original formatting
             let text = code || '';
             text = text
@@ -1258,16 +1258,42 @@
             
             console.log('Attempting to insert code:', text);
             
-            // Use AI smart insert function
-            const rCall = `ai_smart_insert("${text.replace(/"/g, '\\"')}", "at cursor position")`;
-            copyToClipboard(rCall);
-            
-            showStatus('✅ Code ready to insert! Run the copied command in R console', 'success');
-            
-            // Show instructions after a short delay
-            setTimeout(() => {
-                showStatus('💡 The R function call has been copied - paste it in R console to insert the code', 'info');
-            }, 1000);
+            try {
+                // Call the backend to execute R function
+                const response = await fetch('https://rgent.onrender.com/execute/r-function', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        function_name: 'ai_smart_insert',
+                        param1: text,
+                        param2: 'at cursor position'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Create the R function call for user to execute
+                    const rCall = `ai_smart_insert("${text.replace(/"/g, '\\"')}", "at cursor position")`;
+                    
+                    // Copy to clipboard as fallback
+                    copyToClipboard(rCall);
+                    
+                    showStatus('✅ Code ready to insert! Run the copied command in R console', 'success');
+                    
+                    // Show instructions after a short delay
+                    setTimeout(() => {
+                        showStatus('💡 The R function call has been copied - paste it in R console to insert the code', 'info');
+                    }, 1000);
+                } else {
+                    showStatus('❌ Failed to prepare R function', 'error');
+                }
+            } catch (error) {
+                console.error('Error calling R function:', error);
+                showStatus('❌ Failed to prepare R function', 'error');
+            }
         }
 
         async function validateAccess() {
