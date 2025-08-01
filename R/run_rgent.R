@@ -52,15 +52,29 @@ run_rgent <- function() {
   context_data <- capture_context()
   cat("Context captured successfully\n")
   
-  # 5. Inject context data into HTML
-  cat("Injecting context data into HTML...\n")
-  context_json <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
-  # Replace placeholder context with real data
-  # Use a more specific pattern to match the exact JavaScript structure
-  pattern <- 'let contextData = \\{[^}]*workspace_objects:\\[\\][^}]*environment_info:[^}]*\\};'
-  replacement <- paste0('let contextData = ', context_json, ';')
-  html_content <- gsub(pattern, replacement, html_content, perl = TRUE)
-  cat("Context data injected into HTML\n")
+  # 5. Send context to backend endpoint
+  cat("Sending context to backend...\n")
+  tryCatch({
+    # Send context to backend
+    context_response <- httr::POST(
+      "https://rgent.onrender.com/context/store",
+      httr::content_type("application/json"),
+      body = jsonlite::toJSON(list(
+        access_code = "DEMO123",  # You can make this configurable
+        context_data = context_data,
+        context_type = "rstudio"
+      ), auto_unbox = TRUE)
+    )
+    
+    if (httr::status_code(context_response) == 200) {
+      cat("✅ Context sent to backend successfully\n")
+    } else {
+      cat("⚠️ Backend context storage failed, continuing anyway\n")
+    }
+  }, error = function(e) {
+    cat("⚠️ Error sending context to backend:", e$message, "\n")
+    cat("Continuing with local context only\n")
+  })
   
   # 6. Open in RStudio viewer
   cat("Opening AI Assistant in RStudio Viewer...\n")

@@ -1068,16 +1068,47 @@
             const typingMessage = addMessage('', false, true);
 
             try {
-                // Context will be captured by R side and passed to JavaScript
-                // For now, use empty context - will be implemented in Phase 3
-                let contextData = {
-                    workspace_objects: [],
-                    environment_info: {
-                        r_version: "R version (will be captured by R)",
-                        working_directory: "Working directory (will be captured by R)"
+                // Get context from R global variable via RStudio API
+                let contextData = null;
+                
+                // Get context from backend endpoint
+                try {
+                    const contextResponse = await fetch('https://rgent.onrender.com/context/summary/DEMO123');
+                    if (contextResponse.ok) {
+                        const contextResult = await contextResponse.json();
+                        if (contextResult && contextResult.context_data) {
+                            contextData = contextResult.context_data;
+                            console.log('Context retrieved from backend:', contextData);
+                        } else {
+                            console.log('No context found in backend, using fallback');
+                            contextData = {
+                                workspace_objects: [],
+                                environment_info: {
+                                    r_version: "R version (not captured)",
+                                    working_directory: "Working directory (not captured)"
+                                }
+                            };
+                        }
+                    } else {
+                        console.log('Failed to get context from backend, using fallback');
+                        contextData = {
+                            workspace_objects: [],
+                            environment_info: {
+                                r_version: "R version (not captured)",
+                                working_directory: "Working directory (not captured)"
+                            }
+                        };
                     }
-                };
-                console.log('Using placeholder context data - will be replaced by R capture');
+                } catch (error) {
+                    console.log('Error getting context from backend:', error);
+                    contextData = {
+                        workspace_objects: [],
+                        environment_info: {
+                            r_version: "R version (error)",
+                            working_directory: "Working directory (error)"
+                        }
+                    };
+                }
 
                 // Use streaming endpoint
                 console.log('About to make fetch request to backend...');
