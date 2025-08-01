@@ -160,6 +160,38 @@ run_rgent <- function(port = NULL) {
   
   # Try to capture any existing error
   capture_current_error()
+  
+  # Set up automatic error saving to file for cross-process communication
+  cat("Setting up automatic error saving to file...\n")
+  
+  # Override the error handler to automatically save errors to file
+  options(error = function() {
+    tryCatch({
+      # Get the current error
+      error_msg <- geterrmessage()
+      
+      if (nchar(error_msg) > 0) {
+        # Save error to file for plumber process to read
+        error_data <- list(
+          error_message = error_msg,
+          timestamp = Sys.time(),
+          session_id = Sys.getpid(),
+          source = "main_r_session"
+        )
+        saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
+        cat("Error automatically saved to file:", error_msg, "\n")
+      }
+      
+      # Call the original error handler
+      if (exists("old_error_handler") && !is.null(old_error_handler)) {
+        old_error_handler()
+      }
+    }, error = function(e) {
+      cat("Error in automatic error saving:", e$message, "\n")
+    })
+  })
+  
+  cat("Automatic error saving enabled - errors will be saved to file for plumber process\n")
 
     cat("plumber_process class:", class(plumber_process), "\n")
 

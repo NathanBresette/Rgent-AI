@@ -263,6 +263,55 @@ function() {
   })
 }
 
+#* @post /test-main-session-error
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== TESTING MAIN SESSION ERROR HANDLER ===\n")
+    
+    # Test if the main session error handler is working
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    
+    # Clear any existing error file
+    if (file.exists(error_file)) {
+      unlink(error_file)
+      cat("Cleared existing error file\n")
+    }
+    
+    # Check if error handler is set up
+    current_error_handler <- getOption("error")
+    cat("Current error handler:", ifelse(is.null(current_error_handler), "NULL", "SET"), "\n")
+    
+    # Try to trigger the error handler manually
+    tryCatch({
+      # This should trigger the error handler
+      stop("Test error from plumber server at ", Sys.time())
+    }, error = function(e) {
+      cat("Error triggered:", conditionMessage(e), "\n")
+      
+      # Check if error was saved to file
+      if (file.exists(error_file)) {
+        error_data <- readRDS(error_file)
+        cat("Error was saved to file:", str(error_data), "\n")
+      } else {
+        cat("Error was NOT saved to file\n")
+      }
+    })
+    
+    list(
+      success = TRUE,
+      error_handler_set = !is.null(current_error_handler),
+      error_file_exists = file.exists(error_file),
+      message = "Tested main session error handler"
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error testing main session error handler:", e$message)
+    )
+  })
+}
+
 #* @get /debug-error-capture
 #* @serializer json
 function() {
@@ -308,19 +357,33 @@ function() {
       error_sources$main_session_error_error <- e$message
     })
     
-    # 4. Check error file
+    # 4. Check error file (cross-process communication)
     tryCatch({
       error_file <- file.path(tempdir(), "rstudioai_error.rds")
+      error_sources$error_file_path <- error_file
+      error_sources$error_file_exists <- file.exists(error_file)
+      cat("Error file path:", error_file, "\n")
+      cat("Error file exists:", file.exists(error_file), "\n")
+      
       if (file.exists(error_file)) {
         error_data <- readRDS(error_file)
         error_sources$error_file <- error_data
         cat("Error file content:", str(error_data), "\n")
+        
+        # Check if it's a test error
+        if (!is.null(error_data$error_message)) {
+          is_test_error <- grepl("Fresh test error", error_data$error_message) ||
+                          grepl("Test error", error_data$error_message)
+          error_sources$is_test_error <- is_test_error
+          cat("Is test error:", is_test_error, "\n")
+        }
       } else {
         error_sources$error_file <- NULL
         cat("No error file found\n")
       }
     }, error = function(e) {
       error_sources$error_file_error <- e$message
+      cat("Error reading error file:", e$message, "\n")
     })
     
     # 5. Check global last_error variable
@@ -331,11 +394,13 @@ function() {
     error_sources$session_info <- list(
       pid = Sys.getpid(),
       temp_dir = tempdir(),
-      error_monitoring_active = error_monitoring_active
+      error_monitoring_active = error_monitoring_active,
+      temp_dir_contents = list.files(tempdir(), pattern = "rstudioai")
     )
     
     cat("Session PID:", Sys.getpid(), "\n")
     cat("Error monitoring active:", error_monitoring_active, "\n")
+    cat("Temp dir contents (rstudioai):", list.files(tempdir(), pattern = "rstudioai"), "\n")
     
     list(
       success = TRUE,
@@ -478,7 +543,7 @@ function() {
       })
     }
     
-    # If still no error, check the error file
+    # If still no error, check the error file (this is the key for cross-process communication)
     if (nchar(current_error) == 0) {
       tryCatch({
         error_file <- file.path(tempdir(), "rstudioai_error.rds")
@@ -494,11 +559,22 @@ function() {
       })
     }
     
-    # If we found an error, save it to .Last.error
+    # Filter out test errors - only capture real R errors
+    if (nchar(current_error) > 0) {
+      # Check if this is a test error
+      if (grepl("Fresh test error created", current_error) || 
+          grepl("Test error", current_error) ||
+          grepl("Fresh test error", current_error)) {
+        cat("Filtering out test error, looking for real R errors\n")
+        current_error <- ""
+      }
+    }
+    
+    # If we found a real error, save it to .Last.error
     if (nchar(current_error) > 0) {
       e <- simpleError(current_error)
       assign(".Last.error", e, envir = .GlobalEnv)
-      cat("Error saved to .Last.error:", current_error, "\n")
+      cat("Real error saved to .Last.error:", current_error, "\n")
     }
     
     list(
@@ -506,7 +582,7 @@ function() {
       has_error = nchar(current_error) > 0,
       message = ifelse(nchar(current_error) > 0, 
                       paste("Error captured:", current_error), 
-                      "No current error found. Try running a command that produces an error first, then click the error button again.")
+                      "No real R error found. Try running a command that produces an error first, then click the error button again.")
     )
   }, error = function(e) {
     list(

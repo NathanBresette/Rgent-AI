@@ -360,6 +360,29 @@
             cursor: not-allowed;
         }
 
+        .test-main-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .test-main-btn:hover {
+            background: #218838;
+        }
+
+        .test-main-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -711,6 +734,9 @@
                             </button>
                             <button id="test-btn" class="test-btn" onclick="createFreshError()" title="Create a fresh test error">
                                 🧪 Test
+                            </button>
+                            <button id="test-main-btn" class="test-main-btn" onclick="testMainSessionError()" title="Test main session error handler">
+                                🔧 Test Main
                             </button>
                         </div>
                     </div>
@@ -1346,6 +1372,26 @@
             } catch (error) {
                 console.error('Error creating test error:', error);
                 showStatus('Failed to create test error: ' + error.message, 'error');
+            }
+        }
+
+        async function testMainSessionError() {
+            try {
+                console.log('Testing main session error handler...');
+                const response = await fetch(`${getContextBaseUrl()}/test-main-session-error`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Main session error test:', data);
+                    showStatus(`Error handler: ${data.error_handler_set ? 'SET' : 'NOT SET'}, File: ${data.error_file_exists ? 'CREATED' : 'NOT CREATED'}`, 'info');
+                } else {
+                    showStatus('Failed to test main session error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error testing main session error:', error);
+                showStatus('Failed to test main session error: ' + error.message, 'error');
             }
         }
 
