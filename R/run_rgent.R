@@ -25,7 +25,7 @@ run_rgent <- function() {
   # 2. Check if RStudio API is available
   if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
     cat("RStudio API is not available. Please run this in RStudio.\n")
-    return(invisible(FALSE))
+    cat("But let's test the HTML file reading anyway...\n")
   }
   
   # 3. Create HTML content for RStudio viewer
@@ -33,20 +33,37 @@ run_rgent <- function() {
   
   # Read the HTML file
   html_file <- system.file("public/index.html", package = "rstudioai")
+  cat("Looking for HTML file at:", html_file, "\n")
+  cat("File exists:", file.exists(html_file), "\n")
+  
   if (!file.exists(html_file)) {
     cat("HTML file not found:", html_file, "\n")
     return(invisible(FALSE))
   }
   
   # Read HTML content
-  html_content <- paste(readLines(html_file), collapse = "\n")
+  cat("Reading HTML content...\n")
+  html_lines <- readLines(html_file)
+  html_content <- paste(html_lines, collapse = "\n")
+  cat("HTML content length:", nchar(html_content), "characters\n")
   
   # 4. Open in RStudio viewer
   cat("Opening AI Assistant in RStudio Viewer...\n")
   tryCatch({
-    rstudioapi::viewer(html_content)
-    cat("✅ AI Assistant opened successfully in RStudio Viewer!\n")
-    cat("💡 You can now chat with the AI while continuing to work in RStudio.\n")
+    if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+      # Create a temporary HTML file for RStudio viewer
+      temp_html <- tempfile(fileext = ".html")
+      writeLines(html_content, temp_html)
+      
+      # Open in RStudio viewer pane
+      rstudioapi::viewer(temp_html)
+      cat("✅ AI Assistant opened successfully in RStudio Viewer!\n")
+      cat("💡 You can now chat with the AI while continuing to work in RStudio.\n")
+    } else {
+      cat("❌ RStudio API not available. Please run this in RStudio.\n")
+      cat("📝 HTML content is ready but needs RStudio to display in viewer.\n")
+      return(invisible(FALSE))
+    }
   }, error = function(e) {
     cat("❌ Failed to open viewer:", e$message, "\n")
     return(invisible(FALSE))
