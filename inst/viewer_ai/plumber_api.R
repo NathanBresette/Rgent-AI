@@ -547,11 +547,23 @@ function() {
     if (nchar(current_error) == 0) {
       tryCatch({
         error_file <- file.path(tempdir(), "rstudioai_error.rds")
+        cat("Checking error file:", error_file, "\n")
+        cat("Error file exists:", file.exists(error_file), "\n")
+        
         if (file.exists(error_file)) {
           error_data <- readRDS(error_file)
+          cat("Error file content:", str(error_data), "\n")
+          
           if (!is.null(error_data$error_message) && nchar(error_data$error_message) > 0) {
             current_error <- error_data$error_message
             cat("Current error from file:", current_error, "\n")
+            
+            # Check if this is a test error
+            if (grepl("Test error from plumber server", current_error) ||
+                grepl("Fresh test error", current_error)) {
+              cat("Found test error in file, ignoring\n")
+              current_error <- ""
+            }
           }
         }
       }, error = function(e) {
@@ -614,7 +626,18 @@ function() {
     error_file <- file.path(tempdir(), "rstudioai_error.rds")
     if (file.exists(error_file)) {
       unlink(error_file)
-      cat("Cleared error file\n")
+      cat("Cleared error file:", error_file, "\n")
+    } else {
+      cat("No error file to clear\n")
+    }
+    
+    # Also clear any other rstudioai files in tempdir
+    temp_files <- list.files(tempdir(), pattern = "rstudioai", full.names = TRUE)
+    if (length(temp_files) > 0) {
+      for (file in temp_files) {
+        unlink(file)
+        cat("Cleared temp file:", file, "\n")
+      }
     }
     
     # Clear the global last_error variable
