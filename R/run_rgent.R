@@ -47,7 +47,23 @@ run_rgent <- function() {
   html_content <- paste(html_lines, collapse = "\n")
   cat("HTML content length:", nchar(html_content), "characters\n")
   
-  # 4. Open in RStudio viewer
+  # 4. Capture current context
+  cat("Capturing current R workspace context...\n")
+  context_data <- capture_context()
+  cat("Context captured successfully\n")
+  
+  # 5. Inject context data into HTML
+  cat("Injecting context data into HTML...\n")
+  context_json <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
+  # Replace placeholder context with real data
+  html_content <- gsub(
+    'let contextData = \\{[^}]*\\};',
+    paste0('let contextData = ', context_json, ';'),
+    html_content
+  )
+  cat("Context data injected into HTML\n")
+  
+  # 6. Open in RStudio viewer
   cat("Opening AI Assistant in RStudio Viewer...\n")
   tryCatch({
     if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
@@ -59,8 +75,9 @@ run_rgent <- function() {
       rstudioapi::viewer(temp_html)
       cat("✅ AI Assistant opened successfully in RStudio Viewer!\n")
       cat("💡 You can now chat with the AI while continuing to work in RStudio.\n")
+      cat("📊 Context data includes", length(context_data$workspace_objects), "workspace objects\n")
     } else {
-      cat("❌ RStudio API not available. Please run this in RStudio.\n")
+      cat("❌ RStudio API is not available. Please run this in RStudio.\n")
       cat("📝 HTML content is ready but needs RStudio to display in viewer.\n")
       return(invisible(FALSE))
     }

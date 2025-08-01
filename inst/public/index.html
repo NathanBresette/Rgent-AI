@@ -984,13 +984,13 @@
             
             console.log('Attempting to insert code:', text);
             
-            // Code insertion will be handled by R side in Phase 3
-            // For now, copy to clipboard as fallback
-            console.log('Code insertion will be handled by R side');
+            // Code insertion handled by R side
+            console.log('Code insertion handled by R side');
+            // For now, copy to clipboard and show instructions
             navigator.clipboard.writeText(text).then(() => {
-                showStatus('Code copied to clipboard (R insertion coming in Phase 3)', 'info');
+                showStatus('Code copied to clipboard. Use rstudioai::insert_code() in R to insert it.', 'info');
             }).catch(() => {
-                showStatus('Code copied to clipboard (R insertion coming in Phase 3)', 'info');
+                showStatus('Code copied to clipboard. Use rstudioai::insert_code() in R to insert it.', 'info');
             });
         }
 
