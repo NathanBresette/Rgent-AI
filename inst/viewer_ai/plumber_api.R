@@ -14,6 +14,12 @@ user_session_info <- list(
   conversation_id = NULL
 )
 
+# Global variable to track previous workspace state
+previous_workspace_state <- list(
+  objects = list(),
+  timestamp = NULL
+)
+
 
 
 #* @get /
@@ -380,43 +386,50 @@ function() {
       character(0)  # Return empty vector on error
     })
     
-    # Get workspace objects from captured data (passed from main R session)
-    workspace_objects <- tryCatch({
-      if (exists("captured_workspace_objects", envir = .GlobalEnv)) {
-        captured_workspace_objects
-      } else {
-        # Fallback: try to get objects from current environment
-        objects <- ls(envir = .GlobalEnv)
-        if (length(objects) > 0) {
-          obj_dict <- list()
-          for (obj_name in objects) {
-            tryCatch({
-              obj <- get(obj_name, envir = .GlobalEnv)
-              
-              # Create object info as a dictionary
-              obj_info <- list(
-                class = paste(class(obj), collapse = ", "),
-                rows = if (is.data.frame(obj)) nrow(obj) else length(obj),
-                columns = if (is.data.frame(obj)) ncol(obj) else NULL,
-                preview = paste(utils::capture.output(print(utils::head(obj, 3))), collapse = "\n")
-              )
-              
-              # Add the object to the dictionary with its name as the key
-              obj_dict[[obj_name]] <- obj_info
-            }, error = function(e) {
-              obj_dict[[obj_name]] <<- list(
-                class = "error", 
-                rows = NULL, 
-                columns = NULL, 
-                preview = paste("Error reading object:", e$message)
-              )
-            })
-          }
-          obj_dict
-        } else {
-          list()  # Return empty list instead of error
+    # Get workspace changes since last context capture
+    workspace_changes <- tryCatch({
+      current_objects <- ls(envir = .GlobalEnv)
+      current_obj_dict <- list()
+      
+      # Get current state of all objects
+      for (obj_name in current_objects) {
+        tryCatch({
+          obj <- get(obj_name, envir = .GlobalEnv)
+          
+          # Create object info as a dictionary
+          obj_info <- list(
+            class = paste(class(obj), collapse = ", "),
+            rows = if (is.data.frame(obj)) nrow(obj) else length(obj),
+            columns = if (is.data.frame(obj)) ncol(obj) else NULL,
+            preview = paste(utils::capture.output(print(utils::head(obj, 3))), collapse = "\n")
+          )
+          
+          current_obj_dict[[obj_name]] <- obj_info
+        }, error = function(e) {
+          current_obj_dict[[obj_name]] <<- list(
+            class = "error", 
+            rows = NULL, 
+            columns = NULL, 
+            preview = paste("Error reading object:", e$message)
+          )
+        })
+      }
+      
+      # Find new or modified objects
+      new_or_modified <- list()
+      for (obj_name in names(current_obj_dict)) {
+        if (!obj_name %in% names(previous_workspace_state$objects) || 
+            !identical(current_obj_dict[[obj_name]], previous_workspace_state$objects[[obj_name]])) {
+          new_or_modified[[obj_name]] <- current_obj_dict[[obj_name]]
         }
       }
+      
+      # Update the previous state
+      previous_workspace_state$objects <<- current_obj_dict
+      previous_workspace_state$timestamp <<- Sys.time()
+      
+      # Return only the changes
+      new_or_modified
     }, error = function(e) {
       list()  # Return empty list on error
     })
@@ -511,7 +524,7 @@ function() {
     result <- list(
       document_content = if(length(document_content) == 1) document_content[[1]] else document_content,
       console_history = console_history,
-      workspace_objects = workspace_objects,
+      workspace_changes = workspace_changes,
       environment_info = environment_info,
       custom_functions = custom_functions,
       plot_history = plot_history,
