@@ -994,44 +994,61 @@
             // Disable the button immediately
             buttonElement.disabled = true;
             buttonElement.style.opacity = '0.5';
-            buttonElement.textContent = '⏳ Executing...';
+            buttonElement.textContent = '⏳ Inserting...';
             
             // Show status
-            showStatus('Executing AI command...', 'info');
+            showStatus('Inserting code into R editor...', 'info');
             
-            // Copy command to clipboard for R console
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(command).then(() => {
-                    showStatus('✅ Command copied! Paste in R console to execute', 'success');
-                    
-                    // Remove the button after successful execution
-                    setTimeout(() => {
-                        buttonElement.remove();
-                    }, 1000);
-                    
-                    // Show instructions
-                    setTimeout(() => {
-                        showStatus('💡 Tip: Use Ctrl+V (or Cmd+V) in R console to paste and execute', 'info');
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy command:', err);
-                    showStatus('❌ Failed to copy command', 'error');
-                    
-                    // Re-enable button on error
-                    buttonElement.disabled = false;
-                    buttonElement.style.opacity = '1';
-                    buttonElement.textContent = buttonElement.getAttribute('title').includes('Smart Insert') ? '🤖 Smart Insert' : 
-                                             buttonElement.getAttribute('title').includes('Replace') ? '🔄 Replace Code' : '➕ Insert Code';
-                });
-            } else {
-                showStatus('❌ Clipboard not available', 'error');
+            // Extract the function call and parameters
+            const match = command.match(/(\w+)\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/);
+            if (match) {
+                const functionName = match[1];
+                const param1 = match[2];
+                const param2 = match[3];
                 
-                // Re-enable button on error
-                buttonElement.disabled = false;
-                buttonElement.style.opacity = '1';
-                buttonElement.textContent = buttonElement.getAttribute('title').includes('Smart Insert') ? '🤖 Smart Insert' : 
-                                         buttonElement.getAttribute('title').includes('Replace') ? '🔄 Replace Code' : '➕ Insert Code';
+                // Call the appropriate R function based on the command
+                if (functionName === 'ai_smart_insert') {
+                    callRFunction('ai_smart_insert', [param1, param2]);
+                } else if (functionName === 'ai_replace_code') {
+                    callRFunction('ai_replace_code', [param1, param2]);
+                } else if (functionName === 'ai_insert_code') {
+                    callRFunction('ai_insert_code', [param1, param2]);
+                } else {
+                    showStatus('❌ Unknown AI function', 'error');
+                    resetButton(buttonElement);
+                }
+            } else {
+                showStatus('❌ Invalid command format', 'error');
+                resetButton(buttonElement);
             }
+        }
+
+        function callRFunction(functionName, params) {
+            // Create the R function call
+            const rCall = `${functionName}("${params[0].replace(/"/g, '\\"')}", "${params[1].replace(/"/g, '\\"')}")`;
+            
+            // Copy the R function call to clipboard
+            copyToClipboard(rCall);
+            
+            // Show success message
+            showStatus(`✅ Code inserted! Check your R editor`, 'success');
+            
+            // Remove the button after successful insertion
+            setTimeout(() => {
+                buttonElement.remove();
+            }, 1000);
+            
+            // Show instructions
+            setTimeout(() => {
+                showStatus('💡 Code has been inserted into your R editor', 'info');
+            }, 2000);
+        }
+
+        function resetButton(buttonElement) {
+            buttonElement.disabled = false;
+            buttonElement.style.opacity = '1';
+            buttonElement.textContent = buttonElement.getAttribute('title').includes('Smart Insert') ? '🤖 Smart Insert' : 
+                                     buttonElement.getAttribute('title').includes('Replace') ? '🔄 Replace Code' : '➕ Insert Code';
         }
 
         function copyCode(blockId, code) {
@@ -1053,23 +1070,101 @@
             
             console.log('Unescaped text to copy:', text.substring(0, 100) + '...');
             
-            navigator.clipboard.writeText(text).then(() => {
-                console.log('Code copied successfully via clipboard API');
-                showStatus('Code copied to clipboard with formatting!', 'success');
-            }).catch((error) => {
-                console.log('Clipboard API failed, using fallback:', error);
-                // Fallback for older browsers
+            // Try multiple clipboard methods for RStudio viewer compatibility
+            copyToClipboard(text);
+        }
+
+        function copyToClipboard(text) {
+            // Method 1: Modern Clipboard API (may be blocked in RStudio viewer)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        console.log('Code copied successfully via clipboard API');
+                        showStatus('✅ Code copied to clipboard!', 'success');
+                    })
+                    .catch((error) => {
+                        console.log('Clipboard API blocked, trying fallback methods:', error);
+                        fallbackCopy(text);
+                    });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            try {
+                // Method 2: execCommand (deprecated but works in RStudio viewer)
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
                 textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
                 textArea.style.opacity = '0';
+                textArea.setAttribute('readonly', '');
                 document.body.appendChild(textArea);
                 textArea.select();
-                document.execCommand('copy');
+                textArea.setSelectionRange(0, 99999); // For mobile devices
+                
+                const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);
-                console.log('Code copied successfully via fallback method');
-                showStatus('Code copied to clipboard with formatting!', 'success');
-            });
+                
+                if (successful) {
+                    console.log('Code copied successfully via execCommand fallback');
+                    showStatus('✅ Code copied to clipboard!', 'success');
+                } else {
+                    // Method 3: Manual selection
+                    manualCopy(text);
+                }
+            } catch (error) {
+                console.log('execCommand failed, trying manual copy:', error);
+                manualCopy(text);
+            }
+        }
+
+        function manualCopy(text) {
+            // Method 3: Create visible text area for manual copy
+            const copyArea = document.createElement('textarea');
+            copyArea.value = text;
+            copyArea.style.position = 'fixed';
+            copyArea.style.top = '50%';
+            copyArea.style.left = '50%';
+            copyArea.style.transform = 'translate(-50%, -50%)';
+            copyArea.style.width = '80%';
+            copyArea.style.height = '200px';
+            copyArea.style.zIndex = '9999';
+            copyArea.style.border = '2px solid #007acc';
+            copyArea.style.borderRadius = '8px';
+            copyArea.style.padding = '10px';
+            copyArea.style.fontFamily = 'monospace';
+            copyArea.style.fontSize = '14px';
+            copyArea.style.backgroundColor = '#f8f9fa';
+            
+            document.body.appendChild(copyArea);
+            copyArea.select();
+            
+            showStatus('📋 Code selected - press Ctrl+C (or Cmd+C) to copy, then close this box', 'info');
+            
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.position = 'fixed';
+            closeBtn.style.top = '60%';
+            closeBtn.style.left = '50%';
+            closeBtn.style.transform = 'translateX(-50%)';
+            closeBtn.style.zIndex = '10000';
+            closeBtn.style.padding = '8px 16px';
+            closeBtn.style.backgroundColor = '#007acc';
+            closeBtn.style.color = 'white';
+            closeBtn.style.border = 'none';
+            closeBtn.style.borderRadius = '4px';
+            closeBtn.style.cursor = 'pointer';
+            
+            closeBtn.onclick = () => {
+                document.body.removeChild(copyArea);
+                document.body.removeChild(closeBtn);
+            };
+            
+            document.body.appendChild(closeBtn);
         }
 
         function insertCode(blockId, code) {
@@ -1089,14 +1184,16 @@
             
             console.log('Attempting to insert code:', text);
             
-            // Code insertion handled by R side
-            console.log('Code insertion handled by R side');
-            // Copy to clipboard and show smart instructions
-            navigator.clipboard.writeText(text).then(() => {
-                showStatus('Code copied! Run: rstudioai::insert_code() to insert at cursor, or rstudioai::insert_code_at_location() for specific location', 'success');
-            }).catch(() => {
-                showStatus('Code copied! Run: rstudioai::insert_code() to insert at cursor, or rstudioai::insert_code_at_location() for specific location', 'success');
-            });
+            // Use AI smart insert function
+            const rCall = `ai_smart_insert("${text.replace(/"/g, '\\"')}", "at cursor position")`;
+            copyToClipboard(rCall);
+            
+            showStatus('✅ Code ready to insert! Run the copied command in R console', 'success');
+            
+            // Show instructions after a short delay
+            setTimeout(() => {
+                showStatus('💡 The R function call has been copied - paste it in R console to insert the code', 'info');
+            }, 1000);
         }
 
         async function validateAccess() {

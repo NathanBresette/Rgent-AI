@@ -161,4 +161,26 @@ ai_smart_insert <- function(code, location_hint = NULL) {
     cat("❌ Failed to smart-insert code:", e$message, "\n")
     return(FALSE)
   })
+}
+
+#' Execute code directly in R console
+#' @param code The code to execute
+#' @export
+execute_code <- function(code) {
+  tryCatch({
+    # Evaluate the code in the global environment
+    result <- eval(parse(text = code), envir = .GlobalEnv)
+    
+    # Print the result if it's not NULL
+    if (!is.null(result)) {
+      print(result)
+    }
+    
+    cat("✅ Code executed successfully\n")
+    return(TRUE)
+    
+  }, error = function(e) {
+    cat("❌ Error executing code:", e$message, "\n")
+    return(FALSE)
+  })
 } 
