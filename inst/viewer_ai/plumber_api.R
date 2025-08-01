@@ -136,7 +136,7 @@ function() {
     # Defensive return - ensure we don't trigger errors in the return itself
     result <- list(
       success = TRUE,
-      error = ifelse(nchar(current_error) > 0, current_error, ""),
+      error = ifelse(nchar(current_error) > 0, as.character(current_error), ""),
       has_error = nchar(current_error) > 0
     )
     
@@ -308,6 +308,49 @@ function() {
     list(
       success = FALSE,
       message = paste("Error testing main session error handler:", e$message)
+    )
+  })
+}
+
+#* @post /force-refresh-error
+#* @serializer json
+function() {
+  tryCatch({
+    cat("=== FORCE REFRESH ERROR ===\n")
+    
+    # Clear all error storage
+    if (exists(".Last.error", envir = .GlobalEnv)) {
+      rm(".Last.error", envir = .GlobalEnv)
+    }
+    if (exists("main_session_error", envir = .GlobalEnv)) {
+      rm("main_session_error", envir = .GlobalEnv)
+    }
+    last_error <<- ""
+    
+    # Clear all error files
+    error_file <- file.path(tempdir(), "rstudioai_error.rds")
+    if (file.exists(error_file)) {
+      unlink(error_file)
+    }
+    
+    temp_files <- list.files(tempdir(), pattern = "rstudioai", full.names = TRUE)
+    for (file in temp_files) {
+      unlink(file)
+    }
+    
+    # Force garbage collection
+    gc()
+    
+    cat("All error storage cleared\n")
+    
+    list(
+      success = TRUE,
+      message = "Error storage completely refreshed. Now run a real R error and try again."
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Error refreshing:", e$message)
     )
   })
 }
@@ -575,9 +618,10 @@ function() {
     if (nchar(current_error) > 0) {
       # Check if this is a test error
       if (grepl("Fresh test error created", current_error) || 
+          grepl("Test error from plumber server", current_error) ||
           grepl("Test error", current_error) ||
           grepl("Fresh test error", current_error)) {
-        cat("Filtering out test error, looking for real R errors\n")
+        cat("Filtering out test error:", current_error, "\n")
         current_error <- ""
       }
     }

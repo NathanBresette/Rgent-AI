@@ -383,6 +383,29 @@
             cursor: not-allowed;
         }
 
+        .force-refresh-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .force-refresh-btn:hover {
+            background: #138496;
+        }
+
+        .force-refresh-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .section {
             margin-bottom: 30px;
             padding: 20px;
@@ -737,6 +760,9 @@
                             </button>
                             <button id="test-main-btn" class="test-main-btn" onclick="testMainSessionError()" title="Test main session error handler">
                                 🔧 Test Main
+                            </button>
+                            <button id="force-refresh-btn" class="force-refresh-btn" onclick="forceRefreshError()" title="Force refresh error storage">
+                                🔄 Force Refresh
                             </button>
                         </div>
                     </div>
@@ -1392,6 +1418,26 @@
             } catch (error) {
                 console.error('Error testing main session error:', error);
                 showStatus('Failed to test main session error: ' + error.message, 'error');
+            }
+        }
+
+        async function forceRefreshError() {
+            try {
+                console.log('Force refreshing error storage...');
+                const response = await fetch(`${getContextBaseUrl()}/force-refresh-error`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Force refresh result:', data);
+                    showStatus(data.message, 'success');
+                } else {
+                    showStatus('Failed to force refresh: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error force refreshing:', error);
+                showStatus('Failed to force refresh: ' + error.message, 'error');
             }
         }
 
