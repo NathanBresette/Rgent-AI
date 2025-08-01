@@ -14,8 +14,6 @@ user_session_info <- list(
   conversation_id = NULL
 )
 
-
-
 #* @get /
 #* @serializer html
 function() {
@@ -36,293 +34,6 @@ function() {
     message = "Plumber server is working!",
     timestamp = Sys.time()
   )
-}
-
-
-
-#* @post /set-test-error
-#* @serializer json
-function(req) {
-  tryCatch({
-    test_error <- req$body$error
-    if (is.null(test_error)) {
-      test_error <- "Test error message"
-    }
-    
-    # Set the error in multiple places for testing
-    last_error <<- test_error
-    
-    # Save to .Last.error
-    e <- simpleError(test_error)
-    assign(".Last.error", e, envir = .GlobalEnv)
-    
-    # Save to main session error
-    assign("main_session_error", test_error, envir = .GlobalEnv)
-    
-    # Save to error file
-    error_data <- list(
-      error_message = test_error,
-      timestamp = Sys.time(),
-      session_id = Sys.getpid()
-    )
-    saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
-    
-    cat("Set test error to:", test_error, "\n")
-    cat("Error saved to .Last.error, main_session_error, and error file\n")
-    
-    list(
-      success = TRUE,
-      message = paste("Test error set to:", test_error)
-    )
-  }, error = function(e) {
-    list(
-      success = FALSE,
-      message = paste("Error setting test error:", e$message)
-    )
-  })
-}
-
-
-
-#* @get /test-error-file
-#* @serializer json
-function() {
-  tryCatch({
-    error_file <- file.path(tempdir(), "rstudioai_error.rds")
-    cat("Testing error file access\n")
-    cat("File exists:", file.exists(error_file), "\n")
-    
-    if (file.exists(error_file)) {
-      error_data <- readRDS(error_file)
-      cat("Error data:", str(error_data), "\n")
-      
-      list(
-        success = TRUE,
-        file_exists = TRUE,
-        error_message = error_data$error_message,
-        timestamp = as.character(error_data$timestamp),
-        session_id = error_data$session_id
-      )
-    } else {
-      list(
-        success = TRUE,
-        file_exists = FALSE,
-        error_message = NULL,
-        timestamp = NULL,
-        session_id = NULL
-      )
-    }
-  }, error = function(e) {
-    list(
-      success = FALSE,
-      message = paste("Error testing file:", e$message)
-    )
-  })
-}
-
-#* @post /clear-error
-#* @serializer json
-function() {
-  tryCatch({
-    last_error <<- ""
-    cat("Cleared stored error\n")
-    
-    list(
-      success = TRUE,
-      message = "Stored error cleared"
-    )
-  }, error = function(e) {
-    list(
-      success = FALSE,
-      message = paste("Error clearing error:", e$message)
-    )
-  })
-}
-
-#* @post /capture-error
-#* @serializer json
-function() {
-  tryCatch({
-    cat("=== CAPTURE ERROR CALLED ===\n")
-    cat("Current last_error before capture:", last_error, "\n")
-    
-    capture_error()
-    
-    cat("Last error after capture:", last_error, "\n")
-    cat("Error length:", nchar(last_error), "\n")
-    
-    list(
-      success = TRUE,
-      error = last_error,
-      has_error = nchar(last_error) > 0
-    )
-  }, error = function(e) {
-    cat("Error in capture-error endpoint:", e$message, "\n")
-    list(
-      success = FALSE,
-      error = paste("Error capturing error:", e$message),
-      has_error = FALSE
-    )
-  })
-}
-
-
-
-
-
-#* @get /monitor-errors
-#* @serializer json
-function() {
-  tryCatch({
-    # Check for console errors continuously
-    console_output <- capture.output({
-      # Simulate checking for recent errors
-      cat("Checking for console errors...\n")
-    })
-    
-    # Look for error patterns
-    error_detected <- FALSE
-    error_message <- ""
-    
-    # Check for common R error patterns
-    if (length(console_output) > 0) {
-      for (line in console_output) {
-        if (grepl("Error:", line, ignore.case = TRUE) ||
-            grepl("Error in", line, ignore.case = TRUE) ||
-            grepl("Warning:", line, ignore.case = TRUE) ||
-            grepl("object not found", line, ignore.case = TRUE) ||
-            grepl("could not find function", line, ignore.case = TRUE) ||
-            grepl("unexpected", line, ignore.case = TRUE)) {
-          error_detected <- TRUE
-          error_message <- paste(error_message, line, sep = "\n")
-        }
-      }
-    }
-    
-    # Return error status
-    list(
-      error_detected = error_detected,
-      error_message = error_message,
-      timestamp = Sys.time(),
-      console_output = console_output
-    )
-  }, error = function(e) {
-    list(
-      error_detected = FALSE,
-      error_message = paste("Error in monitoring:", e$message),
-      timestamp = Sys.time(),
-      console_output = character(0)
-    )
-  })
-}
-
-#* @post /start-error-monitoring
-#* @serializer json
-function() {
-  tryCatch({
-    # Start R's built-in error monitoring
-    error_monitoring_active <<- TRUE
-    
-    # Store the current error handler
-    old_error_handler <<- getOption("error")
-    
-    # Set up immediate error detection
-    options(error = function() {
-      tryCatch({
-        # Get the error message immediately
-        error_msg <- geterrmessage()
-        
-        # Only send if it's a new error (not a duplicate)
-        if (error_msg != last_error_message) {
-          last_error_message <<- error_msg
-          
-          # Print to console so user knows what happened
-          message("⚠️ Error intercepted and sent to Claude:")
-          message(error_msg)
-          
-          # Send to Claude via backend
-          tryCatch({
-            response <- httr::POST(
-              url = "https://rgent.onrender.com/api/chat",
-              httr::content_type("application/json"),
-              body = jsonlite::toJSON(list(
-                access_code = "AUTO_ERROR",
-                prompt = paste("I encountered an error in my R console:", error_msg, "\n\nCan you help me understand and fix this error?", sep = ""),
-                context_data = list(
-                  console_history = character(0),  # No need to capture console
-                  workspace_objects = if (exists("captured_workspace_objects", envir = .GlobalEnv)) captured_workspace_objects else list(),
-                  environment_info = list(
-                    r_version = as.character(R.version.string),
-                    working_directory = as.character(getwd())
-                  )
-                ),
-                context_type = "rstudio",
-                conversation_id = paste0("auto_error_", as.numeric(Sys.time()))
-              ), auto_unbox = TRUE)
-            )
-            
-            if (httr::status_code(response) == 200) {
-              message("✅ Error sent to Claude successfully!")
-            } else {
-              message("❌ Failed to send error to Claude")
-            }
-          }, error = function(e) {
-            message("❌ Error sending to Claude:", e$message)
-          })
-        }
-        
-        # Call the original error handler if it exists
-        if (!is.null(old_error_handler)) {
-          old_error_handler()
-        }
-      }, error = function(e) {
-        # If our error handler fails, restore original and call it
-        options(error = old_error_handler)
-        if (!is.null(old_error_handler)) {
-          old_error_handler()
-        }
-      })
-    })
-    
-    list(
-      success = TRUE,
-      message = "Immediate error monitoring started",
-      timestamp = Sys.time()
-    )
-  }, error = function(e) {
-    list(
-      success = FALSE,
-      message = paste("Failed to start monitoring:", e$message),
-      timestamp = Sys.time()
-    )
-  })
-}
-
-#* @post /stop-error-monitoring
-#* @serializer json
-function() {
-  tryCatch({
-    # Stop error monitoring and restore original error handler
-    error_monitoring_active <<- FALSE
-    
-    # Restore the original error handler
-    if (!is.null(old_error_handler)) {
-      options(error = old_error_handler)
-      old_error_handler <<- NULL
-    }
-    
-    list(
-      success = TRUE,
-      message = "Error monitoring stopped and original error handler restored",
-      timestamp = Sys.time()
-    )
-  }, error = function(e) {
-    list(
-      success = FALSE,
-      message = paste("Failed to stop monitoring:", e$message),
-      timestamp = Sys.time()
-    )
-  })
 }
 
 #* @get /context
@@ -380,37 +91,42 @@ function() {
       character(0)  # Return empty vector on error
     })
     
-    # Get workspace objects fresh each time (reverted to working version)
+    # Get workspace objects from captured data (passed from main R session)
     workspace_objects <- tryCatch({
-      objects <- ls(envir = .GlobalEnv)
-      if (length(objects) > 0) {
-        obj_dict <- list()
-        for (obj_name in objects) {
-          tryCatch({
-            obj <- get(obj_name, envir = .GlobalEnv)
-            
-            # Create object info as a dictionary
-            obj_info <- list(
-              class = paste(class(obj), collapse = ", "),
-              rows = if (is.data.frame(obj)) nrow(obj) else length(obj),
-              columns = if (is.data.frame(obj)) ncol(obj) else NULL,
-              preview = paste(utils::capture.output(print(utils::head(obj, 3))), collapse = "\n")
-            )
-            
-            # Add the object to the dictionary with its name as the key
-            obj_dict[[obj_name]] <- obj_info
-          }, error = function(e) {
-            obj_dict[[obj_name]] <<- list(
-              class = "error", 
-              rows = NULL, 
-              columns = NULL, 
-              preview = paste("Error reading object:", e$message)
-            )
-          })
-        }
-        obj_dict
+      if (exists("captured_workspace_objects", envir = .GlobalEnv)) {
+        captured_workspace_objects
       } else {
-        list()  # Return empty list instead of error
+        # Fallback: try to get objects from current environment
+        objects <- ls(envir = .GlobalEnv)
+        if (length(objects) > 0) {
+          obj_dict <- list()
+          for (obj_name in objects) {
+            tryCatch({
+              obj <- get(obj_name, envir = .GlobalEnv)
+              
+              # Create object info as a dictionary
+              obj_info <- list(
+                class = paste(class(obj), collapse = ", "),
+                rows = if (is.data.frame(obj)) nrow(obj) else length(obj),
+                columns = if (is.data.frame(obj)) ncol(obj) else NULL,
+                preview = paste(utils::capture.output(print(utils::head(obj, 3))), collapse = "\n")
+              )
+              
+              # Add the object to the dictionary with its name as the key
+              obj_dict[[obj_name]] <- obj_info
+            }, error = function(e) {
+              obj_dict[[obj_name]] <<- list(
+                class = "error", 
+                rows = NULL, 
+                columns = NULL, 
+                preview = paste("Error reading object:", e$message)
+              )
+            })
+          }
+          obj_dict
+        } else {
+          list()  # Return empty list instead of error
+        }
       }
     }, error = function(e) {
       list()  # Return empty list on error
@@ -506,7 +222,7 @@ function() {
     result <- list(
       document_content = if(length(document_content) == 1) document_content[[1]] else document_content,
       console_history = console_history,
-      workspace_objects = workspace_changes,  # Keep the original field name
+      workspace_objects = workspace_objects,
       environment_info = environment_info,
       custom_functions = custom_functions,
       plot_history = plot_history,
