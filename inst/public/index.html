@@ -1298,7 +1298,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    console.log('Debug info:', data.debug_info);
+                    console.log('Debug info:', data.error_sources);
                     showStatus('Debug info logged to console. Check browser console for details.', 'info');
                 } else {
                     showStatus('Debug failed: ' + data.message, 'error');
