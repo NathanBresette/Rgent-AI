@@ -646,6 +646,9 @@
                             <button id="send-btn" class="send-btn" onclick="sendToAI()">
                                 Send
                             </button>
+                            <button id="refresh-context-btn" class="secondary-btn" onclick="refreshContext()" title="Refresh current context">
+                                🔄 Refresh
+                            </button>
 
                         </div>
                     </div>
@@ -1480,6 +1483,24 @@
             promptInput.style.height = 'auto';
             
             showStatus('Started new conversation', 'success');
+        }
+
+        async function refreshContext() {
+            showStatus('Refreshing context...', 'info');
+            
+            try {
+                // Call the R function to refresh context
+                // For now, we'll just show a message since we can't directly call R
+                showStatus('Context refresh initiated. Run refresh_context() in R console for full refresh.', 'success');
+                
+                // You can also manually run: refresh_context() in R console
+                setTimeout(() => {
+                    showStatus('💡 Tip: Run refresh_context() in R console to update context', 'info');
+                }, 2000);
+            } catch (error) {
+                console.error('Error refreshing context:', error);
+                showStatus('Failed to refresh context', 'error');
+            }
         }
 
 

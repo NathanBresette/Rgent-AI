@@ -52,6 +52,19 @@ run_rgent <- function() {
   context_data <- capture_context()
   cat("Context captured successfully\n")
   
+  # Debug: Print context summary
+  cat("📊 Context Summary:\n")
+  cat("  - Workspace objects:", length(context_data$workspace_objects), "\n")
+  cat("  - Environment info keys:", paste(names(context_data$environment_info), collapse = ", "), "\n")
+  if (!is.null(context_data$file_info) && length(context_data$file_info) > 0) {
+    cat("  - File info keys:", paste(names(context_data$file_info), collapse = ", "), "\n")
+    if (!is.null(context_data$file_info$active_file)) {
+      cat("  - Active file:", context_data$file_info$active_file, "\n")
+    }
+  } else {
+    cat("  - No file info captured\n")
+  }
+  
   # 5. Send context to backend endpoint
   cat("Sending context to backend...\n")
   tryCatch({
@@ -102,6 +115,51 @@ run_rgent <- function() {
   return(invisible(TRUE))
 }
 
+#' Refresh context and send to backend
+#' @export
+refresh_context <- function() {
+  cat("🔄 Refreshing context...\n")
+  
+  # Capture current context
+  context_data <- capture_context()
+  
+  # Debug: Print context summary
+  cat("📊 Updated Context Summary:\n")
+  cat("  - Workspace objects:", length(context_data$workspace_objects), "\n")
+  cat("  - Environment info keys:", paste(names(context_data$environment_info), collapse = ", "), "\n")
+  if (!is.null(context_data$file_info) && length(context_data$file_info) > 0) {
+    cat("  - File info keys:", paste(names(context_data$file_info), collapse = ", "), "\n")
+    if (!is.null(context_data$file_info$active_file)) {
+      cat("  - Active file:", context_data$file_info$active_file, "\n")
+    }
+  } else {
+    cat("  - No file info captured\n")
+  }
+  
+  # Send to backend
+  tryCatch({
+    context_response <- httr::POST(
+      "https://rgent.onrender.com/context/store",
+      httr::content_type("application/json"),
+      body = jsonlite::toJSON(list(
+        access_code = "DEMO123",
+        context_data = context_data,
+        context_type = "rstudio"
+      ), auto_unbox = TRUE)
+    )
+    
+    if (httr::status_code(context_response) == 200) {
+      cat("✅ Context refreshed and sent to backend successfully\n")
+    } else {
+      cat("⚠️ Backend context storage failed\n")
+    }
+  }, error = function(e) {
+    cat("⚠️ Error sending context to backend:", e$message, "\n")
+  })
+  
+  return(invisible(TRUE))
+}
+
 #' Capture current workspace context
 #' @export
 capture_context <- function() {
@@ -139,7 +197,7 @@ capture_context <- function() {
     # Get file information if RStudio API is available
     file_info <- list()
     if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
-      tryCatch({
+          tryCatch({
         # Get active document context
         doc_context <- rstudioapi::getActiveDocumentContext()
         if (!is.null(doc_context)) {
