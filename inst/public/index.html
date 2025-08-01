@@ -1073,7 +1073,7 @@
                 
                 // Get context from backend endpoint
                 try {
-                    const contextResponse = await fetch('https://rgent.onrender.com/context/summary/DEMO123');
+                    const contextResponse = await fetch('https://rgent.onrender.com/context/data/DEMO123');
                     if (contextResponse.ok) {
                         const contextResult = await contextResponse.json();
                         if (contextResult && contextResult.context_data) {
