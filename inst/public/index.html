@@ -629,9 +629,7 @@
                             <button id="send-btn" class="send-btn" onclick="sendToAI()">
                                 Send
                             </button>
-                            <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Send last error to Claude">
-                                ⚠️ Error
-                            </button>
+
                         </div>
                     </div>
                 </div>
@@ -695,17 +693,11 @@
     </div>
 
     <script>
-        // Theme detection and application
+        // Theme detection and application (simplified - no local server needed)
         async function detectAndApplyRStudioTheme() {
             try {
-                // Fetch theme from plumber API
-                const response = await fetch('/theme');
-                if (response.ok) {
-                    const theme = await response.json();
-                    applyTheme(theme);
-                } else {
-                    applyTheme({ isDark: false });
-                }
+                // Use default light theme for now
+                applyTheme({ isDark: false });
             } catch (e) {
                 applyTheme({ isDark: false }); // Use default light theme
             }
@@ -821,59 +813,22 @@
             return port || '8888'; // fallback to 8888 if no port detected
         }
 
-        // Function to get the base URL for context fetching
-        function getContextBaseUrl() {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = getCurrentPort();
-            return `${protocol}//${hostname}:${port}`;
-        }
-
-        // Function to store user session info for error monitoring
+        // Function to store user session info (simplified - no local server needed)
         async function storeUserSession(accessCode, conversationId) {
             try {
-                const response = await fetch(`${getContextBaseUrl()}/set-user-session`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        access_code: accessCode,
-                        conversation_id: conversationId
-                    })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    console.log('User session stored for error monitoring:', data);
-                    userSessionInfo = {
-                        access_code: accessCode,
-                        conversation_id: conversationId
-                    };
-                } else {
-                    console.error('Failed to store user session:', data.message);
-                }
+                userSessionInfo = {
+                    access_code: accessCode,
+                    conversation_id: conversationId
+                };
+                console.log('User session stored:', userSessionInfo);
             } catch (error) {
                 console.error('Error storing user session:', error);
             }
         }
 
-        // Function to get user session info
+        // Function to get user session info (simplified - no local server needed)
         async function getUserSession() {
-            try {
-                const response = await fetch(`${getContextBaseUrl()}/get-user-session`);
-                const data = await response.json();
-                if (data.success) {
-                    userSessionInfo = {
-                        access_code: data.access_code,
-                        conversation_id: data.conversation_id
-                    };
-                    return userSessionInfo;
-                }
-            } catch (error) {
-                console.error('Error getting user session:', error);
-            }
-            return null;
+            return userSessionInfo || null;
         }
 
         function autoResize(textarea) {
@@ -1029,44 +984,13 @@
             
             console.log('Attempting to insert code:', text);
             
-            fetch('/insert_code', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ code: text })
-            })
-            .then(response => {
-                console.log('Insert response status:', response.status);
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error('RStudio connection not available. Please ensure RStudio is running and the plumber server is active.');
-                    }
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Insert response data:', data);
-                if (data.success) {
-                    showStatus(`Code inserted into: ${data.document}`, 'success');
-                } else {
-                    showStatus('Failed to insert code: ' + (data.message || 'Unknown error'), 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Insert error:', error);
-                if (error.message.includes('RStudio connection')) {
-                    showStatus('RStudio not connected. Code copied to clipboard instead.', 'warning');
-                    // Fallback: copy to clipboard
-                    navigator.clipboard.writeText(text).then(() => {
-                        showStatus('Code copied to clipboard (RStudio not available)', 'info');
-                    }).catch(() => {
-                        showStatus('Code copied to clipboard (RStudio not available)', 'info');
-                    });
-                } else {
-                    showStatus('Error inserting code: ' + error.message, 'error');
-                }
+            // Code insertion will be handled by R side in Phase 3
+            // For now, copy to clipboard as fallback
+            console.log('Code insertion will be handled by R side');
+            navigator.clipboard.writeText(text).then(() => {
+                showStatus('Code copied to clipboard (R insertion coming in Phase 3)', 'info');
+            }).catch(() => {
+                showStatus('Code copied to clipboard (R insertion coming in Phase 3)', 'info');
             });
         }
 
@@ -1101,7 +1025,6 @@
                     document.getElementById('access-section').classList.add('hidden');
                     document.getElementById('main-interface').classList.remove('hidden');
                     loadStats();
-                    checkRStudioConnection();
                 } else {
                     showStatus('✗ Invalid access code', 'error');
                 }
@@ -1110,88 +1033,7 @@
             }
         }
 
-        async function sendLastError() {
-            console.log('sendLastError function called');
-            
-            const errorBtn = document.getElementById('error-btn');
-            errorBtn.disabled = true;
-            
-            try {
-                console.log('Context base URL:', getContextBaseUrl());
-                
-                // Test if the server is working
-                console.log('Testing server connection...');
-                const testResponse = await fetch(`${getContextBaseUrl()}/test`);
-                console.log('Test response status:', testResponse.status);
-                if (!testResponse.ok) {
-                    throw new Error(`Server test failed: ${testResponse.status}`);
-                }
-                const testData = await testResponse.json();
-                console.log('Server test result:', testData);
-                
-                // First capture any recent error
-                console.log('Attempting to capture error...');
-                const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
-                    method: 'POST'
-                });
-                console.log('Capture response status:', captureResponse.status);
-                const captureData = await captureResponse.json();
-                
-                if (!captureData.success) {
-                    showStatus('Failed to capture error: ' + captureData.error, 'error');
-                    return;
-                }
-                
-                if (!captureData.has_error) {
-                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
-                    return;
-                }
-                
-                // Get the captured error
-                const response = await fetch(`${getContextBaseUrl()}/last-error`);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    showStatus('Failed to get last error: ' + data.error, 'error');
-                    return;
-                }
-                
-                if (!data.has_error) {
-                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
-                    return;
-                }
-                
-                // Add user message showing the error
-                addMessage(`⚠️ Error: ${data.error}`, true);
-                
-                // Send error to Claude
-                const errorResponse = await fetch(`${getContextBaseUrl()}/send-error-to-claude`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        error: data.error
-                    })
-                });
-                
-                const errorData = await errorResponse.json();
-                
-                if (errorData.success) {
-                    showStatus('Error sent to Claude successfully!', 'success');
-                    // Add typing indicator for Claude's response
-                    addMessage('', false, true);
-                } else {
-                    showStatus('Failed to send error to Claude: ' + errorData.message, 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error sending last error:', error);
-                showStatus('Failed to send error: ' + error.message, 'error');
-            } finally {
-                errorBtn.disabled = false;
-            }
-        }
+
 
         async function sendToAI() {
             console.log('sendToAI function called');
@@ -1226,21 +1068,16 @@
             const typingMessage = addMessage('', false, true);
 
             try {
-                // First, fetch RStudio context from local plumber server
-                let contextData = null;
-                try {
-                    const contextUrl = `${getContextBaseUrl()}/context`;
-                    console.log('Fetching context from:', contextUrl);
-                    const contextResponse = await fetch(contextUrl);
-                    if (contextResponse.ok) {
-                        contextData = await contextResponse.json();
-                        console.log('Context data received:', contextData);
-                    } else {
-                        console.log('Context response not ok:', contextResponse.status);
+                // Context will be captured by R side and passed to JavaScript
+                // For now, use empty context - will be implemented in Phase 3
+                let contextData = {
+                    workspace_objects: [],
+                    environment_info: {
+                        r_version: "R version (will be captured by R)",
+                        working_directory: "Working directory (will be captured by R)"
                     }
-                } catch (contextError) {
-                    console.log('Could not fetch context:', contextError);
-                }
+                };
+                console.log('Using placeholder context data - will be replaced by R capture');
 
                 // Use streaming endpoint
                 console.log('About to make fetch request to backend...');
@@ -1514,26 +1351,7 @@
 
 
 
-        async function checkRStudioConnection() {
-            const statusDiv = document.getElementById('rstudio-status');
-            statusDiv.classList.remove('hidden');
-            
-            try {
-                const response = await fetch('/health');
-                if (response.ok) {
-                    statusDiv.className = 'status success';
-                    statusDiv.textContent = '✓ RStudio connected';
-                    setTimeout(() => {
-                        statusDiv.classList.add('hidden');
-                    }, 3000);
-                } else {
-                    throw new Error('Health check failed');
-                }
-            } catch (error) {
-                statusDiv.className = 'status warning';
-                statusDiv.textContent = '⚠ RStudio not connected - Insert button will copy to clipboard';
-            }
-        }
+
 
         function showStatus(message, type) {
             // Determine which status div to use based on current interface
