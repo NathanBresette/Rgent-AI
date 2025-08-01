@@ -8,11 +8,50 @@ library(jsonlite)
 # Configure jsonlite to auto-unbox single values to prevent array wrapping
 options(jsonlite.auto_unbox = TRUE)
 
+# Global variables for continuous error monitoring
+last_error_check <- Sys.time()
+error_monitoring_active <- FALSE
+last_error_message <- ""
+old_error_handler <- NULL
+
 # Global variables for user session management
 user_session_info <- list(
   access_code = NULL,
   conversation_id = NULL
 )
+
+# Global variable to store the last error
+last_error <- ""
+
+# Simple error capture function
+capture_error <- function() {
+  tryCatch({
+    # Try to get the last error from R's error handling
+    error_msg <- geterrmessage()
+    if (nchar(error_msg) > 0) {
+      last_error <<- error_msg
+      cat("Error captured:", error_msg, "\n")
+    }
+  }, error = function(e) {
+    # If we can't get the error message, try to capture from console
+    console_output <- capture.output({
+      # This will capture any recent console output
+    })
+    if (length(console_output) > 0) {
+      # Look for error patterns in console output
+      for (line in rev(console_output)) {
+        if (grepl("Error:", line, ignore.case = TRUE) || 
+            grepl("Error in", line, ignore.case = TRUE)) {
+          last_error <<- line
+          cat("Error captured from console:", line, "\n")
+          break
+        }
+      }
+    }
+  })
+}
+
+
 
 #* @get /
 #* @serializer html
@@ -34,6 +73,242 @@ function() {
     message = "Plumber server is working!",
     timestamp = Sys.time()
   )
+}
+
+#* @get /last-error
+#* @serializer json
+function() {
+  tryCatch({
+    list(
+      success = TRUE,
+      error = last_error,
+      has_error = nchar(last_error) > 0
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      error = paste("Error getting last error:", e$message),
+      has_error = FALSE
+    )
+  })
+}
+
+#* @post /capture-error
+#* @serializer json
+function() {
+  tryCatch({
+    capture_error()
+    list(
+      success = TRUE,
+      error = last_error,
+      has_error = nchar(last_error) > 0
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      error = paste("Error capturing error:", e$message),
+      has_error = FALSE
+    )
+  })
+}
+
+#* @post /send-error-to-claude
+#* @serializer json
+function(req) {
+  tryCatch({
+    error_msg <- req$body$error
+    if (is.null(error_msg) || nchar(error_msg) == 0) {
+      return(list(success = FALSE, message = "No error message provided"))
+    }
+    
+    # Send to Claude via the main backend
+    backend_url <- "https://rgent.onrender.com"
+    response <- httr::POST(
+      url = sprintf("%s/api/chat", backend_url),
+      httr::content_type("application/json"),
+      body = jsonlite::toJSON(list(
+        access_code = user_session_info$access_code || "AUTO_ERROR",
+        prompt = paste0("⚠️ The user just encountered this error in their R console:\n\n", error_msg, "\n\nCan you help fix it?"),
+        context_data = list(
+          console_history = character(0),
+          workspace_objects = list(), # Will be captured by the main backend
+          environment_info = list(
+            r_version = as.character(R.version.string),
+            working_directory = as.character(getwd())
+          )
+        ),
+        context_type = "rstudio",
+        conversation_id = user_session_info$conversation_id || paste0("error_", as.numeric(Sys.time())),
+        metadata = list(
+          source = "console_error", 
+          timestamp = as.character(Sys.time())
+        )
+      ), auto_unbox = TRUE)
+    )
+    
+    if (httr::status_code(response) == 200) {
+      list(success = TRUE, message = "Error sent to Claude successfully!")
+    } else {
+      list(success = FALSE, message = sprintf("Failed to send error: %d", httr::status_code(response)))
+    }
+  }, error = function(e) {
+    list(success = FALSE, message = paste("Error sending to Claude:", e$message))
+  })
+}
+
+#* @get /monitor-errors
+#* @serializer json
+function() {
+  tryCatch({
+    # Check for console errors continuously
+    console_output <- capture.output({
+      # Simulate checking for recent errors
+      cat("Checking for console errors...\n")
+    })
+    
+    # Look for error patterns
+    error_detected <- FALSE
+    error_message <- ""
+    
+    # Check for common R error patterns
+    if (length(console_output) > 0) {
+      for (line in console_output) {
+        if (grepl("Error:", line, ignore.case = TRUE) ||
+            grepl("Error in", line, ignore.case = TRUE) ||
+            grepl("Warning:", line, ignore.case = TRUE) ||
+            grepl("object not found", line, ignore.case = TRUE) ||
+            grepl("could not find function", line, ignore.case = TRUE) ||
+            grepl("unexpected", line, ignore.case = TRUE)) {
+          error_detected <- TRUE
+          error_message <- paste(error_message, line, sep = "\n")
+        }
+      }
+    }
+    
+    # Return error status
+    list(
+      error_detected = error_detected,
+      error_message = error_message,
+      timestamp = Sys.time(),
+      console_output = console_output
+    )
+  }, error = function(e) {
+    list(
+      error_detected = FALSE,
+      error_message = paste("Error in monitoring:", e$message),
+      timestamp = Sys.time(),
+      console_output = character(0)
+    )
+  })
+}
+
+#* @post /start-error-monitoring
+#* @serializer json
+function() {
+  tryCatch({
+    # Start R's built-in error monitoring
+    error_monitoring_active <<- TRUE
+    
+    # Store the current error handler
+    old_error_handler <<- getOption("error")
+    
+    # Set up immediate error detection
+    options(error = function() {
+      tryCatch({
+        # Get the error message immediately
+        error_msg <- geterrmessage()
+        
+        # Only send if it's a new error (not a duplicate)
+        if (error_msg != last_error_message) {
+          last_error_message <<- error_msg
+          
+          # Print to console so user knows what happened
+          message("⚠️ Error intercepted and sent to Claude:")
+          message(error_msg)
+          
+          # Send to Claude via backend
+          tryCatch({
+            response <- httr::POST(
+              url = "https://rgent.onrender.com/api/chat",
+              httr::content_type("application/json"),
+              body = jsonlite::toJSON(list(
+                access_code = "AUTO_ERROR",
+                prompt = paste("I encountered an error in my R console:", error_msg, "\n\nCan you help me understand and fix this error?", sep = ""),
+                context_data = list(
+                  console_history = character(0),  # No need to capture console
+                  workspace_objects = if (exists("captured_workspace_objects", envir = .GlobalEnv)) captured_workspace_objects else list(),
+                  environment_info = list(
+                    r_version = as.character(R.version.string),
+                    working_directory = as.character(getwd())
+                  )
+                ),
+                context_type = "rstudio",
+                conversation_id = paste0("auto_error_", as.numeric(Sys.time()))
+              ), auto_unbox = TRUE)
+            )
+            
+            if (httr::status_code(response) == 200) {
+              message("✅ Error sent to Claude successfully!")
+            } else {
+              message("❌ Failed to send error to Claude")
+            }
+          }, error = function(e) {
+            message("❌ Error sending to Claude:", e$message)
+          })
+        }
+        
+        # Call the original error handler if it exists
+        if (!is.null(old_error_handler)) {
+          old_error_handler()
+        }
+      }, error = function(e) {
+        # If our error handler fails, restore original and call it
+        options(error = old_error_handler)
+        if (!is.null(old_error_handler)) {
+          old_error_handler()
+        }
+      })
+    })
+    
+    list(
+      success = TRUE,
+      message = "Immediate error monitoring started",
+      timestamp = Sys.time()
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Failed to start monitoring:", e$message),
+      timestamp = Sys.time()
+    )
+  })
+}
+
+#* @post /stop-error-monitoring
+#* @serializer json
+function() {
+  tryCatch({
+    # Stop error monitoring and restore original error handler
+    error_monitoring_active <<- FALSE
+    
+    # Restore the original error handler
+    if (!is.null(old_error_handler)) {
+      options(error = old_error_handler)
+      old_error_handler <<- NULL
+    }
+    
+    list(
+      success = TRUE,
+      message = "Error monitoring stopped and original error handler restored",
+      timestamp = Sys.time()
+    )
+  }, error = function(e) {
+    list(
+      success = FALSE,
+      message = paste("Failed to stop monitoring:", e$message),
+      timestamp = Sys.time()
+    )
+  })
 }
 
 #* @get /context

@@ -229,7 +229,7 @@
             font-size: 16px;
             font-family: inherit;
             resize: none;
-            min-height: 48px;
+            min-height: 44px;
             max-height: 200px;
             outline: none;
             transition: border-color 0.2s;
@@ -238,8 +238,6 @@
             overflow-wrap: break-word;
             background: var(--rstudio-card-bg, white);
             color: var(--rstudio-fg, #333);
-            line-height: 1.4;
-            overflow: hidden;
         }
 
         textarea:focus {
@@ -268,7 +266,28 @@
             cursor: not-allowed;
         }
 
+        .error-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
 
+        .error-btn:hover {
+            background: #c82333;
+        }
+
+        .error-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
 
         .section {
             margin-bottom: 30px;
@@ -602,13 +621,16 @@
                             <div class="input-field">
                                 <textarea 
                                     id="prompt" 
-                                    placeholder="Ask me about your environment..."
+                                    placeholder="Ask me anything about R programming..."
                                     rows="1"
                                     oninput="autoResize(this)"
                                 ></textarea>
                             </div>
                             <button id="send-btn" class="send-btn" onclick="sendToAI()">
                                 Send
+                            </button>
+                            <button id="error-btn" class="error-btn" onclick="sendLastError()" title="Send last error to Claude">
+                                ⚠️ Error
                             </button>
                         </div>
                     </div>
@@ -798,20 +820,12 @@
             const port = window.location.port;
             return port || '8888'; // fallback to 8888 if no port detected
         }
-        
-        // Function to get the plumber API port (different from web interface port)
-        function getPlumberPort() {
-            // Try to get the port from the URL or use the default plumber port
-            const urlParams = new URLSearchParams(window.location.search);
-            const plumberPort = urlParams.get('plumber_port');
-            return plumberPort || '32349'; // Default plumber port
-        }
 
         // Function to get the base URL for context fetching
         function getContextBaseUrl() {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
-            const port = getPlumberPort();
+            const port = getCurrentPort();
             return `${protocol}//${hostname}:${port}`;
         }
 
@@ -860,24 +874,6 @@
                 console.error('Error getting user session:', error);
             }
             return null;
-        }
-
-        // Function to start error monitoring
-        async function startErrorMonitoring() {
-            try {
-                console.log('Starting error monitoring...');
-                const response = await fetch(`${getContextBaseUrl()}/start-error-monitoring`, {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                if (data.success) {
-                    console.log('✅ Error monitoring started:', data.message);
-                } else {
-                    console.warn('⚠️ Failed to start error monitoring:', data.message);
-                }
-            } catch (error) {
-                console.error('❌ Error starting error monitoring:', error);
-            }
         }
 
         function autoResize(textarea) {
@@ -1114,7 +1110,88 @@
             }
         }
 
-
+        async function sendLastError() {
+            console.log('sendLastError function called');
+            
+            const errorBtn = document.getElementById('error-btn');
+            errorBtn.disabled = true;
+            
+            try {
+                console.log('Context base URL:', getContextBaseUrl());
+                
+                // Test if the server is working
+                console.log('Testing server connection...');
+                const testResponse = await fetch(`${getContextBaseUrl()}/test`);
+                console.log('Test response status:', testResponse.status);
+                if (!testResponse.ok) {
+                    throw new Error(`Server test failed: ${testResponse.status}`);
+                }
+                const testData = await testResponse.json();
+                console.log('Server test result:', testData);
+                
+                // First capture any recent error
+                console.log('Attempting to capture error...');
+                const captureResponse = await fetch(`${getContextBaseUrl()}/capture-error`, {
+                    method: 'POST'
+                });
+                console.log('Capture response status:', captureResponse.status);
+                const captureData = await captureResponse.json();
+                
+                if (!captureData.success) {
+                    showStatus('Failed to capture error: ' + captureData.error, 'error');
+                    return;
+                }
+                
+                if (!captureData.has_error) {
+                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
+                    return;
+                }
+                
+                // Get the captured error
+                const response = await fetch(`${getContextBaseUrl()}/last-error`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showStatus('Failed to get last error: ' + data.error, 'error');
+                    return;
+                }
+                
+                if (!data.has_error) {
+                    showStatus('No recent error found. Try running a command that produces an error first.', 'info');
+                    return;
+                }
+                
+                // Add user message showing the error
+                addMessage(`⚠️ Error: ${data.error}`, true);
+                
+                // Send error to Claude
+                const errorResponse = await fetch(`${getContextBaseUrl()}/send-error-to-claude`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: data.error
+                    })
+                });
+                
+                const errorData = await errorResponse.json();
+                
+                if (errorData.success) {
+                    showStatus('Error sent to Claude successfully!', 'success');
+                    // Add typing indicator for Claude's response
+                    addMessage('', false, true);
+                } else {
+                    showStatus('Failed to send error to Claude: ' + errorData.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error sending last error:', error);
+                showStatus('Failed to send error: ' + error.message, 'error');
+            } finally {
+                errorBtn.disabled = false;
+            }
+        }
 
         async function sendToAI() {
             console.log('sendToAI function called');
@@ -1536,9 +1613,6 @@
             
             // Then detect and apply current RStudio theme
             await detectAndApplyRStudioTheme();
-            
-            // Start error monitoring automatically
-            await startErrorMonitoring();
         });
     </script>
 </body>
