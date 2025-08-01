@@ -183,4 +183,35 @@ execute_code <- function(code) {
     cat("❌ Error executing code:", e$message, "\n")
     return(FALSE)
   })
+}
+
+#' Execute R function directly from frontend
+#' @param function_name Name of the R function to call
+#' @param param1 First parameter
+#' @param param2 Second parameter
+#' @export
+execute_r_function <- function(function_name, param1, param2 = NULL) {
+  tryCatch({
+    # Validate function name
+    valid_functions <- c("ai_smart_insert", "ai_replace_code", "ai_insert_code")
+    if (!function_name %in% valid_functions) {
+      cat("❌ Invalid function name:", function_name, "\n")
+      return(FALSE)
+    }
+    
+    # Call the appropriate function
+    if (function_name == "ai_smart_insert") {
+      result <- ai_smart_insert(param1, param2)
+    } else if (function_name == "ai_replace_code") {
+      result <- ai_replace_code(param1, param2)
+    } else if (function_name == "ai_insert_code") {
+      result <- ai_insert_code(param1, param2)
+    }
+    
+    return(result)
+    
+  }, error = function(e) {
+    cat("❌ Error executing R function:", e$message, "\n")
+    return(FALSE)
+  })
 } 

@@ -1034,25 +1034,51 @@
             }
         }
 
-        function callRFunction(functionName, params) {
-            // Create the R function call
-            const rCall = `${functionName}("${params[0].replace(/"/g, '\\"')}", "${params[1].replace(/"/g, '\\"')}")`;
-            
-            // Copy the R function call to clipboard
-            copyToClipboard(rCall);
-            
-            // Show success message
-            showStatus(`✅ Code inserted! Check your R editor`, 'success');
-            
-            // Remove the button after successful insertion
-            setTimeout(() => {
-                buttonElement.remove();
-            }, 1000);
-            
-            // Show instructions
-            setTimeout(() => {
-                showStatus('💡 Code has been inserted into your R editor', 'info');
-            }, 2000);
+        async function callRFunction(functionName, params) {
+            try {
+                // Call the backend to execute R function
+                const response = await fetch('https://rgent.onrender.com/execute/r-function', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        function_name: functionName,
+                        param1: params[0],
+                        param2: params[1]
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Create the R function call for user to execute
+                    const rCall = `${functionName}("${params[0].replace(/"/g, '\\"')}", "${params[1].replace(/"/g, '\\"')}")`;
+                    
+                    // Copy to clipboard as fallback
+                    copyToClipboard(rCall);
+                    
+                    // Show success message
+                    showStatus(`✅ Code ready to insert! Run the copied command in R console`, 'success');
+                    
+                    // Remove the button after successful preparation
+                    setTimeout(() => {
+                        buttonElement.remove();
+                    }, 1000);
+                    
+                    // Show instructions
+                    setTimeout(() => {
+                        showStatus('💡 Paste the copied command in R console to insert code', 'info');
+                    }, 2000);
+                } else {
+                    showStatus('❌ Failed to prepare R function', 'error');
+                    resetButton(buttonElement);
+                }
+            } catch (error) {
+                console.error('Error calling R function:', error);
+                showStatus('❌ Failed to prepare R function', 'error');
+                resetButton(buttonElement);
+            }
         }
 
         function resetButton(buttonElement) {
