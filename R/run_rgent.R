@@ -121,77 +121,7 @@ run_rgent <- function(port = NULL) {
       pr$run(host = "127.0.0.1", port = server_port)
     }, args = list(api_file = plumber_api_file, server_port = port, workspace_data = workspace_objects))
     
-      # Set up error monitoring in the main R session
-  cat("Setting up error monitoring in main R session...\n")
-  
-  # Create a function to capture the current error
-  capture_current_error <- function() {
-    err <- geterrmessage()
-    if (nchar(err) > 0) {
-      e <- simpleError(err)
-      assign(".Last.error", e, envir = .GlobalEnv)
-      # Also save as a simple string for the plumber process to access
-      assign("main_session_error", err, envir = .GlobalEnv)
-      cat("Error captured and saved to .GlobalEnv:", err, "\n")
-      
-      # Also save to a file that the plumber process can read
-      error_data <- list(
-        error_message = err,
-        timestamp = Sys.time(),
-        session_id = Sys.getpid()
-      )
-      saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
-      cat("Error also saved to temp file for plumber process\n")
-      
-      return(TRUE)
-    } else {
-      cat("No current error message found\n")
-      return(FALSE)
-    }
-  }
-  
-  # Add the function to global environment
-  .GlobalEnv$capture_current_error <- capture_current_error
-  
-  # Add a function to manually update the current error (for testing)
-  .GlobalEnv$update_error_now <- function() {
-    capture_current_error()
-  }
-  
-  # Try to capture any existing error
-  capture_current_error()
-  
-  # Set up automatic error saving to file for cross-process communication
-  cat("Setting up automatic error saving to file...\n")
-  
-  # Override the error handler to automatically save errors to file
-  options(error = function() {
-    tryCatch({
-      # Get the current error
-      error_msg <- geterrmessage()
-      
-      if (nchar(error_msg) > 0) {
-        # Save error to file for plumber process to read
-        error_data <- list(
-          error_message = error_msg,
-          timestamp = Sys.time(),
-          session_id = Sys.getpid(),
-          source = "main_r_session"
-        )
-        saveRDS(error_data, file.path(tempdir(), "rstudioai_error.rds"))
-        cat("Error automatically saved to file:", error_msg, "\n")
-      }
-      
-      # Call the original error handler
-      if (exists("old_error_handler") && !is.null(old_error_handler)) {
-        old_error_handler()
-      }
-    }, error = function(e) {
-      cat("Error in automatic error saving:", e$message, "\n")
-    })
-  })
-  
-  cat("Automatic error saving enabled - errors will be saved to file for plumber process\n")
+    
 
     cat("plumber_process class:", class(plumber_process), "\n")
 
