@@ -7,5 +7,5 @@ Maintainer: Your Name <your@email.com>
 Description: AI-powered, context-aware data science automation in RStudio.
 License: MIT + file LICENSE
 Depends: R (>= 4.0.0)
-Imports: httr, rstudioapi, jsonlite
+Imports: httr, rstudioapi, jsonlite, clipr
 RoxygenNote: 7.3.2

@@ -986,11 +986,11 @@
             
             // Code insertion handled by R side
             console.log('Code insertion handled by R side');
-            // For now, copy to clipboard and show instructions
+            // Copy to clipboard and show smart instructions
             navigator.clipboard.writeText(text).then(() => {
-                showStatus('Code copied to clipboard. Use rstudioai::insert_code() in R to insert it.', 'info');
+                showStatus('Code copied! Run: rstudioai::insert_code() to insert at cursor, or rstudioai::insert_code_at_location() for specific location', 'success');
             }).catch(() => {
-                showStatus('Code copied to clipboard. Use rstudioai::insert_code() in R to insert it.', 'info');
+                showStatus('Code copied! Run: rstudioai::insert_code() to insert at cursor, or rstudioai::insert_code_at_location() for specific location', 'success');
             });
         }
 

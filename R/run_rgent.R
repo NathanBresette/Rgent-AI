@@ -56,11 +56,10 @@ run_rgent <- function() {
   cat("Injecting context data into HTML...\n")
   context_json <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
   # Replace placeholder context with real data
-  html_content <- gsub(
-    'let contextData = \\{[^}]*\\};',
-    paste0('let contextData = ', context_json, ';'),
-    html_content
-  )
+  # Use a more specific pattern to match the exact JavaScript structure
+  pattern <- 'let contextData = \\{[^}]*workspace_objects:\\[\\][^}]*environment_info:[^}]*\\};'
+  replacement <- paste0('let contextData = ', context_json, ';')
+  html_content <- gsub(pattern, replacement, html_content, perl = TRUE)
   cat("Context data injected into HTML\n")
   
   # 6. Open in RStudio viewer
@@ -123,10 +122,33 @@ capture_context <- function() {
       packages = names(sessionInfo()$otherPkgs)
     )
     
+    # Get file information if RStudio API is available
+    file_info <- list()
+    if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+      tryCatch({
+        # Get active document context
+        doc_context <- rstudioapi::getActiveDocumentContext()
+        if (!is.null(doc_context)) {
+          file_info <- list(
+            active_file = doc_context$path,
+            active_file_name = basename(doc_context$path),
+            cursor_line = doc_context$selection[[1]]$range$start$row,
+            cursor_column = doc_context$selection[[1]]$range$start$column,
+            total_lines = length(doc_context$contents),
+            file_contents = doc_context$contents,
+            file_modified = doc_context$modified
+          )
+        }
+      }, error = function(e) {
+        file_info <- list(error = paste("Error getting file info:", e$message))
+      })
+    }
+    
     # Return context data
     list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
+      file_info = file_info,
       timestamp = as.character(Sys.time())
     )
   }, error = function(e) {
@@ -137,14 +159,101 @@ capture_context <- function() {
   })
 }
 
-#' Insert code into active document
+#' Insert code at specific location in document
 #' @param code The code to insert
+#' @param file_path Optional file path (if NULL, uses active document)
+#' @param line_number Optional line number (if NULL, uses cursor position)
+#' @param replace_selection Whether to replace current selection
 #' @export
-insert_code <- function(code) {
+insert_code_at_location <- function(code, file_path = NULL, line_number = NULL, replace_selection = FALSE) {
   tryCatch({
     if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
       cat("RStudio API is not available. Please run this in RStudio.\n")
       return(FALSE)
+    }
+    
+    # If no code provided, try to read from clipboard
+    if (is.null(code)) {
+      if (requireNamespace("clipr", quietly = TRUE)) {
+        code <- clipr::read_clip()
+        if (length(code) == 0) {
+          cat("❌ No code found in clipboard\n")
+          return(FALSE)
+        }
+        cat("📋 Reading code from clipboard...\n")
+      } else {
+        cat("❌ No code provided and clipr package not available\n")
+        cat("💡 Install clipr: install.packages('clipr')\n")
+        return(FALSE)
+      }
+    }
+    
+    # Get document context
+    doc_context <- rstudioapi::getActiveDocumentContext()
+    
+    # If specific file requested, switch to it
+    if (!is.null(file_path)) {
+      # Try to open the file if it exists
+      if (file.exists(file_path)) {
+        rstudioapi::navigateToFile(file_path)
+        # Wait a moment for file to open
+        Sys.sleep(0.5)
+        doc_context <- rstudioapi::getActiveDocumentContext()
+      } else {
+        cat("❌ File not found:", file_path, "\n")
+        return(FALSE)
+      }
+    }
+    
+    # If specific line requested, navigate to it
+    if (!is.null(line_number)) {
+      # Set cursor to specific line
+      rstudioapi::setCursorPosition(rstudioapi::document_position(line_number, 1))
+      cat("📍 Positioned cursor at line", line_number, "\n")
+    }
+    
+    # Insert the code
+    if (replace_selection && length(doc_context$selection) > 0) {
+      # Replace current selection
+      rstudioapi::insertText(code)
+      cat("✅ Code inserted, replacing selection\n")
+    } else {
+      # Insert at cursor position
+      rstudioapi::insertText(code)
+      cat("✅ Code inserted at cursor position\n")
+    }
+    
+    return(TRUE)
+  }, error = function(e) {
+    cat("❌ Failed to insert code:", e$message, "\n")
+    return(FALSE)
+  })
+}
+
+#' Insert code into active document
+#' @param code The code to insert (if NULL, reads from clipboard)
+#' @export
+insert_code <- function(code = NULL) {
+  tryCatch({
+    if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
+      cat("RStudio API is not available. Please run this in RStudio.\n")
+      return(FALSE)
+    }
+    
+    # If no code provided, try to read from clipboard
+    if (is.null(code)) {
+      if (requireNamespace("clipr", quietly = TRUE)) {
+        code <- clipr::read_clip()
+        if (length(code) == 0) {
+          cat("❌ No code found in clipboard\n")
+          return(FALSE)
+        }
+        cat("📋 Reading code from clipboard...\n")
+      } else {
+        cat("❌ No code provided and clipr package not available\n")
+        cat("💡 Install clipr: install.packages('clipr')\n")
+        return(FALSE)
+      }
     }
     
     rstudioapi::insertText(code)
