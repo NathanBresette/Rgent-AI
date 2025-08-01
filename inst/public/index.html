@@ -629,6 +629,17 @@
                         <div id="main-status" class="status info hidden"></div>
                     </div>
                     
+                    <div class="info-box" style="margin: 10px 0; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; font-size: 14px;">
+                        <h4 style="margin: 0 0 10px 0; color: #495057;">🎯 Quick Code Insertion:</h4>
+                        <p style="margin: 0 0 8px 0; color: #6c757d;">When the AI suggests code, look for these buttons:</p>
+                        <ul style="margin: 0 0 8px 0; padding-left: 20px; color: #6c757d;">
+                            <li><strong>🤖 Smart Insert:</strong> For new code with smart placement</li>
+                            <li><strong>🔄 Replace Code:</strong> For replacing existing functions</li>
+                            <li><strong>➕ Insert Code:</strong> For adding code with context</li>
+                        </ul>
+                        <p style="margin: 0; color: #6c757d; font-style: italic;">Just click the button and the code will be inserted into your R editor!</p>
+                    </div>
+                    
                     <div id="messages-container" class="messages-container">
                         <!-- Messages will be added here -->
                     </div>
@@ -638,7 +649,7 @@
                             <div class="input-field">
                                 <textarea 
                                     id="prompt" 
-                                    placeholder="Ask me anything about R programming..."
+                                    placeholder="Ask me anything about R programming... (AI will suggest which buttons to click for code insertion)"
                                     rows="1"
                                     oninput="autoResize(this)"
                                 ></textarea>
@@ -1075,18 +1086,28 @@
         }
 
         function copyToClipboard(text) {
-            // Method 1: Modern Clipboard API (may be blocked in RStudio viewer)
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        console.log('Code copied successfully via clipboard API');
-                        showStatus('✅ Code copied to clipboard!', 'success');
-                    })
-                    .catch((error) => {
-                        console.log('Clipboard API blocked, trying fallback methods:', error);
-                        fallbackCopy(text);
-                    });
-            } else {
+            // Use the safe copy strategy with immediate fallback
+            safeCopy(text);
+        }
+
+        function safeCopy(text) {
+            try {
+                // Method 1: Try Clipboard API first (may be blocked in iframes)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            console.log('Code copied successfully via Clipboard API');
+                            showStatus('✅ Code copied to clipboard!', 'success');
+                        })
+                        .catch(err => {
+                            console.warn('Clipboard API blocked, using fallback');
+                            fallbackCopy(text);
+                        });
+                } else {
+                    fallbackCopy(text);
+                }
+            } catch (e) {
+                console.warn('Clipboard API not available, using fallback');
                 fallbackCopy(text);
             }
         }
@@ -1096,27 +1117,41 @@
                 // Method 2: execCommand (deprecated but works in RStudio viewer)
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
-                textArea.style.position = 'fixed';
+                textArea.setAttribute('readonly', '');
+                textArea.style.position = 'absolute';
                 textArea.style.left = '-9999px';
                 textArea.style.top = '-9999px';
-                textArea.style.opacity = '0';
-                textArea.setAttribute('readonly', '');
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = '0';
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+                
                 document.body.appendChild(textArea);
+                textArea.focus();
                 textArea.select();
-                textArea.setSelectionRange(0, 99999); // For mobile devices
                 
-                const successful = document.execCommand('copy');
-                document.body.removeChild(textArea);
-                
-                if (successful) {
-                    console.log('Code copied successfully via execCommand fallback');
-                    showStatus('✅ Code copied to clipboard!', 'success');
-                } else {
-                    // Method 3: Manual selection
-                    manualCopy(text);
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    if (successful) {
+                        console.log('Code copied successfully via execCommand fallback');
+                        showStatus('✅ Code copied to clipboard!', 'success');
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('execCommand failed:', err);
+                    document.body.removeChild(textArea);
                 }
+                
+                // Method 3: Manual selection if execCommand fails
+                manualCopy(text);
+                
             } catch (error) {
-                console.log('execCommand failed, trying manual copy:', error);
+                console.error('Fallback copy failed:', error);
                 manualCopy(text);
             }
         }
@@ -1138,33 +1173,46 @@
             copyArea.style.fontFamily = 'monospace';
             copyArea.style.fontSize = '14px';
             copyArea.style.backgroundColor = '#f8f9fa';
+            copyArea.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
             
             document.body.appendChild(copyArea);
+            copyArea.focus();
             copyArea.select();
             
             showStatus('📋 Code selected - press Ctrl+C (or Cmd+C) to copy, then close this box', 'info');
             
-            // Add close button
+            // Add close button with better styling
             const closeBtn = document.createElement('button');
-            closeBtn.textContent = 'Close';
+            closeBtn.textContent = '✓ Close';
             closeBtn.style.position = 'fixed';
             closeBtn.style.top = '60%';
             closeBtn.style.left = '50%';
             closeBtn.style.transform = 'translateX(-50%)';
             closeBtn.style.zIndex = '10000';
             closeBtn.style.padding = '8px 16px';
-            closeBtn.style.backgroundColor = '#007acc';
+            closeBtn.style.backgroundColor = '#28a745';
             closeBtn.style.color = 'white';
             closeBtn.style.border = 'none';
             closeBtn.style.borderRadius = '4px';
             closeBtn.style.cursor = 'pointer';
+            closeBtn.style.fontWeight = 'bold';
             
             closeBtn.onclick = () => {
                 document.body.removeChild(copyArea);
                 document.body.removeChild(closeBtn);
+                showStatus('✅ Manual copy completed!', 'success');
             };
             
             document.body.appendChild(closeBtn);
+            
+            // Auto-close after 30 seconds
+            setTimeout(() => {
+                if (document.body.contains(copyArea)) {
+                    document.body.removeChild(copyArea);
+                    document.body.removeChild(closeBtn);
+                    showStatus('⏰ Copy box auto-closed', 'info');
+                }
+            }, 30000);
         }
 
         function insertCode(blockId, code) {
