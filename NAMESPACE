@@ -1,1 +1,7 @@
 export(run_rgent)
+export(capture_context)
+export(insert_code)
+export(insert_code_at_location)
+export(ai_insert_code)
+export(ai_replace_code)
+export(ai_smart_insert)

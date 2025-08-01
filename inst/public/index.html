@@ -194,6 +194,23 @@
             background: var(--rstudio-success-hover, #218838);
         }
 
+        .code-btn.ai-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+            margin-left: 4px;
+        }
+
+        .code-btn.ai-btn:hover {
+            background: #5a6fd8;
+        }
+
         .code-content {
             padding: 12px;
             overflow-x: auto;
@@ -880,9 +897,18 @@
         }
 
         function formatMessage(content) {
+            // Check if this is an AI recommendation (contains specific phrases)
+            const isAiRecommendation = content.toLowerCase().includes('i recommend') || 
+                                     content.toLowerCase().includes('here\'s an improved') ||
+                                     content.toLowerCase().includes('let me improve') ||
+                                     content.toLowerCase().includes('i\'ll improve') ||
+                                     content.toLowerCase().includes('suggest') ||
+                                     content.toLowerCase().includes('try this') ||
+                                     content.toLowerCase().includes('here\'s a better');
+            
             // Extract and format code blocks
             let formatted = content.replace(/```(?:r|R|{r})?\s*\n([\s\S]*?)```/g, (match, code) => {
-                return createCodeBlock(code, 'r');
+                return createCodeBlock(code, 'r', isAiRecommendation);
             });
             
             // Handle inline code
@@ -894,11 +920,16 @@
             return formatted;
         }
 
-        function createCodeBlock(code, language = 'r') {
+        function createCodeBlock(code, language = 'r', isRecommendation = false) {
             const blockId = 'code-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
             
             // Clean up the code formatting
             let cleanCode = code.trim();
+            
+            // Check if this is an AI command (ai_smart_insert, ai_replace_code, etc.)
+            const isAiCommand = cleanCode.includes('ai_smart_insert') || 
+                               cleanCode.includes('ai_replace_code') || 
+                               cleanCode.includes('ai_insert_code');
             
             // Escape the code for the onclick attributes
             let escapedCode = cleanCode
@@ -909,6 +940,30 @@
                 .replace(/\r/g, '\\r')
                 .replace(/\t/g, '\\t');
             
+            // Create action buttons based on command type - only show AI buttons for recommendations
+            let actionButtons = '';
+            if (isAiCommand && isRecommendation) {
+                if (cleanCode.includes('ai_smart_insert')) {
+                    actionButtons = `
+                        <button class="code-btn ai-btn" onclick="executeAiCommand('${escapedCode}', this)" title="Execute AI Smart Insert">
+                            🤖 Smart Insert
+                        </button>
+                    `;
+                } else if (cleanCode.includes('ai_replace_code')) {
+                    actionButtons = `
+                        <button class="code-btn ai-btn" onclick="executeAiCommand('${escapedCode}', this)" title="Execute AI Code Replacement">
+                            🔄 Replace Code
+                        </button>
+                    `;
+                } else if (cleanCode.includes('ai_insert_code')) {
+                    actionButtons = `
+                        <button class="code-btn ai-btn" onclick="executeAiCommand('${escapedCode}', this)" title="Execute AI Insert">
+                            ➕ Insert Code
+                        </button>
+                    `;
+                }
+            }
+            
             return `
                 <div class="code-block">
                     <div class="code-header">
@@ -916,6 +971,7 @@
                         <div class="code-actions">
                             <button class="code-btn" onclick="copyCode('${blockId}', '${escapedCode}')">Copy</button>
                             <button class="code-btn success" onclick="insertCode('${blockId}', '${escapedCode}')">Insert</button>
+                            ${actionButtons}
                         </div>
                     </div>
                     <div id="${blockId}" class="code-content">${escapeHtml(cleanCode)}</div>
@@ -927,6 +983,52 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function executeAiCommand(command, buttonElement) {
+            console.log('🤖 Executing AI command:', command);
+            
+            // Disable the button immediately
+            buttonElement.disabled = true;
+            buttonElement.style.opacity = '0.5';
+            buttonElement.textContent = '⏳ Executing...';
+            
+            // Show status
+            showStatus('Executing AI command...', 'info');
+            
+            // Copy command to clipboard for R console
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(command).then(() => {
+                    showStatus('✅ Command copied! Paste in R console to execute', 'success');
+                    
+                    // Remove the button after successful execution
+                    setTimeout(() => {
+                        buttonElement.remove();
+                    }, 1000);
+                    
+                    // Show instructions
+                    setTimeout(() => {
+                        showStatus('💡 Tip: Use Ctrl+V (or Cmd+V) in R console to paste and execute', 'info');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy command:', err);
+                    showStatus('❌ Failed to copy command', 'error');
+                    
+                    // Re-enable button on error
+                    buttonElement.disabled = false;
+                    buttonElement.style.opacity = '1';
+                    buttonElement.textContent = buttonElement.getAttribute('title').includes('Smart Insert') ? '🤖 Smart Insert' : 
+                                             buttonElement.getAttribute('title').includes('Replace') ? '🔄 Replace Code' : '➕ Insert Code';
+                });
+            } else {
+                showStatus('❌ Clipboard not available', 'error');
+                
+                // Re-enable button on error
+                buttonElement.disabled = false;
+                buttonElement.style.opacity = '1';
+                buttonElement.textContent = buttonElement.getAttribute('title').includes('Smart Insert') ? '🤖 Smart Insert' : 
+                                         buttonElement.getAttribute('title').includes('Replace') ? '🔄 Replace Code' : '➕ Insert Code';
+            }
         }
 
         function copyCode(blockId, code) {
@@ -1463,6 +1565,41 @@
             // Then detect and apply current RStudio theme
             await detectAndApplyRStudioTheme();
         });
+
+        // AI Code Functions - Available globally for the AI to call
+        window.aiCodeFunctions = {
+            // Smart insert code with location hint
+            aiSmartInsert: function(code, locationHint) {
+                console.log('🤖 AI Smart Insert:', code, 'at', locationHint);
+                // This would call the R function via a bridge
+                // For now, we'll copy to clipboard and show instructions
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(code);
+                    showStatus(`Code copied! Run: ai_smart_insert("${code}", "${locationHint}")`, 'success');
+                }
+                return true;
+            },
+
+            // Replace code with pattern matching
+            aiReplaceCode: function(oldPattern, newCode) {
+                console.log('🤖 AI Replace Code:', oldPattern, 'with', newCode);
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(newCode);
+                    showStatus(`Replacement code copied! Run: ai_replace_code("${oldPattern}", "${newCode}")`, 'success');
+                }
+                return true;
+            },
+
+            // Insert code with context
+            aiInsertCode: function(code, context) {
+                console.log('🤖 AI Insert Code:', code, 'with context:', context);
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(code);
+                    showStatus(`Code copied! Run: ai_insert_code("${code}", "${context}")`, 'success');
+                }
+                return true;
+            }
+        };
     </script>
 </body>
 </html> 

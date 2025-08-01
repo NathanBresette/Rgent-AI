@@ -143,11 +143,32 @@ capture_context <- function() {
         # Get active document context
         doc_context <- rstudioapi::getActiveDocumentContext()
         if (!is.null(doc_context)) {
+          # Handle both saved files and untitled documents
+          file_path <- doc_context$path
+          file_name <- if (file_path != "") basename(file_path) else "Untitled Document"
+          
+          # Safely get cursor position
+          cursor_line <- 1
+          cursor_column <- 1
+          tryCatch({
+            if (length(doc_context$selection) > 0) {
+              # Access selection as a document_selection object
+              selection <- doc_context$selection[[1]]  # Get first selection
+              # Access document_position object correctly
+              start_pos <- selection$range$start
+              cursor_line <- start_pos[["row"]]
+              cursor_column <- start_pos[["column"]]
+            }
+          }, error = function(e) {
+            cursor_line <- 1
+            cursor_column <- 1
+          })
+          
           file_info <- list(
-            active_file = doc_context$path,
-            active_file_name = basename(doc_context$path),
-            cursor_line = doc_context$selection[[1]]$range$start$row,
-            cursor_column = doc_context$selection[[1]]$range$start$column,
+            active_file = file_path,
+            active_file_name = file_name,
+            cursor_line = cursor_line,
+            cursor_column = cursor_column,
             total_lines = length(doc_context$contents),
             file_contents = doc_context$contents,
             file_modified = doc_context$modified
