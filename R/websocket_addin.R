@@ -914,7 +914,6 @@ start_websocket_server <- function() {
                              } else {
                  # Error response
                  error_content <- httr::content(response, "text", encoding = "UTF-8")
-                 cat("DEBUG: Full error response:", toString(error_content), "\n")
                  
                  error_response <- list(
                    action = "debug_ai_response",
@@ -924,8 +923,6 @@ start_websocket_server <- function() {
                  ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
                }
                           }, error = function(e) {
-               cat("DEBUG: Exception details:", toString(e), "\n")
-               cat("DEBUG: Exception class:", class(e), "\n")
                
                # Send a simple error message if streaming fails
                error_response <- list(
@@ -2173,7 +2170,6 @@ update_workspace_index <- function() {
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
       } else {
@@ -2974,8 +2970,6 @@ update_file_index <- function(file_path, file_content) {
       content_length = nchar(file_content)
     )
     
-        file_metadata$chunk_count, "chunks\n")
-    
   }, error = function(e) {
     cat("ERROR: Failed to update index for", file_path, ":", e$message, "\n")
   })
@@ -3461,7 +3455,6 @@ update_workspace_index_incremental <- function() {
     new_objects <- setdiff(current_objects, last_scan)
     removed_objects <- setdiff(last_scan, current_objects)
     
-    cat("DEBUG: New objects:", length(new_objects), paste(new_objects, collapse = ", "), "\n")
     
     # Process only new objects
     if (length(new_objects) > 0) {
