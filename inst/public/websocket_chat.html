@@ -915,9 +915,9 @@
               break;
             case "plot_analysis":
               if (data.success) {
-                // Show step-by-step progress
+                // Process plot analysis response properly
                 const fullMessage = "✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation;
-                addMessage(fullMessage, "ai");
+                addPlotAnalysisMessage(fullMessage);
               } else {
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
@@ -1500,6 +1500,145 @@
         ws.send(JSON.stringify({
           action: "analyze_last_plot"
         }));
+      }
+      
+      // Special function for plot analysis messages
+      function addPlotAnalysisMessage(content) {
+        const container = document.getElementById("chat-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message ai-message";
+        
+        // Set the content and process it properly
+        messageDiv.innerHTML = content;
+        
+        // Process markdown formatting first
+        processMarkdownFormatting(messageDiv);
+        
+        // Then process for code blocks with only Copy/Insert buttons
+        processPlotAnalysisContent(messageDiv);
+        
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+      }
+      
+      // Special processing for plot analysis content (no Execute & Fix)
+      function processPlotAnalysisContent(messageDiv) {
+        const content = messageDiv.innerHTML;
+        
+        // More precise code block detection - only create blocks for actual code blocks
+        const hasMarkdownCodeBlock = /```[rR]\n[\s\S]*?```/.test(content) || /```[rR][\s\S]*?```/.test(content) || /```R\n[\s\S]*?```/.test(content) || /```R[\s\S]*?```/.test(content);
+        
+        // Only detect HTML code blocks that are actual blocks, not inline code
+        const hasHTMLCodeBlock = /<code[^>]*>[\s\S]*?<\/code>/.test(content) && 
+                                !content.includes('<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">');
+        
+        if (hasMarkdownCodeBlock || hasHTMLCodeBlock) {
+          // Clear the message div
+          messageDiv.innerHTML = "";
+          
+          // Try to split by markdown code blocks first
+          let parts = content.split(/(```[rR]\n[\s\S]*?```)/g);
+          
+          // If no markdown blocks found, try HTML code blocks
+          if (parts.length === 1) {
+            parts = content.split(/(<code[^>]*>[\s\S]*?<\/code>)/g);
+          }
+          
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            
+            if ((part.startsWith("```r\n") && part.endsWith("```")) || 
+                (part.startsWith("```R\n") && part.endsWith("```")) ||
+                (part.includes("<code") && part.includes("</code>"))) {
+              // This is a code block - style it with only Copy/Insert buttons
+              const codeDiv = document.createElement("div");
+              codeDiv.className = "code-block";
+              
+              // Create header with copy button
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "code-block-header";
+              
+              const languageLabel = document.createElement("span");
+              languageLabel.textContent = "R Code";
+              
+              const copyButton = document.createElement("button");
+              copyButton.className = "copy-button";
+              copyButton.textContent = "Copy";
+              copyButton.onclick = function() {
+                copyToClipboard(cleanCode, copyButton);
+              };
+              
+              const insertButton = document.createElement("button");
+              insertButton.className = "copy-button";
+              insertButton.textContent = "Insert at Cursor";
+              insertButton.onclick = function() {
+                insertCode(cleanCode);
+              };
+              
+              headerDiv.appendChild(languageLabel);
+              headerDiv.appendChild(copyButton);
+              headerDiv.appendChild(insertButton);
+              codeDiv.appendChild(headerDiv);
+              
+              // Create code content div - extract just the code
+              const codeContent = document.createElement("div");
+              let cleanCode;
+              if (part.startsWith("```r\n")) {
+                // Markdown format - remove ```r\n at start and ``` at end
+                cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R\n")) {
+                // Markdown format - remove ```R\n at start and ``` at end
+                cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r") && part.endsWith("```")) {
+                // Markdown format without newline after r
+                cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R") && part.endsWith("```")) {
+                // Markdown format without newline after R
+                cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
+              } else {
+                // HTML format - extract clean text from nested HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = part;
+                cleanCode = tempDiv.textContent || tempDiv.innerText || '';
+                
+                // If that didn't work, try manual removal
+                if (!cleanCode || cleanCode.trim() === '') {
+                  cleanCode = part.replace(/<code[^>]*>/g, "").replace(/<\/code>/g, "");
+                  cleanCode = cleanCode.replace(/<[^>]*>/g, "");
+                  cleanCode = cleanCode.replace(/style="[^"]*"/g, "");
+                }
+              }
+              
+              // Remove any remaining artifacts
+              cleanCode = cleanCode.replace(/^['"]?r['"]?\s*/, "");
+              cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, "");
+              cleanCode = cleanCode.replace(/^R\s*/, "");
+              cleanCode = cleanCode.replace(/^r\s*/, "");
+              cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+              
+              codeContent.textContent = cleanCode;
+              codeDiv.appendChild(codeContent);
+              
+              messageDiv.appendChild(codeDiv);
+            } else if (part.trim()) {
+              // This is regular text - clean up any leftover backticks and add it
+              const textDiv = document.createElement("div");
+              let cleanText = part;
+              
+              // Remove any leftover backticks from markdown processing
+              cleanText = cleanText.replace(/^``\s*/, "");
+              cleanText = cleanText.replace(/\s*``$/, "");
+              cleanText = cleanText.replace(/``/g, "");
+              
+              textDiv.innerHTML = cleanText;
+              processMarkdownFormatting(textDiv);
+              messageDiv.appendChild(textDiv);
+            }
+          }
+        } else {
+          // If no code blocks, just process markdown formatting
+          processMarkdownFormatting(messageDiv);
+        }
       }
     </script>
 </body>
