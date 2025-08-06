@@ -1,23 +1,23 @@
 # Debug wrapper functions to track down invalid 'envir' argument error
 safe_ls <- function(envir) {
-  
+  cat('DEBUG: Calling ls with envir of class:', class(envir), 'type:', typeof(envir), '\n')
   ls(envir = envir)
 }
 
 safe_get <- function(name, envir) {
   # First check if object exists and is accessible
   if (!exists(name, envir = envir, inherits = FALSE)) {
-
+    cat('DEBUG: Object', name, 'does not exist\n')
     return(NULL)
   }
   
   # Try to get the object safely
   tryCatch({
-
+    cat('DEBUG: Getting object:', name, '\n')
     obj <- get(name, envir = envir, inherits = FALSE)
     return(obj)
   }, error = function(e) {
-    
+    cat('DEBUG: Error getting object', name, ':', e$message, '\n')
     return(NULL)
   })
 }
@@ -39,13 +39,13 @@ if (!exists("global_env") || !is.environment(global_env)) {
   global_env$session_index$file_hashes <- new.env(parent = emptyenv())
   global_env$session_index$functions <- new.env(parent = emptyenv())
   global_env$session_index$variables <- new.env(parent = emptyenv())
-  
+  cat("DEBUG: global_env initialized with proper environment structure\n")
 }
 
 # Initialize conversation history
 if (!exists("conversation_history") || !is.list(conversation_history)) {
   .GlobalEnv$conversation_history <- list()
-  
+  cat("DEBUG: conversation_history initialized\n")
 }
 
 # Helper function to get current access code
@@ -180,16 +180,22 @@ start_websocket_server <- function() {
   
   # Define message handler function
   message_handler <- function(ws, isBinary, data) {
+    cat("Raw message received:", data, "\n")
+    cat("DEBUG: Message length:", nchar(data), "\n")
+    
     # Global error handler to catch any unhandled errors
     tryCatch({
       # Parse JSON message
       request <- jsonlite::fromJSON(data)
+      cat("Parsed request:", request$action, "\n")
+                  cat("DEBUG: Request details:", tryCatch(toString(request), error = function(e) "Error converting request to string"), "\n")
       
       # Handle different actions
       response <- switch(request$action,
         "set_access_code" = {
           # Store access code from frontend
           .GlobalEnv$current_access_code <- request$access_code
+          cat("Access code set to:", request$access_code, "\n")
           list(action = "access_code_set", status = "success")
         },
         "get_context" = {
@@ -378,6 +384,7 @@ start_websocket_server <- function() {
         },
         "chat_with_ai" = {
           # Use intelligent indexing system
+          cat("Using intelligent indexing system for chat...\n")
           
           # Add user message to conversation history
           add_to_conversation_history("user", request$message)
@@ -445,6 +452,66 @@ start_websocket_server <- function() {
           # Use streaming RAG chat endpoint
           tryCatch({
             # Prepare request body for simple chat
+            cat("DEBUG: current_context type:", class(current_context), "\n")
+            cat("DEBUG: current_context keys:", names(current_context), "\n")
+            cat("DEBUG: current_context length:", length(current_context), "\n")
+            cat("DEBUG: current_context structure:", str(current_context, max.level = 1), "\n")
+            
+            # Check if context has meaningful data
+            if (!is.null(current_context$workspace_objects)) {
+              cat("DEBUG: Number of workspace objects:", length(current_context$workspace_objects), "\n")
+              object_names <- sapply(current_context$workspace_objects, function(obj) obj$name)
+              cat("DEBUG: Object names:", paste(object_names, collapse = ", "), "\n")
+            }
+            
+            if (!is.null(current_context$file_info)) {
+              cat("DEBUG: Has file info:", !is.null(current_context$file_info$file_contents), "\n")
+              if (!is.null(current_context$file_info$file_contents)) {
+                cat("DEBUG: File content length:", nchar(current_context$file_info$file_contents), "\n")
+              }
+            }
+            
+            # Debug intelligent_context
+            cat("DEBUG: intelligent_context type:", class(intelligent_context), "\n")
+            cat("DEBUG: intelligent_context length:", length(intelligent_context), "\n")
+            cat("DEBUG: intelligent_context first 200 chars:", substr(intelligent_context, 1, 200), "\n")
+            cat("DEBUG: intelligent_context contains 'dataframe':", grepl("dataframe", tolower(intelligent_context)), "\n")
+            cat("DEBUG: intelligent_context contains 'sales_data':", grepl("sales_data", intelligent_context), "\n")
+            
+            # Debug current_context structure
+            cat("DEBUG: current_context type:", class(current_context), "\n")
+            cat("DEBUG: current_context keys:", names(current_context), "\n")
+            cat("DEBUG: current_context length:", length(current_context), "\n")
+            
+            # Debug workspace_objects
+            if ("workspace_objects" %in% names(current_context)) {
+              cat("DEBUG: workspace_objects type:", class(current_context$workspace_objects), "\n")
+              cat("DEBUG: workspace_objects length:", length(current_context$workspace_objects), "\n")
+              if (length(current_context$workspace_objects) > 0) {
+                cat("DEBUG: First workspace object:", names(current_context$workspace_objects)[1], "\n")
+                cat("DEBUG: First object structure:", str(current_context$workspace_objects[[1]]), "\n")
+              }
+            }
+            
+            # Debug file_info
+            if ("file_info" %in% names(current_context)) {
+              cat("DEBUG: file_info type:", class(current_context$file_info), "\n")
+              cat("DEBUG: file_info keys:", names(current_context$file_info), "\n")
+              if ("file_contents" %in% names(current_context$file_info)) {
+                file_content <- current_context$file_info$file_contents
+                cat("DEBUG: file_contents type:", class(file_content), "\n")
+                cat("DEBUG: file_contents length:", length(file_content), "\n")
+                if (length(file_content) > 0) {
+                  cat("DEBUG: First line of file:", toString(file_content[1]), "\n")
+                }
+              }
+            }
+            
+            # Debug environment_info
+            if ("environment_info" %in% names(current_context)) {
+              cat("DEBUG: environment_info type:", class(current_context$environment_info), "\n")
+              cat("DEBUG: environment_info keys:", names(current_context$environment_info), "\n")
+            }
             
             # Get access code from global environment or use default
             current_access_code <- if (!is.null(.GlobalEnv$current_access_code)) .GlobalEnv$current_access_code else "DEMO123"
@@ -469,8 +536,24 @@ start_websocket_server <- function() {
               )
             )
             
-            # Convert to JSON for sending
+            # Debug the final request structure
+            cat("DEBUG: Request body structure:\n")
+            cat("DEBUG: - access_code:", request_body$access_code, "\n")
+            cat("DEBUG: - prompt:", request_body$prompt, "\n")
+            cat("DEBUG: - context_data keys:", names(request_body$context_data), "\n")
+            cat("DEBUG: - context_data workspace_objects length:", length(request_body$context_data$workspace_objects), "\n")
+            cat("DEBUG: - context_data file_info keys:", names(request_body$context_data$file_info), "\n")
+            cat("DEBUG: - context_data environment_info keys:", names(request_body$context_data$environment_info), "\n")
+            
+            cat("DEBUG: Sending request with context_data length:", length(request_body$context_data), "\n")
+            cat("DEBUG: Request URL: https://rgent.onrender.com/chat/stream\n")
+            cat("DEBUG: Request body keys:", names(request_body), "\n")
+            cat("DEBUG: About to make HTTP request to backend...\n")
+            
+            # Debug the actual JSON being sent
             request_json <- jsonlite::toJSON(request_body, auto_unbox = TRUE)
+            cat("DEBUG: Request JSON length:", nchar(request_json), "\n")
+            cat("DEBUG: Request JSON preview:", substr(request_json, 1, 500), "\n")
             
             response <- httr::POST(
               "https://rgent.onrender.com/chat/stream",
@@ -480,24 +563,32 @@ start_websocket_server <- function() {
               httr::add_headers("Accept" = "text/event-stream")
             )
             
+            cat("Response status:", httr::status_code(response), "\n")
+            cat("DEBUG: Response headers:", toString(httr::headers(response)), "\n")
+            
             if (httr::status_code(response) == 200) {
               # Handle streaming response
               response_text <- httr::content(response, "text")
+              cat("Streaming response received\n")
+              cat("DEBUG: Response text length:", nchar(response_text), "\n")
+              cat("DEBUG: First 200 chars of response:", substr(response_text, 1, 200), "\n")
               
               # Parse Server-Sent Events (SSE) format
               lines <- strsplit(response_text, "\n")[[1]]
+              cat("DEBUG: Number of lines:", length(lines), "\n")
               chunks <- c()
               full_response <- ""
               
               for (line in lines) {
+                cat("DEBUG: Processing line:", line, "\n")
                 if (grepl("^data: ", line)) {
                   # Extract JSON data from SSE format
                   json_data <- substring(line, 7)  # Remove "data: " prefix
-
+                  cat("DEBUG: Extracted JSON data:", json_data, "\n")
                   if (json_data != "[DONE]") {
                     tryCatch({
                       chunk_data <- jsonlite::fromJSON(json_data)
-
+                      cat("DEBUG: Parsed chunk_data:", toString(chunk_data), "\n")
                       
                       if (!is.null(chunk_data$chunk)) {
                         chunks <- c(chunks, chunk_data$chunk)
@@ -541,7 +632,7 @@ start_websocket_server <- function() {
                       
                       # Check if this is the final chunk
                       if (!is.null(chunk_data$done) && chunk_data$done) {
-
+                        cat("DEBUG: Received final chunk, finishing stream\n")
                         
                         # Send any remaining buffer
                         if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
@@ -565,6 +656,7 @@ start_websocket_server <- function() {
               # Add AI response to conversation history
               if (nchar(full_response) > 0) {
                 add_to_conversation_history("ai", full_response)
+                cat("DEBUG: Added AI response to conversation history. Length:", nchar(full_response), "\n")
               }
               
               # Send finish signal
@@ -577,10 +669,16 @@ start_websocket_server <- function() {
               
               list(action = "streaming_complete")
             } else {
+              cat("Backend returned error status:", httr::status_code(response), "\n")
               error_content <- httr::content(response)
+              cat("Error content:", toString(error_content), "\n")
+              cat("DEBUG: Full error response:", toString(error_content), "\n")
               list(action = "ai_response", message = paste("Error connecting to AI service. Status:", httr::status_code(response)))
             }
           }, error = function(e) {
+            cat("Exception during backend call:", e$message, "\n")
+            cat("DEBUG: Exception details:", toString(e), "\n")
+            cat("DEBUG: Exception class:", class(e), "\n")
             list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
           })
         },
@@ -625,6 +723,8 @@ start_websocket_server <- function() {
         },
         "detect_changes" = {
           # Detect changes since last context capture
+          cat("Detecting context changes...\n")
+          
           current_context <- capture_context()
           last_context <- .GlobalEnv$last_context_state
           
@@ -647,6 +747,8 @@ start_websocket_server <- function() {
         },
         "store_changes" = {
           # Store detected changes in backend
+          cat("Storing context changes...\n")
+          
           session_id <- .GlobalEnv$current_session_id
           if (is.null(session_id)) {
             list(action = "changes_error", message = "No active session")
@@ -676,6 +778,8 @@ start_websocket_server <- function() {
         },
         "semantic_search" = {
           # Perform semantic search for relevant context
+          cat("Performing semantic search...\n")
+          
           session_id <- .GlobalEnv$current_session_id
           if (is.null(session_id)) {
             list(action = "search_error", message = "No active session")
@@ -914,6 +1018,7 @@ start_websocket_server <- function() {
                              } else {
                  # Error response
                  error_content <- httr::content(response, "text", encoding = "UTF-8")
+                 cat("DEBUG: Full error response:", toString(error_content), "\n")
                  
                  error_response <- list(
                    action = "debug_ai_response",
@@ -923,6 +1028,8 @@ start_websocket_server <- function() {
                  ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
                }
                           }, error = function(e) {
+               cat("DEBUG: Exception details:", toString(e), "\n")
+               cat("DEBUG: Exception class:", class(e), "\n")
                
                # Send a simple error message if streaming fails
                error_response <- list(
@@ -939,6 +1046,9 @@ start_websocket_server <- function() {
         }
         },
         "new_conversation" = {
+          # Clear conversation history
+          cat("Starting new conversation - clearing history\n")
+          
           # Clear conversation history
           .GlobalEnv$conversation_history <- list()
           
@@ -988,26 +1098,45 @@ start_websocket_server <- function() {
       
       # Send response back to JavaScript
       tryCatch({
+        cat("DEBUG: Sending response to frontend...\n")
         response_json <- jsonlite::toJSON(response, auto_unbox = TRUE)
+        cat("DEBUG: Response JSON length:", nchar(response_json), "\n")
         ws$send(response_json)
+        cat("DEBUG: Response sent successfully\n")
       }, error = function(e) {
+        cat("ERROR sending response to frontend:", e$message, "\n")
+        cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
         # Try to send a simple error response
         tryCatch({
           error_response <- list(action = "error", message = "Error processing request")
           ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
         }, error = function(e2) {
-          # Silent fail
+          cat("ERROR sending error response:", e2$message, "\n")
         })
       })
       
     }, error = function(e) {
-      # Global error handler - send error response
+      # Global error handler - print traceback for any unhandled error
+      cat("GLOBAL ERROR HANDLER: Error in message handler:", e$message, "\n")
+      cat("GLOBAL ERROR HANDLER: Error class:", class(e), "\n")
+      cat("GLOBAL ERROR HANDLER: Error type:", typeof(e), "\n")
+      cat("GLOBAL ERROR HANDLER: Full error object:", toString(e), "\n")
+      cat("GLOBAL ERROR HANDLER: Traceback:\n")
+      traceback(3)
+      
+      # Send error response
+      cat("Error in message handler:", e$message, "\n")
+      cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
       error_response <- list(action = "error", message = e$message)
       tryCatch({
+        cat("DEBUG: Sending error response to frontend...\n")
         error_json <- jsonlite::toJSON(error_response, auto_unbox = TRUE)
+        cat("DEBUG: Error JSON length:", nchar(error_json), "\n")
         ws$send(error_json)
+        cat("DEBUG: Error response sent successfully\n")
       }, error = function(e2) {
-        # Silent fail
+        cat("Failed to send error response:", e2$message, "\n")
+        cat("Error details:", tryCatch(toString(e2), error = function(e3) "Error converting error to string"), "\n")
       })
     })
   }
@@ -1019,6 +1148,8 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
+          cat("WebSocket connection opened\n")
+          
           # Send theme information immediately upon connection
           tryCatch({
             theme_info <- get_rstudio_theme()
@@ -1031,8 +1162,9 @@ start_websocket_server <- function() {
               colors = theme_info$colors
             )
             ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
+            cat("Theme information sent to client\n")
           }, error = function(e) {
-            # Silent fail
+            cat("Error sending theme info:", e$message, "\n")
           })
           
           # Set up message handler
@@ -1041,15 +1173,16 @@ start_websocket_server <- function() {
           })
         },
         onWSClose = function(ws) {
-          # Connection closed silently
+          cat("WebSocket connection closed\n")
         }
       )
     )
     
-    # WebSocket server started silently
+    cat("WebSocket server started on ws://127.0.0.1:8888\n")
     
   }, error = function(e) {
-    # Try alternative port
+    cat("Error starting WebSocket server on port 8888:", e$message, "\n")
+    cat("Trying alternative port 8889...\n")
     
     # Try alternative port
     tryCatch({
@@ -1069,6 +1202,7 @@ start_websocket_server <- function() {
                 theme_name = theme_info$theme_name
               )
               ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
+              cat("Theme information sent to client\n")
             }, error = function(e) {
               cat("Error sending theme info:", e$message, "\n")
             })
@@ -1113,9 +1247,11 @@ launch_html_interface <- function() {
     for (path in possible_paths) {
       cat("  -", path, "\n")
     }
+    cat("Current working directory:", getwd(), "\n")
     return(invisible(FALSE))
   }
   
+  cat("Found HTML file at:", html_file, "\n")
   
   # Start HTTPS server for clipboard API support
   https_url <- start_https_server(html_file)
@@ -1124,6 +1260,7 @@ launch_html_interface <- function() {
     # Open HTTPS URL in browser
     browseURL(https_url)
     cat("WebSocket AI Chat opened with HTTPS support.\n")
+    cat("Clipboard API should now work properly!\n")
   } else {
     # Fallback to regular viewer pane
   temp_file <- tempfile(fileext = ".html")
@@ -1134,6 +1271,7 @@ launch_html_interface <- function() {
   }
   
   cat("You can continue using the R console while the chat is active.\n")
+  cat("To stop the server, run: stop_websocket_server()\n")
 }
 
 #' Start HTTPS server for HTML content
@@ -1222,7 +1360,7 @@ add_to_conversation_history <- function(role, message) {
     .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 5):length(.GlobalEnv$conversation_history)]
   }
   
-  
+  cat("DEBUG: Added message to conversation history. Total messages:", length(conversation_history), "\n")
 }
 
 #' Get conversation history as formatted string
@@ -1269,8 +1407,10 @@ capture_context <- function() {
         )
         
         # Add object-specific details with intelligent summarization
+        cat("Processing object:", obj_name, "class:", obj_info$class, "\n")
         
         if (is.data.frame(obj)) {
+          cat("  - Is data frame, adding concise info\n")
           obj_info$dimensions <- dim(obj)
           obj_info$column_names <- names(obj)
           obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
@@ -1288,9 +1428,11 @@ capture_context <- function() {
           } else {
             obj_info$sample_data <- list()
           }
+          cat("  - Concise data frame info added\n")
           
         } else if (is.vector(obj) && !is.list(obj)) {
           if (length(obj) <= 5) {
+            cat("  - Is small vector, adding values\n")
             tryCatch({
               obj_info$values <- as.character(obj)
             }, error = function(e) {
@@ -1298,15 +1440,18 @@ capture_context <- function() {
               obj_info$values <- paste("Error: Could not convert to character")
             })
           } else {
+            cat("  - Is large vector, adding basic summary\n")
             obj_info$summary <- list(
               total_length = length(obj),
               unique_count = tryCatch(length(unique(obj)), error = function(e) "unknown"),
               na_count = tryCatch(sum(is.na(obj)), error = function(e) "unknown")
             )
           }
+          cat("  - Vector info added\n")
           
         } else if (is.list(obj) && !is.data.frame(obj)) {
           if (length(obj) <= 3) {
+            cat("  - Is small list, adding basic structure\n")
             tryCatch({
               obj_info$list_structure <- lapply(names(obj), function(name) {
                 item <- obj[[name]]
@@ -1321,6 +1466,7 @@ capture_context <- function() {
               obj_info$list_structure <- list()
             })
           } else {
+            cat("  - Is large list, adding basic summary\n")
             tryCatch({
               obj_info$list_summary <- list(
                 total_items = length(obj),
@@ -1331,8 +1477,10 @@ capture_context <- function() {
               obj_info$list_summary <- list(total_items = length(obj), item_names = "unknown")
             })
           }
+          cat("  - List info added\n")
           
         } else if (is.function(obj)) {
+          cat("  - Is function, adding basic info\n")
           tryCatch({
             obj_info$function_args <- names(formals(obj))
           }, error = function(e) {
@@ -1340,20 +1488,27 @@ capture_context <- function() {
             obj_info$function_args <- "unknown"
           })
           obj_info$function_source <- if (is.primitive(obj)) "primitive" else "user-defined"
+          cat("  - Function info added\n")
           
         } else if (is.matrix(obj) || is.array(obj)) {
+          cat("  - Is matrix/array, adding basic info\n")
           obj_info$dimensions <- dim(obj)
+          cat("  - Matrix/array info added\n")
           
         } else if (is.environment(obj)) {
+          cat("  - Is environment, adding all contents\n")
           tryCatch({
             obj_info$env_contents <- ls(obj)
           }, error = function(e) {
             cat("  - Error listing environment contents:", e$message, "\n")
             obj_info$env_contents <- "unknown"
           })
+          cat("  - Environment info added\n")
           
         } else {
+          cat("  - Generic object, adding minimal info\n")
           obj_info$is_s4 <- isS4(obj)
+          cat("  - Generic object info added\n")
         }
         
         obj_info
@@ -1443,22 +1598,31 @@ capture_context <- function() {
     }
     
     # Return context data with simplified structure to avoid double encoding
+    cat("DEBUG: Creating context_data list...\n")
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
       file_info = file_info,
       timestamp = as.character(Sys.time())
     )
+    cat("DEBUG: Context data created successfully\n")
     
     # Convert to JSON and back to flatten nested structures
+    cat("DEBUG: Starting JSON conversion...\n")
     tryCatch({
+      cat("DEBUG: Converting to JSON...\n")
       json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
+      cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
+      cat("DEBUG: Converting back from JSON...\n")
       context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
+      cat("DEBUG: JSON back-conversion successful\n")
     }, error = function(e) {
       cat("Warning: Could not flatten context structure:", e$message, "\n")
       cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
       cat("Using original context structure\n")
     })
+    
+    cat("DEBUG: Returning context_data\n")
     context_data
   }, error = function(e) {
     cat("ERROR in capture_context:", e$message, "\n")
@@ -1722,10 +1886,12 @@ auto_capture_error <- function() {
       
       # If auto-fix mode is enabled, automatically analyze
       if (exists(".GlobalEnv$auto_fix_mode") && .GlobalEnv$auto_fix_mode) {
+        cat("Auto-fix mode enabled - analyzing error...\n")
         send_error_to_ai(last_error, console_context)
       }
     }
   }, error = function(e) {
+    cat("Error in auto_capture_error:", e$message, "\n")
   })
 }
 
@@ -1735,6 +1901,7 @@ execute_with_capture <- function(code) {
   tryCatch({
     eval(parse(text = code))
   }, error = function(e) {
+    cat("🔍 Auto-capture triggered by execute_with_capture!\n")
     auto_capture_error()
     stop(e$message)  # Re-throw the error
   })
@@ -1750,7 +1917,9 @@ toggle_auto_fix <- function() {
   .GlobalEnv$auto_fix_mode <- !.GlobalEnv$auto_fix_mode
   
   if (.GlobalEnv$auto_fix_mode) {
+    cat("✅ Auto-fix mode ENABLED - errors will be automatically analyzed\n")
   } else {
+    cat("❌ Auto-fix mode DISABLED - use debug button manually\n")
   }
   
   return(.GlobalEnv$auto_fix_mode)
@@ -2152,8 +2321,11 @@ safe_get_object_info <- function(obj_name) {
 update_workspace_index <- function() {
   # Safely scan workspace and update index
   tryCatch({
+    cat("DEBUG: Updating workspace index...\n")
+    
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
+    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -2163,24 +2335,31 @@ update_workspace_index <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
+      cat("DEBUG: Processing object:", obj_name, "\n")
       obj_info <- safe_get_object_info(obj_name)
+      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
       
       # Store in appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to functions\n")
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to variables\n")
       }
     }
     
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
+    cat("DEBUG: Workspace index updated with", length(workspace_objects), "objects\n")
+    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), "data_frames:", length(.GlobalEnv$workspace_index$data_frames), "functions:", length(.GlobalEnv$workspace_index$functions), "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
     
   }, error = function(e) {
-    # Silent fail
+    cat("ERROR: Failed to update workspace index:", e$message, "\n")
   })
 }
 
@@ -2226,8 +2405,17 @@ get_editor_context <- function() {
 # Simple context assembly (no complex environments)
 assemble_simple_context <- function(query) {
   tryCatch({
+    cat("DEBUG: Assembling simple context...\n")
+    
     # Get workspace_index from global environment
     workspace_index <- .GlobalEnv$workspace_index
+    
+    # Debug workspace_index
+    cat("DEBUG: workspace_index type:", class(workspace_index), "\n")
+    cat("DEBUG: workspace_index keys:", names(workspace_index), "\n")
+    cat("DEBUG: workspace_index$objects length:", length(workspace_index$objects), "\n")
+    cat("DEBUG: workspace_index$data_frames length:", length(workspace_index$data_frames), "\n")
+    cat("DEBUG: workspace_index$functions length:", length(workspace_index$functions), "\n")
     
     context_parts <- list()
     
@@ -2245,16 +2433,20 @@ assemble_simple_context <- function(query) {
     # 2. Get workspace objects
     if (length(workspace_index$objects) > 0) {
       object_names <- names(workspace_index$objects)
+      cat("DEBUG: Adding workspace objects section with", length(object_names), "objects\n")
       context_parts <- c(context_parts, list(
         paste("=== WORKSPACE OBJECTS ==="),
         paste("Total objects:", length(object_names)),
         paste("Objects:", paste(object_names, collapse = ", "))
       ))
+    } else {
+      cat("DEBUG: No workspace objects found in workspace_index$objects\n")
     }
     
     # 3. Get data frames info
     if (length(workspace_index$data_frames) > 0) {
       df_names <- names(workspace_index$data_frames)
+      cat("DEBUG: Adding data frames section with", length(df_names), "dataframes\n")
       df_info <- sapply(df_names, function(name) {
         info <- workspace_index$data_frames[[name]]
         if (!is.null(info$dimensions)) {
@@ -2268,17 +2460,19 @@ assemble_simple_context <- function(query) {
         paste(df_info, collapse = "\n")
       ))
     } else {
-  
+      cat("DEBUG: No data frames found in workspace_index$data_frames\n")
     }
     
     # 4. Get functions info
     if (length(workspace_index$functions) > 0) {
       func_names <- names(workspace_index$functions)
-
+      cat("DEBUG: Adding functions section with", length(func_names), "functions\n")
       context_parts <- c(context_parts, list(
         paste("=== FUNCTIONS ==="),
         paste("Functions:", paste(func_names, collapse = ", "))
       ))
+    } else {
+      cat("DEBUG: No functions found in workspace_index$functions\n")
     }
     
     # 5. Add conversation history
@@ -2301,7 +2495,10 @@ assemble_simple_context <- function(query) {
     # Combine all parts
     final_context <- paste(context_parts, collapse = "\n")
     
-
+    cat("DEBUG: Simple context assembled successfully\n")
+    cat("DEBUG: Final context length:", nchar(final_context), "\n")
+    cat("DEBUG: Final context contains 'WORKSPACE OBJECTS':", grepl("WORKSPACE OBJECTS", final_context), "\n")
+    cat("DEBUG: Final context contains 'DATA FRAMES':", grepl("DATA FRAMES", final_context), "\n")
     
     return(final_context)
     
@@ -2329,6 +2526,7 @@ chunk_file_robustly <- function(file_content, file_path) {
     
     # Fallback: Line-based chunking if function chunking fails
     if (length(chunks) == 0 || any(sapply(chunks, function(c) nchar(c$content) > 2000))) {
+      cat("DEBUG: Function chunking failed, using line-based fallback\n")
       chunks <- chunk_by_lines(file_content, max_lines = 50, file_path = file_path)
     }
     
@@ -2772,7 +2970,7 @@ cleanup_old_data <- function() {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      
+      cat("DEBUG: Creating session_index in global environment for cleanup\n")
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
       global_env$session_index$file_hashes <- new.env()
@@ -2807,7 +3005,7 @@ cleanup_old_data <- function() {
       gc()
       
       global_env$session_index$last_cleanup <- current_time
-      
+      cat("DEBUG: Memory cleanup completed\n")
     }
   }, error = function(e) {
     cat("ERROR: Cleanup failed:", e$message, "\n")
@@ -2917,7 +3115,7 @@ safe_index_update <- function() {
     perf_tracker <- track_performance("index_update")
     
     # Direct workspace scanning (no session_index dependency)
-    
+    cat("DEBUG: Using direct workspace scanning for context\n")
     
     # Cleanup memory
     cleanup_old_data()
@@ -2939,7 +3137,7 @@ update_file_index <- function(file_path, file_content) {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      
+      cat("DEBUG: Creating session_index in global environment\n")
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
     }
@@ -2969,6 +3167,10 @@ update_file_index <- function(file_path, file_content) {
       last_accessed = Sys.time(),
       content_length = nchar(file_content)
     )
+    
+    cat("DEBUG: Updated index for", file_path, "with", length(chunks), "chunks\n")
+    cat("DEBUG: File metadata:", file_metadata$function_count, "functions,", 
+        file_metadata$chunk_count, "chunks\n")
     
   }, error = function(e) {
     cat("ERROR: Failed to update index for", file_path, ":", e$message, "\n")
@@ -3001,7 +3203,7 @@ assemble_intelligent_context_safe <- function(query) {
 # =============================================================================
 
 # Initialize the simple system when package loads
-
+cat("DEBUG: Initializing simple, safe indexing system\n")
 
 # Initialize workspace_index in global environment
 if (!exists("workspace_index", envir = .GlobalEnv)) {
@@ -3012,7 +3214,7 @@ if (!exists("workspace_index", envir = .GlobalEnv)) {
     variables = list(),
     last_updated = NULL
   )
-  
+  cat("DEBUG: workspace_index initialized in global environment\n")
 }
 
 update_workspace_index()
@@ -3020,32 +3222,33 @@ update_workspace_index()
 #' Smart filtering functions for workspace objects
 #' @export
 smart_filter_objects <- function(query, objects) {
-
+  cat("DEBUG: Smart filtering query:", query, "\n")
+  cat("DEBUG: Total objects available:", length(objects), "\n")
   
   # Extract keywords from query
   keywords <- extract_keywords(query)
-
+  cat("DEBUG: Extracted keywords:", paste(keywords, collapse = ", "), "\n")
   
   # Try exact matches first
   exact_matches <- find_exact_matches(keywords, objects)
-
+  cat("DEBUG: Exact matches found:", length(exact_matches), "\n")
   
   # If no exact matches, try fuzzy/partial
   if (length(exact_matches) == 0) {
-  
+    cat("DEBUG: No exact matches, trying fuzzy/partial matching\n")
     matches <- find_partial_matches(keywords, objects)
-    
+    cat("DEBUG: Partial/fuzzy matches found:", length(matches), "\n")
   } else {
     matches <- exact_matches
   }
   
   # If still no matches, return everything (fallback)
   if (length(matches) == 0) {
-  
+    cat("DEBUG: No matches found, using comprehensive mode (all objects)\n")
     return(objects)
   }
   
-
+  cat("DEBUG: Returning filtered objects:", length(matches), "\n")
   return(matches)
 }
 
@@ -3104,6 +3307,7 @@ find_exact_matches <- function(keywords, objects) {
     # Check for exact matches
     for (keyword in keywords) {
       if (obj_name_lower == keyword) {
+        cat("DEBUG: Exact match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3125,12 +3329,14 @@ find_partial_matches <- function(keywords, objects) {
     for (keyword in keywords) {
       # Check if keyword is contained in object name
       if (grepl(keyword, obj_name_lower, fixed = TRUE)) {
+        cat("DEBUG: Partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
       
       # Check if object name is contained in keyword (for abbreviations)
       if (grepl(obj_name_lower, keyword, fixed = TRUE)) {
+        cat("DEBUG: Reverse partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3141,6 +3347,7 @@ find_partial_matches <- function(keywords, objects) {
       keyword_no_underscore <- gsub("_", "", keyword)
       
       if (obj_no_underscore == keyword_no_underscore) {
+        cat("DEBUG: Underscore variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3149,6 +3356,7 @@ find_partial_matches <- function(keywords, objects) {
       # "salesData" should match "sales_data"
       obj_camel <- gsub("_([a-z])", "\\U\\1", obj_name_lower, perl = TRUE)
       if (obj_camel == keyword) {
+        cat("DEBUG: CamelCase variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3157,18 +3365,22 @@ find_partial_matches <- function(keywords, objects) {
     # Check for data type matches
     for (keyword in keywords) {
       if (keyword == "dataframe" && obj$is_data_frame) {
+        cat("DEBUG: Dataframe type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "plot" && (grepl("plot", obj_name_lower) || grepl("graph", obj_name_lower) || grepl("chart", obj_name_lower))) {
+        cat("DEBUG: Plot type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "function" && obj$is_function) {
+        cat("DEBUG: Function type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "vector" && obj$is_vector) {
+        cat("DEBUG: Vector type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3387,7 +3599,9 @@ capture_context_smart <- function(query = NULL) {
       
       # Filter objects if query provided
       if (!is.null(query) && nchar(query) > 0) {
+        cat("DEBUG: Applying smart filtering for query:", query, "\n")
         filtered_objects <- smart_filter_objects(query, all_objects)
+        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         # Return structured list with filtered objects
         return(list(
           workspace_objects = filtered_objects,
@@ -3396,7 +3610,7 @@ capture_context_smart <- function(query = NULL) {
           timestamp = Sys.time()
         ))
       } else {
-        
+        cat("DEBUG: No query provided, returning all objects\n")
         # Return structured list with all objects
         return(list(
           workspace_objects = all_objects,
@@ -3427,11 +3641,11 @@ capture_context_smart <- function(query = NULL) {
 #' @export
 update_workspace_index_incremental <- function() {
   tryCatch({
-    
+    cat("DEBUG: Updating workspace index incrementally...\n")
     
     # Ensure workspace_index exists
     if (!exists("workspace_index", envir = .GlobalEnv)) {
-      
+      cat("DEBUG: workspace_index not found, initializing...\n")
       .GlobalEnv$workspace_index <- list(
         objects = list(),
         data_frames = list(),
@@ -3443,11 +3657,12 @@ update_workspace_index_incremental <- function() {
     
     # Get current workspace objects
     current_objects <- ls(envir = globalenv())
+    cat("DEBUG: Found", length(current_objects), "current workspace objects\n")
     
     # Get last scan info
     last_scan <- .GlobalEnv$workspace_index$last_scan_objects
     if (is.null(last_scan)) {
-      
+      cat("DEBUG: No previous scan found, doing full scan\n")
       return(update_workspace_index_full())
     }
     
@@ -3455,10 +3670,14 @@ update_workspace_index_incremental <- function() {
     new_objects <- setdiff(current_objects, last_scan)
     removed_objects <- setdiff(last_scan, current_objects)
     
+    cat("DEBUG: New objects:", length(new_objects), paste(new_objects, collapse = ", "), "\n")
+    cat("DEBUG: Removed objects:", length(removed_objects), paste(removed_objects, collapse = ", "), "\n")
     
     # Process only new objects
     if (length(new_objects) > 0) {
+      cat("DEBUG: Processing", length(new_objects), "new objects\n")
       for (obj_name in new_objects) {
+        cat("DEBUG: Processing new object:", obj_name, "\n")
         obj_info <- safe_get_object_info(obj_name)
         
         # Store in appropriate category
@@ -3466,17 +3685,22 @@ update_workspace_index_incremental <- function() {
         
         if (obj_info$is_data_frame) {
           .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+          cat("DEBUG: Added", obj_name, "to data_frames\n")
         } else if (obj_info$is_function) {
           .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+          cat("DEBUG: Added", obj_name, "to functions\n")
         } else {
           .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+          cat("DEBUG: Added", obj_name, "to variables\n")
         }
       }
     }
     
     # Remove deleted objects
     if (length(removed_objects) > 0) {
+      cat("DEBUG: Removing", length(removed_objects), "deleted objects\n")
       for (obj_name in removed_objects) {
+        cat("DEBUG: Removing object:", obj_name, "\n")
         .GlobalEnv$workspace_index$objects[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$functions[[obj_name]] <- NULL
@@ -3502,6 +3726,7 @@ update_workspace_index_incremental <- function() {
           current_class <- paste(class(current_obj), collapse = ", ")
           
           if (stored_obj$length != current_length || stored_obj$class != current_class) {
+            cat("DEBUG: Object modified:", obj_name, "\n")
             modified_objects <- c(modified_objects, obj_name)
             
             # Update the object info
@@ -3521,13 +3746,17 @@ update_workspace_index_incremental <- function() {
       }
     }
     
+    cat("DEBUG: Modified objects:", length(modified_objects), paste(modified_objects, collapse = ", "), "\n")
     
     # Update last scan info
     .GlobalEnv$workspace_index$last_scan_objects <- current_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    
-
+    cat("DEBUG: Incremental update complete\n")
+    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
+        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
+        "functions:", length(.GlobalEnv$workspace_index$functions), 
+        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index incrementally:", e$message, "\n")
@@ -3540,10 +3769,11 @@ update_workspace_index_incremental <- function() {
 #' @export
 update_workspace_index_full <- function() {
   tryCatch({
-    
+    cat("DEBUG: Performing full workspace index update...\n")
     
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
+    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -3553,17 +3783,22 @@ update_workspace_index_full <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
+      cat("DEBUG: Processing object:", obj_name, "\n")
       obj_info <- safe_get_object_info(obj_name)
+      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
       
       # Store in appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to functions\n")
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+        cat("DEBUG: Added", obj_name, "to variables\n")
       }
     }
     
@@ -3571,7 +3806,11 @@ update_workspace_index_full <- function() {
     .GlobalEnv$workspace_index$last_scan_objects <- workspace_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-
+    cat("DEBUG: Full workspace index updated with", length(workspace_objects), "objects\n")
+    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
+        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
+        "functions:", length(.GlobalEnv$workspace_index$functions), 
+        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index:", e$message, "\n")
@@ -3582,23 +3821,28 @@ update_workspace_index_full <- function() {
 #' @export
 capture_context_smart_incremental <- function(query = NULL) {
   tryCatch({
-    
+    cat("DEBUG: Capturing context with incremental processing...\n")
     
     # No incremental update needed - process all objects directly
     
     # Simple approach - process all objects each time
     workspace_objects <- tryCatch({
-      
+      cat("DEBUG: Processing all workspace objects\n")
       
       # Get all objects in global environment
       object_names <- ls(envir = globalenv())
+      cat("DEBUG: Found", length(object_names), "objects\n")
       
       # Process each object with basic info
       all_objects <- lapply(object_names, function(obj_name) {
+        cat("DEBUG: About to process object:", obj_name, "\n")
         tryCatch({
+          cat("DEBUG: Getting object:", obj_name, "\n")
           obj <- get(obj_name, envir = globalenv())
+          cat("DEBUG: Successfully got object:", obj_name, "class:", class(obj), "\n")
           
           # Basic object info
+          cat("DEBUG: Creating obj_info for:", obj_name, "\n")
           obj_info <- list(
             name = obj_name,
             class = paste(class(obj), collapse = ", "),
@@ -3610,12 +3854,15 @@ capture_context_smart_incremental <- function(query = NULL) {
             is_matrix = is.matrix(obj),
             is_array = is.array(obj)
           )
+          cat("DEBUG: Created obj_info for:", obj_name, "\n")
           
           # Add basic details for dataframes only
           if (obj_info$is_data_frame) {
+            cat("  - Processing dataframe:", obj_name, "\n")
             obj_info$dimensions <- dim(obj)
             obj_info$column_names <- names(obj)
           } else if (obj_info$is_function) {
+            cat("  - Processing function:", obj_name, "\n")
             tryCatch({
               obj_info$arguments <- names(formals(obj))
             }, error = function(e) {
@@ -3638,10 +3885,12 @@ capture_context_smart_incremental <- function(query = NULL) {
       
       # Filter objects if query provided
       if (!is.null(query) && nchar(query) > 0) {
+        cat("DEBUG: Applying smart filtering for query:", query, "\n")
         filtered_objects <- smart_filter_objects(query, all_objects)
+        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         return(filtered_objects)
       } else {
-        
+        cat("DEBUG: No query provided, returning all indexed objects\n")
         return(all_objects)
       }
       
@@ -3682,7 +3931,7 @@ capture_context_smart_incremental <- function(query = NULL) {
     })
     
     # Create context data
-    
+    cat("DEBUG: Creating context_data list...\n")
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
@@ -3691,11 +3940,12 @@ capture_context_smart_incremental <- function(query = NULL) {
     
     # Convert to JSON and back to ensure proper structure
     json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
+    cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
     
     # Convert back to list for consistency
     context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
     
-    
+    cat("DEBUG: Returning context_data\n")
     context_data
     
   }, error = function(e) {
