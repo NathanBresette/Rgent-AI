@@ -4072,29 +4072,12 @@ find_last_plot_command <- function() {
         "geom_bar(", "coord_polar("
       )
       
-      # First pass: Look specifically for ggplot commands (including geom_ commands)
+      # First pass: Look for all plot commands (prioritize most recent)
       for (i in length(history_lines):1) {
         line <- history_lines[i]
-        if (grepl("ggplot\\(", line, fixed = TRUE)) {
-          cat("DEBUG: Found ggplot line at position", i, ":", line, "\n")
-          # For ggplot2, we need to reconstruct the multi-line command
-          return(reconstruct_ggplot_command(history_lines, i))
-        }
-      }
-      
-      # Second pass: Look for geom_ commands that might be part of ggplot
-      for (i in length(history_lines):1) {
-        line <- history_lines[i]
-        if (grepl("geom_", line, fixed = TRUE)) {
-          cat("DEBUG: Found geom command at position", i, ":", line, "\n")
-          # Check if this is part of a ggplot command by looking backwards
-          return(reconstruct_ggplot_command(history_lines, i))
-        }
-      }
-      
-      # Third pass: Look for other plot commands
-      for (i in length(history_lines):1) {
-        line <- history_lines[i]
+        
+        # Check for all plot commands in order of priority
+        # First check for specific plot commands (excluding geom_)
         for (cmd in plot_commands) {
           if (grepl(cmd, line, fixed = TRUE)) {
             cat("DEBUG: Found plot command at position", i, ":", line, "\n")
@@ -4104,6 +4087,20 @@ find_last_plot_command <- function() {
               found = TRUE
             ))
           }
+        }
+        
+        # Then check for ggplot commands (they need special handling)
+        if (grepl("ggplot\\(", line, fixed = TRUE)) {
+          cat("DEBUG: Found ggplot line at position", i, ":", line, "\n")
+          # For ggplot2, we need to reconstruct the multi-line command
+          return(reconstruct_ggplot_command(history_lines, i))
+        }
+        
+        # Finally check for geom_ commands that might be part of ggplot
+        if (grepl("geom_", line, fixed = TRUE)) {
+          cat("DEBUG: Found geom command at position", i, ":", line, "\n")
+          # Check if this is part of a ggplot command by looking backwards
+          return(reconstruct_ggplot_command(history_lines, i))
         }
       }
     }
