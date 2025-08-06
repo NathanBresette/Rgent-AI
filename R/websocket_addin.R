@@ -1145,9 +1145,9 @@ start_websocket_server <- function() {
                 "5. Code examples for better visualizations"
               )
               
-              # Send to AI for interpretation
+              # Send to AI for streaming interpretation
               ai_response <- httr::POST(
-                "https://rgent.onrender.com/chat",
+                "https://rgent.onrender.com/stream",
                 body = list(
                   access_code = get_current_access_code(),
                   prompt = prompt,
@@ -1157,15 +1157,24 @@ start_websocket_server <- function() {
                   )
                 ),
                 encode = "json",
-                httr::timeout(30)
+                httr::timeout(60),
+                httr::write_stream(function(chunk) {
+                  # Send each chunk to frontend
+                  chunk_response <- list(
+                    action = "plot_analysis_chunk",
+                    chunk = rawToChar(chunk)
+                  )
+                  ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                })
               )
               
               if (httr::status_code(ai_response) == 200) {
-                ai_result <- httr::content(ai_response)
-                list(action = "plot_analysis", 
-                     success = TRUE,
-                     plot_info = analysis,
-                     ai_interpretation = ai_result$response)
+                # Send completion signal
+                completion_response <- list(
+                  action = "plot_analysis_complete",
+                  plot_info = analysis
+                )
+                ws$send(jsonlite::toJSON(completion_response, auto_unbox = TRUE))
               } else {
                 list(action = "plot_analysis", 
                      success = FALSE,

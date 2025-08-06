@@ -922,6 +922,16 @@
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
               break;
+            case "plot_analysis_chunk":
+              // Handle streaming plot analysis chunks
+              if (data.chunk) {
+                addStreamingChunk(data.chunk);
+              }
+              break;
+            case "plot_analysis_complete":
+              // Finish streaming and apply formatting
+              finishStreaming();
+              break;
             case "theme_info":
               // Apply RStudio theme with actual colors
               if (data.is_dark !== undefined) {
@@ -1052,8 +1062,22 @@
         console.log("DEBUG: finishStreaming called");
         if (currentStreamingMessage) {
           console.log("DEBUG: Processing final message for formatting");
-          // Process the final message for code blocks and buttons
-          processMessageContent(currentStreamingMessage);
+          
+          // Check if this is a plot analysis message (has plot analysis content)
+          const content = currentStreamingMessage.innerHTML;
+          const isPlotAnalysis = content.includes("plot") || content.includes("histogram") || 
+                                content.includes("scatter") || content.includes("boxplot") ||
+                                content.includes("density") || content.includes("violin") ||
+                                content.includes("correlation") || content.includes("outlier");
+          
+          if (isPlotAnalysis) {
+            // Use plot analysis specific processing (no Execute & Fix button)
+            processPlotAnalysisContent(currentStreamingMessage);
+          } else {
+            // Use regular processing for code blocks and buttons
+            processMessageContent(currentStreamingMessage);
+          }
+          
           currentStreamingMessage = null;
         }
         if (streamingTimeout) {
