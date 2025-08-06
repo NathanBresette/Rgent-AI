@@ -679,7 +679,79 @@ start_websocket_server <- function() {
             cat("Exception during backend call:", e$message, "\n")
             cat("DEBUG: Exception details:", toString(e), "\n")
             cat("DEBUG: Exception class:", class(e), "\n")
-            list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
+            
+            # Check if it's a timeout error
+            if (grepl("timeout", tolower(e$message)) || grepl("timed out", tolower(e$message))) {
+              # First retry with increased timeout
+              cat("DEBUG: Timeout detected, attempting retry with increased timeout...\n")
+              
+              # Send "One moment..." message to user
+              retry_message <- list(
+                action = "ai_response", 
+                message = "⏳ One moment, processing your request...",
+                streaming = FALSE
+              )
+              ws$send(jsonlite::toJSON(retry_message, auto_unbox = TRUE))
+              
+              # Wait a moment
+              Sys.sleep(2)
+              
+              # Retry with increased timeout
+              tryCatch({
+                response <- httr::POST(
+                  "https://rgent.onrender.com/chat/stream",
+                  body = request_body,
+                  encode = "json",
+                  httr::timeout(60),  # Increased to 60 seconds
+                  httr::add_headers("Accept" = "text/event-stream")
+                )
+                
+                if (httr::status_code(response) == 200) {
+                  # Process the successful response
+                  response_text <- httr::content(response, "text")
+                  # ... (same processing as before)
+                  list(action = "ai_response", message = "✅ Request completed successfully!")
+                } else {
+                  # Still failed, send environment reduction tips
+                  tips_message <- list(
+                    action = "ai_response", 
+                    message = paste(
+                      "❌ Still experiencing delays. Try reducing your environment size:\n\n",
+                      "💡 **Tips to reduce environment size:**\n",
+                      "• Remove unused variables: `rm(unused_var)`\n", 
+                      "• Clear large data frames: `rm(large_df)`\n",
+                      "• Remove functions: `rm(function_name)`\n",
+                      "• Clear workspace: `rm(list = ls())`\n",
+                      "• Restart R session: `Session > Restart R`\n\n",
+                      "After cleaning up, try your request again!"
+                    ),
+                    streaming = FALSE
+                  )
+                  ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
+                  list(action = "ai_response", message = "Environment size reduction tips sent")
+                }
+              }, error = function(retry_e) {
+                # Second retry also failed, send tips
+                cat("DEBUG: Retry also failed:", retry_e$message, "\n")
+                tips_message <- list(
+                  action = "ai_response", 
+                  message = paste(
+                    "❌ Request timed out. Your environment has too much data.\n\n",
+                    "💡 **Quick fixes:**\n",
+                    "• `rm(list = ls())` - Clear all variables\n",
+                    "• `Session > Restart R` - Fresh start\n",
+                    "• Remove large objects: `rm(large_dataframe)`\n\n",
+                    "Try again after cleaning up your environment!"
+                  ),
+                  streaming = FALSE
+                )
+                ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
+                list(action = "ai_response", message = "Environment cleanup tips sent")
+              })
+            } else {
+              # Non-timeout error
+              list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
+            }
           })
         },
         "initialize_session" = {
