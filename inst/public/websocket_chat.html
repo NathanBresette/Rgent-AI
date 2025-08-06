@@ -922,16 +922,6 @@
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
               break;
-            case "plot_analysis_chunk":
-              // Handle streaming plot analysis chunks
-              if (data.chunk) {
-                addStreamingChunk(data.chunk);
-              }
-              break;
-            case "plot_analysis_complete":
-              // Finish streaming and apply formatting
-              finishStreaming();
-              break;
             case "theme_info":
               // Apply RStudio theme with actual colors
               if (data.is_dark !== undefined) {
