@@ -180,22 +180,16 @@ start_websocket_server <- function() {
   
   # Define message handler function
   message_handler <- function(ws, isBinary, data) {
-    cat("Raw message received:", data, "\n")
-    cat("DEBUG: Message length:", nchar(data), "\n")
-    
     # Global error handler to catch any unhandled errors
     tryCatch({
       # Parse JSON message
       request <- jsonlite::fromJSON(data)
-      cat("Parsed request:", request$action, "\n")
-                  cat("DEBUG: Request details:", tryCatch(toString(request), error = function(e) "Error converting request to string"), "\n")
       
       # Handle different actions
       response <- switch(request$action,
         "set_access_code" = {
           # Store access code from frontend
           .GlobalEnv$current_access_code <- request$access_code
-          cat("Access code set to:", request$access_code, "\n")
           list(action = "access_code_set", status = "success")
         },
         "get_context" = {
@@ -384,7 +378,6 @@ start_websocket_server <- function() {
         },
         "chat_with_ai" = {
           # Use intelligent indexing system
-          cat("Using intelligent indexing system for chat...\n")
           
           # Add user message to conversation history
           add_to_conversation_history("user", request$message)
@@ -452,66 +445,6 @@ start_websocket_server <- function() {
           # Use streaming RAG chat endpoint
           tryCatch({
             # Prepare request body for simple chat
-            cat("DEBUG: current_context type:", class(current_context), "\n")
-            cat("DEBUG: current_context keys:", names(current_context), "\n")
-            cat("DEBUG: current_context length:", length(current_context), "\n")
-            cat("DEBUG: current_context structure:", str(current_context, max.level = 1), "\n")
-            
-            # Check if context has meaningful data
-            if (!is.null(current_context$workspace_objects)) {
-              cat("DEBUG: Number of workspace objects:", length(current_context$workspace_objects), "\n")
-              object_names <- sapply(current_context$workspace_objects, function(obj) obj$name)
-              cat("DEBUG: Object names:", paste(object_names, collapse = ", "), "\n")
-            }
-            
-            if (!is.null(current_context$file_info)) {
-              cat("DEBUG: Has file info:", !is.null(current_context$file_info$file_contents), "\n")
-              if (!is.null(current_context$file_info$file_contents)) {
-                cat("DEBUG: File content length:", nchar(current_context$file_info$file_contents), "\n")
-              }
-            }
-            
-            # Debug intelligent_context
-            cat("DEBUG: intelligent_context type:", class(intelligent_context), "\n")
-            cat("DEBUG: intelligent_context length:", length(intelligent_context), "\n")
-            cat("DEBUG: intelligent_context first 200 chars:", substr(intelligent_context, 1, 200), "\n")
-            cat("DEBUG: intelligent_context contains 'dataframe':", grepl("dataframe", tolower(intelligent_context)), "\n")
-            cat("DEBUG: intelligent_context contains 'sales_data':", grepl("sales_data", intelligent_context), "\n")
-            
-            # Debug current_context structure
-            cat("DEBUG: current_context type:", class(current_context), "\n")
-            cat("DEBUG: current_context keys:", names(current_context), "\n")
-            cat("DEBUG: current_context length:", length(current_context), "\n")
-            
-            # Debug workspace_objects
-            if ("workspace_objects" %in% names(current_context)) {
-              cat("DEBUG: workspace_objects type:", class(current_context$workspace_objects), "\n")
-              cat("DEBUG: workspace_objects length:", length(current_context$workspace_objects), "\n")
-              if (length(current_context$workspace_objects) > 0) {
-                cat("DEBUG: First workspace object:", names(current_context$workspace_objects)[1], "\n")
-                cat("DEBUG: First object structure:", str(current_context$workspace_objects[[1]]), "\n")
-              }
-            }
-            
-            # Debug file_info
-            if ("file_info" %in% names(current_context)) {
-              cat("DEBUG: file_info type:", class(current_context$file_info), "\n")
-              cat("DEBUG: file_info keys:", names(current_context$file_info), "\n")
-              if ("file_contents" %in% names(current_context$file_info)) {
-                file_content <- current_context$file_info$file_contents
-                cat("DEBUG: file_contents type:", class(file_content), "\n")
-                cat("DEBUG: file_contents length:", length(file_content), "\n")
-                if (length(file_content) > 0) {
-                  cat("DEBUG: First line of file:", toString(file_content[1]), "\n")
-                }
-              }
-            }
-            
-            # Debug environment_info
-            if ("environment_info" %in% names(current_context)) {
-              cat("DEBUG: environment_info type:", class(current_context$environment_info), "\n")
-              cat("DEBUG: environment_info keys:", names(current_context$environment_info), "\n")
-            }
             
             # Get access code from global environment or use default
             current_access_code <- if (!is.null(.GlobalEnv$current_access_code)) .GlobalEnv$current_access_code else "DEMO123"
@@ -584,11 +517,11 @@ start_websocket_server <- function() {
                 if (grepl("^data: ", line)) {
                   # Extract JSON data from SSE format
                   json_data <- substring(line, 7)  # Remove "data: " prefix
-                  cat("DEBUG: Extracted JSON data:", json_data, "\n")
+
                   if (json_data != "[DONE]") {
                     tryCatch({
                       chunk_data <- jsonlite::fromJSON(json_data)
-                      cat("DEBUG: Parsed chunk_data:", toString(chunk_data), "\n")
+
                       
                       if (!is.null(chunk_data$chunk)) {
                         chunks <- c(chunks, chunk_data$chunk)
@@ -632,7 +565,7 @@ start_websocket_server <- function() {
                       
                       # Check if this is the final chunk
                       if (!is.null(chunk_data$done) && chunk_data$done) {
-                        cat("DEBUG: Received final chunk, finishing stream\n")
+
                         
                         # Send any remaining buffer
                         if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
@@ -656,7 +589,6 @@ start_websocket_server <- function() {
               # Add AI response to conversation history
               if (nchar(full_response) > 0) {
                 add_to_conversation_history("ai", full_response)
-                cat("DEBUG: Added AI response to conversation history. Length:", nchar(full_response), "\n")
               }
               
               # Send finish signal
@@ -669,16 +601,10 @@ start_websocket_server <- function() {
               
               list(action = "streaming_complete")
             } else {
-              cat("Backend returned error status:", httr::status_code(response), "\n")
               error_content <- httr::content(response)
-              cat("Error content:", toString(error_content), "\n")
-              cat("DEBUG: Full error response:", toString(error_content), "\n")
               list(action = "ai_response", message = paste("Error connecting to AI service. Status:", httr::status_code(response)))
             }
           }, error = function(e) {
-            cat("Exception during backend call:", e$message, "\n")
-            cat("DEBUG: Exception details:", toString(e), "\n")
-            cat("DEBUG: Exception class:", class(e), "\n")
             list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
           })
         },
@@ -723,8 +649,6 @@ start_websocket_server <- function() {
         },
         "detect_changes" = {
           # Detect changes since last context capture
-          cat("Detecting context changes...\n")
-          
           current_context <- capture_context()
           last_context <- .GlobalEnv$last_context_state
           
@@ -747,8 +671,6 @@ start_websocket_server <- function() {
         },
         "store_changes" = {
           # Store detected changes in backend
-          cat("Storing context changes...\n")
-          
           session_id <- .GlobalEnv$current_session_id
           if (is.null(session_id)) {
             list(action = "changes_error", message = "No active session")
@@ -778,8 +700,6 @@ start_websocket_server <- function() {
         },
         "semantic_search" = {
           # Perform semantic search for relevant context
-          cat("Performing semantic search...\n")
-          
           session_id <- .GlobalEnv$current_session_id
           if (is.null(session_id)) {
             list(action = "search_error", message = "No active session")
@@ -1047,9 +967,6 @@ start_websocket_server <- function() {
         },
         "new_conversation" = {
           # Clear conversation history
-          cat("Starting new conversation - clearing history\n")
-          
-          # Clear conversation history
           .GlobalEnv$conversation_history <- list()
           
           list(action = "new_conversation", status = "success", message = "Conversation history cleared. Workspace context refreshed.")
@@ -1098,45 +1015,26 @@ start_websocket_server <- function() {
       
       # Send response back to JavaScript
       tryCatch({
-        cat("DEBUG: Sending response to frontend...\n")
         response_json <- jsonlite::toJSON(response, auto_unbox = TRUE)
-        cat("DEBUG: Response JSON length:", nchar(response_json), "\n")
         ws$send(response_json)
-        cat("DEBUG: Response sent successfully\n")
       }, error = function(e) {
-        cat("ERROR sending response to frontend:", e$message, "\n")
-        cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
         # Try to send a simple error response
         tryCatch({
           error_response <- list(action = "error", message = "Error processing request")
           ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
         }, error = function(e2) {
-          cat("ERROR sending error response:", e2$message, "\n")
+          # Silent fail
         })
       })
       
     }, error = function(e) {
-      # Global error handler - print traceback for any unhandled error
-      cat("GLOBAL ERROR HANDLER: Error in message handler:", e$message, "\n")
-      cat("GLOBAL ERROR HANDLER: Error class:", class(e), "\n")
-      cat("GLOBAL ERROR HANDLER: Error type:", typeof(e), "\n")
-      cat("GLOBAL ERROR HANDLER: Full error object:", toString(e), "\n")
-      cat("GLOBAL ERROR HANDLER: Traceback:\n")
-      traceback(3)
-      
-      # Send error response
-      cat("Error in message handler:", e$message, "\n")
-      cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
+      # Global error handler - send error response
       error_response <- list(action = "error", message = e$message)
       tryCatch({
-        cat("DEBUG: Sending error response to frontend...\n")
         error_json <- jsonlite::toJSON(error_response, auto_unbox = TRUE)
-        cat("DEBUG: Error JSON length:", nchar(error_json), "\n")
         ws$send(error_json)
-        cat("DEBUG: Error response sent successfully\n")
       }, error = function(e2) {
-        cat("Failed to send error response:", e2$message, "\n")
-        cat("Error details:", tryCatch(toString(e2), error = function(e3) "Error converting error to string"), "\n")
+        # Silent fail
       })
     })
   }
@@ -1148,8 +1046,6 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
-          cat("WebSocket connection opened\n")
-          
           # Send theme information immediately upon connection
           tryCatch({
             theme_info <- get_rstudio_theme()
@@ -1162,9 +1058,8 @@ start_websocket_server <- function() {
               colors = theme_info$colors
             )
             ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
-            cat("Theme information sent to client\n")
           }, error = function(e) {
-            cat("Error sending theme info:", e$message, "\n")
+            # Silent fail
           })
           
           # Set up message handler
@@ -1173,16 +1068,15 @@ start_websocket_server <- function() {
           })
         },
         onWSClose = function(ws) {
-          cat("WebSocket connection closed\n")
+          # Connection closed silently
         }
       )
     )
     
-    cat("WebSocket server started on ws://127.0.0.1:8888\n")
+    # WebSocket server started silently
     
   }, error = function(e) {
-    cat("Error starting WebSocket server on port 8888:", e$message, "\n")
-    cat("Trying alternative port 8889...\n")
+    # Try alternative port
     
     # Try alternative port
     tryCatch({
