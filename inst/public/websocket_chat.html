@@ -916,7 +916,8 @@
             case "plot_analysis":
               if (data.success) {
                 // Show step-by-step progress
-                addMessage("✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation, "ai");
+                const fullMessage = "✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation;
+                addMessage(fullMessage, "ai");
               } else {
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
@@ -1301,13 +1302,16 @@
                 messageDiv.appendChild(textDiv);
               }
             } else {
-              messageDiv.textContent = content;
+              messageDiv.innerHTML = content;
+              processMarkdownFormatting(messageDiv);
             }
           } else {
-            messageDiv.textContent = content;
+            messageDiv.innerHTML = content;
+            processMarkdownFormatting(messageDiv);
           }
         } else {
-          messageDiv.textContent = content;
+          messageDiv.innerHTML = content;
+          processMarkdownFormatting(messageDiv);
         }
         
         container.appendChild(messageDiv);
