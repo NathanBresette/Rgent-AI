@@ -48,6 +48,15 @@ if (!exists("conversation_history") || !is.list(conversation_history)) {
   cat("DEBUG: conversation_history initialized\n")
 }
 
+# Helper function to get current access code
+get_current_access_code <- function() {
+  if(exists("current_access_code", envir = .GlobalEnv)) {
+    .GlobalEnv$current_access_code
+  } else {
+    stop("No access code set. Please validate your access code in the interface first.")
+  }
+}
+
 #' Launch WebSocket-based AI Chat Addin
 #' @export
 launch_websocket_chat <- function() {
@@ -286,7 +295,7 @@ start_websocket_server <- function() {
               fix_response <- httr::POST(
                 "https://rgent.onrender.com/chat",
                 body = list(
-                  access_code = "DEMO123",
+                  access_code = get_current_access_code(),
                   prompt = paste("The following R code failed with error:", last_error, 
                                "\n\nFailed code:\n", request$code,
                                "\n\nPlease provide a corrected version."),
@@ -333,7 +342,7 @@ start_websocket_server <- function() {
             fix_response <- httr::POST(
               "https://rgent.onrender.com/chat",
               body = list(
-                access_code = "DEMO123",
+                access_code = get_current_access_code(),
                 prompt = paste("The following R code failed with error:", e$message, 
                              "\n\nFailed code:\n", request$code,
                              "\n\nPlease provide a corrected version."),
@@ -687,7 +696,7 @@ start_websocket_server <- function() {
             response <- httr::POST(
               "https://rgent.onrender.com/api/initialize-session",
               body = list(
-                access_code = "DEMO123",
+                access_code = get_current_access_code(),
                 session_id = session_id,
                 initial_context = initial_context
               ),
@@ -748,7 +757,7 @@ start_websocket_server <- function() {
               response <- httr::POST(
                 "https://rgent.onrender.com/api/store-changes",
                 body = list(
-                  access_code = "DEMO123",
+                  access_code = get_current_access_code(),
                   session_id = session_id,
                   changes = request$changes
                 ),
@@ -822,7 +831,7 @@ start_websocket_server <- function() {
               response <- httr::POST(
                 "https://rgent.onrender.com/chat",
                 body = list(
-                  access_code = "DEMO123",
+                  access_code = get_current_access_code(),
                   prompt = request$message,
                   context_data = current_context
                 ),
@@ -844,8 +853,12 @@ start_websocket_server <- function() {
           }
         },
         "get_last_error" = {
-          # Capture last error with context and code
-          error_details <- capture_last_error()
+          # Check if access code is set
+          if (!exists("current_access_code", envir = .GlobalEnv)) {
+            list(action = "error", message = "Please validate your access code first using the 'Validate Access' button.")
+          } else {
+            # Capture last error with context and code
+            error_details <- capture_last_error()
           
           # Safely check if there's an error
           has_error <- FALSE
@@ -895,7 +908,7 @@ start_websocket_server <- function() {
               
               # Prepare request body
               request_body <- list(
-                access_code = "DEMO123",
+                access_code = get_current_access_code(),
                 prompt = prompt,
                 context_data = error_details$relevant_context
               )
@@ -1030,6 +1043,7 @@ start_websocket_server <- function() {
             # Return success status
             list(action = "get_last_error", status = "streaming_started")
           }
+        }
         },
         "new_conversation" = {
           # Clear conversation history
@@ -2237,7 +2251,7 @@ send_error_to_ai <- function(error_details) {
     response <- httr::POST(
       "https://rgent.onrender.com/chat",
       body = list(
-        access_code = "DEMO123",
+        access_code = get_current_access_code(),
         prompt = prompt,
         context_data = error_details$relevant_context
       ),
