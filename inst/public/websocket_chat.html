@@ -129,6 +129,20 @@
         cursor: pointer !important;
       }
       
+      .analyze-button {
+        background-color: #805ad5 !important;
+        color: white !important;
+        border: none !important;
+        padding: 8px 12px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+      }
+      
+      .analyze-button:hover {
+        background-color: #6b46c1 !important;
+      }
+      
       .access-button {
         background-color: #8e44ad !important;
         color: white !important;
@@ -418,6 +432,7 @@
           <input type="text" id="user-input" placeholder="Type your question here..." disabled>
                       <button onclick="sendMessage()" id="send-button" disabled class="send-button">Send</button>
           <button onclick="debugLastError()" id="debug-error-button" disabled class="debug-button">&#128027; Debug Last Error</button>
+          <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">📊 Analyze Last Plot</button>
         </div>
         <div class="status" id="status">Connecting...</div>
       </div>
@@ -797,6 +812,7 @@
                document.getElementById("send-button").disabled = false;
                document.getElementById("new-conversation-button").disabled = false;
                document.getElementById("debug-error-button").disabled = false;
+               document.getElementById("analyze-plot-button").disabled = false;
                addMessage("Connected! Ask me anything about your R code.", "ai");
              };
              
@@ -813,6 +829,7 @@
                document.getElementById("send-button").disabled = true;
                document.getElementById("new-conversation-button").disabled = true;
                document.getElementById("debug-error-button").disabled = true;
+               document.getElementById("analyze-plot-button").disabled = true;
              };
              
              ws.onerror = function(event) {
@@ -829,6 +846,7 @@
           document.getElementById("send-button").disabled = false;
           document.getElementById("new-conversation-button").disabled = false;
           document.getElementById("debug-error-button").disabled = false;
+          document.getElementById("analyze-plot-button").disabled = false;
           addMessage("Connected! Ask me anything about your R code.", "ai");
         };
         
@@ -893,6 +911,14 @@
               // Handle messages sent to the chat interface
               if (data.message) {
                 addMessage(data.message, "ai");
+              }
+              break;
+            case "plot_analysis":
+              if (data.success) {
+                // Show step-by-step progress
+                addMessage("✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation, "ai");
+              } else {
+                addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
               break;
             case "theme_info":
@@ -1455,6 +1481,22 @@
       
       // Call early theme detection when page loads
       document.addEventListener('DOMContentLoaded', detectInitialTheme);
+      
+      // Analyze Last Plot functionality
+      function analyzeLastPlot() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          alert("Not connected to RStudio");
+          return;
+        }
+        
+        // Add initial message showing we're starting analysis
+        addMessage("🔍 **Starting Plot Analysis...**\n\n*Step 1: Scanning R history for plot commands...*", "ai");
+        
+        // Send the analyze request
+        ws.send(JSON.stringify({
+          action: "analyze_last_plot"
+        }));
+      }
     </script>
 </body>
 </html> 

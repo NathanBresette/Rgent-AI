@@ -1093,6 +1093,91 @@ start_websocket_server <- function() {
             list(action = "toggle_auto_fix", status = "error", message = e$message)
           })
         },
+        "analyze_last_plot" = {
+          # Analyze the last plot command and provide insights
+          cat("Analyzing last plot...\n")
+          
+          tryCatch({
+            # Step 1: Find and analyze the last plot
+            analysis_result <- analyze_last_plot()
+            
+            if (!analysis_result$success) {
+              # No plot found or analysis failed
+              list(action = "plot_analysis", 
+                   success = FALSE, 
+                   message = analysis_result$message)
+            } else {
+              # Send step 2 progress
+              progress_msg <- list(
+                action = "chat_with_ai",
+                message = "*Step 2: Running statistical analysis...*"
+              )
+              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+              
+              # Step 3: Send to AI for interpretation
+              progress_msg <- list(
+                action = "chat_with_ai",
+                message = "*Step 3: Generating insights and recommendations...*"
+              )
+              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+              # Step 2: Send analysis to AI for interpretation
+              analysis <- analysis_result$analysis
+              
+              # Create AI prompt for plot analysis
+              prompt <- paste(
+                "Analyze this plot and provide insights:\n\n",
+                "PLOT COMMAND: ", analysis$plot_command, "\n",
+                "PLOT TYPE: ", analysis$plot_type, "\n",
+                "DATA VARIABLES: ", if(is.list(analysis$data_variables)) {
+                  paste(names(analysis$data_variables), "=", unlist(analysis$data_variables), collapse = ", ")
+                } else {
+                  analysis$data_variables
+                }, "\n\n",
+                "STATISTICAL ANALYSIS RESULTS:\n",
+                paste(names(analysis$analysis_results), ":", 
+                      sapply(analysis$analysis_results, function(x) paste(x, collapse = "\n")), 
+                      collapse = "\n\n"),
+                "\n\nPlease provide:\n",
+                "1. What the plot shows (distribution, trends, patterns)\n",
+                "2. Key statistical insights\n",
+                "3. Any outliers or unusual patterns\n",
+                "4. Suggestions for improvement\n",
+                "5. Code examples for better visualizations"
+              )
+              
+              # Send to AI for interpretation
+              ai_response <- httr::POST(
+                "https://rgent.onrender.com/chat",
+                body = list(
+                  access_code = get_current_access_code(),
+                  prompt = prompt,
+                  context_data = list(
+                    plot_analysis = analysis,
+                    workspace_objects = capture_context()$workspace_objects
+                  )
+                ),
+                encode = "json",
+                httr::timeout(30)
+              )
+              
+              if (httr::status_code(ai_response) == 200) {
+                ai_result <- httr::content(ai_response)
+                list(action = "plot_analysis", 
+                     success = TRUE,
+                     plot_info = analysis,
+                     ai_interpretation = ai_result$response)
+              } else {
+                list(action = "plot_analysis", 
+                     success = FALSE,
+                     message = paste("AI analysis failed. Status:", httr::status_code(ai_response)))
+              }
+            }
+          }, error = function(e) {
+            list(action = "plot_analysis", 
+                 success = FALSE,
+                 message = paste("Plot analysis failed:", e$message))
+          })
+        },
         list(action = "error", message = "Unknown action")
       )
       
@@ -3956,3 +4041,260 @@ capture_context_smart_incremental <- function(query = NULL) {
 }
 
 #' Update workspace index
+
+# =============================================================================
+# PLOT ANALYSIS SYSTEM
+# =============================================================================
+
+#' Find the last plot command in R history
+find_last_plot_command <- function() {
+  tryCatch({
+    # Get recent R history
+    temp_file <- tempfile("history", fileext = ".R")
+    savehistory(temp_file)
+    
+    if (file.exists(temp_file)) {
+      history_lines <- readLines(temp_file)
+      unlink(temp_file)
+      
+      # Look for plot commands in reverse order
+      plot_commands <- c(
+        "hist(", "plot(", "boxplot(", "barplot(", "scatterplot(",
+        "ggplot(", "geom_", "qplot(", "ggplotly(",
+        "plotly::", "leaflet::", "dygraph(",
+        "density(", "geom_density(", "geom_line(", "geom_violin(",
+        "pairs(", "ggpairs(", "GGally::"
+      )
+      
+      for (i in length(history_lines):1) {
+        line <- history_lines[i]
+        for (cmd in plot_commands) {
+          if (grepl(cmd, line, fixed = TRUE)) {
+            return(list(
+              command = line,
+              line_number = i,
+              found = TRUE
+            ))
+          }
+        }
+      }
+    }
+    
+    return(list(found = FALSE, message = "No plot command found in recent history"))
+    
+  }, error = function(e) {
+    return(list(found = FALSE, message = paste("Error reading history:", e$message)))
+  })
+}
+
+#' Identify plot type from command
+identify_plot_type <- function(command) {
+  command_lower <- tolower(command)
+  
+  if (grepl("hist\\(", command_lower)) {
+    return("histogram")
+  } else if (grepl("plot\\(", command_lower)) {
+    # Check if it's a line plot
+    if (grepl("type\\s*=\\s*[\"']l[\"']", command_lower)) {
+      return("line_plot")
+    } else {
+      return("scatter")
+    }
+  } else if (grepl("boxplot\\(", command_lower)) {
+    return("boxplot")
+  } else if (grepl("barplot\\(", command_lower)) {
+    return("barplot")
+  } else if (grepl("density\\(", command_lower)) {
+    return("density")
+  } else if (grepl("pairs\\(", command_lower)) {
+    return("pairs")
+  } else if (grepl("ggpairs\\(", command_lower) || grepl("ggally::", command_lower)) {
+    return("pairs")
+  } else if (grepl("ggplot\\(", command_lower)) {
+    return("ggplot")
+  } else if (grepl("geom_density\\(", command_lower)) {
+    return("density")
+  } else if (grepl("geom_line\\(", command_lower)) {
+    return("line_plot")
+  } else if (grepl("geom_violin\\(", command_lower)) {
+    return("violin")
+  } else if (grepl("geom_", command_lower)) {
+    return("ggplot")
+  } else if (grepl("plotly", command_lower)) {
+    return("interactive")
+  } else if (grepl("leaflet", command_lower)) {
+    return("map")
+  } else {
+    return("unknown")
+  }
+}
+
+#' Extract data variables from plot command
+extract_plot_data <- function(command, plot_type) {
+  tryCatch({
+    # Simple extraction - look for common patterns
+    if (plot_type == "histogram") {
+      # Extract data from hist(data)
+      match <- regexpr("hist\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 5, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "scatter" || plot_type == "line_plot") {
+      # Extract x and y from plot(x, y)
+      match <- regexpr("plot\\(([^,]+),\\s*([^,)]+)[,)]", command)
+      if (match > 0) {
+        x_var <- substr(command, match + 5, match + attr(match, "match.length") - 1)
+        # Extract y variable
+        y_match <- regexpr(",\\s*([^,)]+)[,)]", substr(command, match + 5, nchar(command)))
+        if (y_match > 0) {
+          y_var <- substr(command, match + 5 + y_match, match + 5 + y_match + attr(y_match, "match.length") - 2)
+          return(list(x = x_var, y = y_var))
+        }
+      }
+    } else if (plot_type == "density") {
+      # Extract data from density(data)
+      match <- regexpr("density\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "pairs") {
+      # Extract data from pairs(data) or ggpairs(data)
+      match <- regexpr("(pairs|ggpairs)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 7, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "violin") {
+      # For violin plots, we'll extract the data frame
+      match <- regexpr("ggplot\\(([^,]+)", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 7, match + attr(match, "match.length") - 1)
+        return(data_var)
+      }
+    }
+    
+    return(NULL)
+    
+  }, error = function(e) {
+    return(NULL)
+  })
+}
+
+#' Generate analysis commands based on plot type
+generate_analysis_commands <- function(plot_type, data_var) {
+  commands <- list()
+  
+  if (plot_type == "histogram") {
+    commands$basic_stats <- paste0("summary(", data_var, ")")
+    commands$distribution <- paste0("hist(", data_var, ", plot=FALSE)")
+    commands$outliers <- paste0("boxplot.stats(", data_var, ")$out")
+    commands$normality <- paste0("shapiro.test(", data_var, ")")
+    commands$skewness <- paste0("if(require(e1071)) skewness(", data_var, ") else 'e1071 package needed'")
+  } else if (plot_type == "scatter") {
+    commands$correlation <- paste0("cor(", data_var$x, ", ", data_var$y, ")")
+    commands$regression <- paste0("summary(lm(", data_var$y, " ~ ", data_var$x, "))")
+    commands$outliers <- paste0("outlierTest(lm(", data_var$y, " ~ ", data_var$x, "))")
+  } else if (plot_type == "line_plot") {
+    commands$correlation <- paste0("cor(", data_var$x, ", ", data_var$y, ")")
+    commands$trend_analysis <- paste0("summary(lm(", data_var$y, " ~ ", data_var$x, "))")
+    commands$time_series <- paste0("if(require(ts)) acf(", data_var$y, ") else 'ts package needed'")
+  } else if (plot_type == "density") {
+    commands$basic_stats <- paste0("summary(", data_var, ")")
+    commands$density_estimation <- paste0("density(", data_var, ")")
+    commands$normality <- paste0("shapiro.test(", data_var, ")")
+    commands$skewness <- paste0("if(require(e1071)) skewness(", data_var, ") else 'e1071 package needed'")
+  } else if (plot_type == "pairs") {
+    commands$correlation_matrix <- paste0("cor(", data_var, ")")
+    commands$summary_stats <- paste0("summary(", data_var, ")")
+    commands$multivariate_analysis <- paste0("if(require(corrplot)) corrplot(cor(", data_var, ")) else 'corrplot package needed'")
+  } else if (plot_type == "violin") {
+    commands$summary_stats <- paste0("summary(", data_var, ")")
+    commands$group_comparison <- paste0("if(require(dplyr)) ", data_var, " %>% group_by(cyl) %>% summarise(mean_mpg = mean(mpg)) else 'dplyr package needed'")
+  } else if (plot_type == "boxplot") {
+    commands$basic_stats <- paste0("summary(", data_var, ")")
+    commands$outliers <- paste0("boxplot.stats(", data_var, ")$out")
+  }
+  
+  return(commands)
+}
+
+#' Execute analysis commands and collect results
+execute_plot_analysis <- function(commands) {
+  results <- list()
+  
+  for (name in names(commands)) {
+    tryCatch({
+      # Execute command and capture both output and return value
+      output <- capture.output({
+        result <- eval(parse(text = commands[[name]]))
+      })
+      
+      # Combine output and result
+      if (length(output) > 0) {
+        results[[name]] <- c(output, paste("Result:", toString(result)))
+      } else {
+        results[[name]] <- paste("Result:", toString(result))
+      }
+    }, error = function(e) {
+      results[[name]] <- paste("Error:", e$message)
+    })
+  }
+  
+  return(results)
+}
+
+#' Main plot analysis function
+analyze_last_plot <- function() {
+  tryCatch({
+    # Step 1: Find last plot command
+    plot_info <- find_last_plot_command()
+    
+    if (!plot_info$found) {
+      return(list(
+        success = FALSE,
+        message = "No plot command found in recent history. Try creating a plot first!"
+      ))
+    }
+    
+    # Step 2: Identify plot type
+    plot_type <- identify_plot_type(plot_info$command)
+    
+    # Step 3: Extract data variables
+    data_var <- extract_plot_data(plot_info$command, plot_type)
+    
+    if (is.null(data_var)) {
+      return(list(
+        success = FALSE,
+        message = "Could not extract data variables from plot command."
+      ))
+    }
+    
+    # Step 4: Generate analysis commands
+    commands <- generate_analysis_commands(plot_type, data_var)
+    
+    # Step 5: Execute analysis
+    results <- execute_plot_analysis(commands)
+    
+    # Step 6: Compile analysis
+    analysis <- list(
+      plot_command = plot_info$command,
+      plot_type = plot_type,
+      data_variables = data_var,
+      analysis_results = results,
+      timestamp = Sys.time()
+    )
+    
+    return(list(
+      success = TRUE,
+      analysis = analysis
+    ))
+    
+  }, error = function(e) {
+    return(list(
+      success = FALSE,
+      message = paste("Analysis failed:", e$message)
+    ))
+  })
+}
