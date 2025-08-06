@@ -4064,7 +4064,12 @@ find_last_plot_command <- function() {
         "plotly::", "leaflet::", "dygraph(",
         "density(", "pairs(", "ggpairs(", "GGally::",
         "qqnorm(", "qqplot(", "qqline(", "residuals(", "fitted(",
-        "geom_qq(", "geom_qq_line(", "geom_smooth("
+        "geom_qq(", "geom_qq_line(", "geom_smooth(",
+        "corrplot(", "ggcorrplot(", "heatmap(", "geom_tile(",
+        "ts(", "autoplot(", "acf(", "pacf(", "decompose(",
+        "prcomp(", "biplot(", "kmeans(", "hclust(",
+        "geom_jitter(", "geom_step(", "stat_ecdf(", "pie(",
+        "geom_bar(", "coord_polar("
       )
       
       # First pass: Look specifically for ggplot commands
@@ -4238,6 +4243,26 @@ identify_plot_type <- function(command) {
     return("qq_plot")
   } else if (grepl("residuals\\(", command_lower) || grepl("fitted\\(", command_lower)) {
     return("residual_plot")
+  } else if (grepl("corrplot\\(", command_lower) || grepl("ggcorrplot\\(", command_lower)) {
+    return("correlation_plot")
+  } else if (grepl("heatmap\\(", command_lower) || grepl("geom_tile\\(", command_lower)) {
+    return("heatmap")
+  } else if (grepl("ts\\(", command_lower) || grepl("autoplot\\(", command_lower)) {
+    return("time_series")
+  } else if (grepl("acf\\(", command_lower) || grepl("pacf\\(", command_lower)) {
+    return("autocorrelation")
+  } else if (grepl("decompose\\(", command_lower)) {
+    return("seasonal_decomposition")
+  } else if (grepl("prcomp\\(", command_lower) || grepl("biplot\\(", command_lower)) {
+    return("pca_plot")
+  } else if (grepl("kmeans\\(", command_lower) || grepl("hclust\\(", command_lower)) {
+    return("cluster_plot")
+  } else if (grepl("geom_jitter\\(", command_lower)) {
+    return("jitter_plot")
+  } else if (grepl("geom_step\\(", command_lower) || grepl("stat_ecdf\\(", command_lower)) {
+    return("ecdf_plot")
+  } else if (grepl("pie\\(", command_lower) || grepl("coord_polar\\(", command_lower)) {
+    return("pie_chart")
   } else if (grepl("plotly", command_lower)) {
     return("interactive")
   } else if (grepl("leaflet", command_lower)) {
@@ -4308,6 +4333,59 @@ extract_plot_data <- function(command, plot_type) {
         data_var <- substr(command, match + 9, match + attr(match, "match.length") - 2)
         return(data_var)
       }
+    } else if (plot_type == "correlation_plot") {
+      # Extract data from corrplot(data) or ggcorrplot(data)
+      match <- regexpr("(corrplot|ggcorrplot)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 10, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "heatmap") {
+      # Extract data from heatmap(data) or geom_tile(data)
+      match <- regexpr("(heatmap|geom_tile)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 9, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "time_series") {
+      # Extract data from ts(data) or autoplot(data)
+      match <- regexpr("(ts|autoplot)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 4, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "autocorrelation") {
+      # Extract data from acf(data) or pacf(data)
+      match <- regexpr("(acf|pacf)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 5, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "seasonal_decomposition") {
+      # Extract data from decompose(data)
+      match <- regexpr("decompose\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 10, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "pca_plot") {
+      # Extract data from prcomp(data) or biplot(data)
+      match <- regexpr("(prcomp|biplot)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "cluster_plot") {
+      # Extract data from kmeans(data) or hclust(data)
+      match <- regexpr("(kmeans|hclust)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "jitter_plot" || plot_type == "ecdf_plot" || plot_type == "pie_chart") {
+      # These are ggplot2 plots, handled by the general ggplot2 extraction
+      # They will be caught by the violin/ggplot section below
+      return(NULL)
     } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
       cat("DEBUG: Processing ggplot2 plot type:", plot_type, "\n")
       # For ggplot2 plots, extract the data frame and variables from aes()
@@ -4432,6 +4510,67 @@ generate_analysis_commands <- function(plot_type, data_var) {
     commands$spatial_analysis <- paste0("summary(", data_var, ")")
     commands$coordinates_check <- paste0("if(require(sf)) st_bbox(", data_var, ") else 'sf package needed'")
     commands$data_structure <- paste0("str(", data_var, ")")
+  } else if (plot_type == "correlation_plot") {
+    commands$correlation_matrix <- paste0("cor(", data_var, ")")
+    commands$correlation_significance <- paste0("if(require(Hmisc)) rcorr(as.matrix(", data_var, ")) else 'Hmisc package needed'")
+    commands$correlation_heatmap <- paste0("if(require(corrplot)) corrplot(cor(", data_var, "), method='color') else 'corrplot package needed'")
+  } else if (plot_type == "heatmap") {
+    commands$data_summary <- paste0("summary(", data_var, ")")
+    commands$data_structure <- paste0("str(", data_var, ")")
+    commands$range_analysis <- paste0("range(", data_var, ", na.rm=TRUE)")
+  } else if (plot_type == "time_series") {
+    commands$time_series_summary <- paste0("summary(", data_var, ")")
+    commands$autocorrelation <- paste0("acf(", data_var, ", plot=FALSE)")
+    commands$partial_autocorrelation <- paste0("pacf(", data_var, ", plot=FALSE)")
+    commands$stationarity <- paste0("if(require(tseries)) adf.test(", data_var, ") else 'tseries package needed'")
+  } else if (plot_type == "autocorrelation") {
+    commands$acf_analysis <- paste0("acf(", data_var, ", plot=FALSE)")
+    commands$pacf_analysis <- paste0("pacf(", data_var, ", plot=FALSE)")
+    commands$lag_analysis <- paste0("lag(", data_var, ")")
+  } else if (plot_type == "seasonal_decomposition") {
+    commands$decomposition <- paste0("decompose(", data_var, ")")
+    commands$seasonal_analysis <- paste0("seasonal(", data_var, ")")
+    commands$trend_analysis <- paste0("trend(", data_var, ")")
+  } else if (plot_type == "pca_plot") {
+    commands$pca_summary <- paste0("summary(", data_var, ")")
+    commands$variance_explained <- paste0("(", data_var, ")$sdev^2 / sum((", data_var, ")$sdev^2)")
+    commands$loadings <- paste0("(", data_var, ")$rotation")
+    commands$scores <- paste0("(", data_var, ")$x")
+  } else if (plot_type == "cluster_plot") {
+    commands$cluster_summary <- paste0("summary(", data_var, ")")
+    commands$cluster_sizes <- paste0("table(", data_var, "$cluster)")
+    commands$cluster_centers <- paste0("(", data_var, ")$centers")
+    commands$within_ss <- paste0("(", data_var, ")$withinss")
+  } else if (plot_type == "jitter_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle jitter plots (categorical data analysis)
+    if (!is.null(data_var$x) && !is.null(data_var$y)) {
+      commands$categorical_analysis <- paste0("table(", data_var$data_frame, "$", data_var$x, ")")
+      commands$group_summary <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$x, ") %>% summarise(mean_", data_var$y, " = mean(", data_var$y, ")) else 'dplyr package needed'")
+      commands$anova_test <- paste0("aov(", data_var$data_frame, "$", data_var$y, " ~ ", data_var$data_frame, "$", data_var$x, ")")
+    } else {
+      commands$data_summary <- paste0("summary(", data_var$data_frame, ")")
+      commands$data_structure <- paste0("str(", data_var$data_frame, ")")
+    }
+  } else if (plot_type == "ecdf_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle ECDF plots (cumulative distribution)
+    if (!is.null(data_var$y)) {
+      commands$ecdf_analysis <- paste0("ecdf(", data_var$data_frame, "$", data_var$y, ")")
+      commands$quantile_analysis <- paste0("quantile(", data_var$data_frame, "$", data_var$y, ")")
+      commands$percentile_analysis <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+    } else {
+      commands$data_summary <- paste0("summary(", data_var$data_frame, ")")
+      commands$data_structure <- paste0("str(", data_var$data_frame, ")")
+    }
+  } else if (plot_type == "pie_chart" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle pie charts (categorical data)
+    if (!is.null(data_var$y)) {
+      commands$category_counts <- paste0("table(", data_var$data_frame, "$", data_var$y, ")")
+      commands$category_percentages <- paste0("prop.table(table(", data_var$data_frame, "$", data_var$y, ")) * 100")
+      commands$category_summary <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+    } else {
+      commands$data_summary <- paste0("summary(", data_var$data_frame, ")")
+      commands$data_structure <- paste0("str(", data_var$data_frame, ")")
+    }
   } else if (plot_type == "violin") {
     # Handle violin plots specifically
     if (is.list(data_var) && !is.null(data_var$data_frame)) {
