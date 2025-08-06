@@ -4060,10 +4060,9 @@ find_last_plot_command <- function() {
       # Look for plot commands in reverse order
       plot_commands <- c(
         "hist(", "plot(", "boxplot(", "barplot(", "scatterplot(",
-        "ggplot(", "geom_", "qplot(", "ggplotly(",
+        "ggplot(", "qplot(", "ggplotly(",
         "plotly::", "leaflet::", "dygraph(",
-        "density(", "geom_density(", "geom_line(", "geom_violin(",
-        "pairs(", "ggpairs(", "GGally::"
+        "density(", "pairs(", "ggpairs(", "GGally::"
       )
       
       # First pass: Look specifically for ggplot commands
