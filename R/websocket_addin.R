@@ -39,13 +39,13 @@ if (!exists("global_env") || !is.environment(global_env)) {
   global_env$session_index$file_hashes <- new.env(parent = emptyenv())
   global_env$session_index$functions <- new.env(parent = emptyenv())
   global_env$session_index$variables <- new.env(parent = emptyenv())
-  cat("DEBUG: global_env initialized with proper environment structure\n")
+  
 }
 
 # Initialize conversation history
 if (!exists("conversation_history") || !is.list(conversation_history)) {
   .GlobalEnv$conversation_history <- list()
-  cat("DEBUG: conversation_history initialized\n")
+  
 }
 
 # Helper function to get current access code
@@ -469,24 +469,8 @@ start_websocket_server <- function() {
               )
             )
             
-            # Debug the final request structure
-            cat("DEBUG: Request body structure:\n")
-            cat("DEBUG: - access_code:", request_body$access_code, "\n")
-            cat("DEBUG: - prompt:", request_body$prompt, "\n")
-            cat("DEBUG: - context_data keys:", names(request_body$context_data), "\n")
-            cat("DEBUG: - context_data workspace_objects length:", length(request_body$context_data$workspace_objects), "\n")
-            cat("DEBUG: - context_data file_info keys:", names(request_body$context_data$file_info), "\n")
-            cat("DEBUG: - context_data environment_info keys:", names(request_body$context_data$environment_info), "\n")
-            
-            cat("DEBUG: Sending request with context_data length:", length(request_body$context_data), "\n")
-            cat("DEBUG: Request URL: https://rgent.onrender.com/chat/stream\n")
-            cat("DEBUG: Request body keys:", names(request_body), "\n")
-            cat("DEBUG: About to make HTTP request to backend...\n")
-            
-            # Debug the actual JSON being sent
+            # Convert to JSON for sending
             request_json <- jsonlite::toJSON(request_body, auto_unbox = TRUE)
-            cat("DEBUG: Request JSON length:", nchar(request_json), "\n")
-            cat("DEBUG: Request JSON preview:", substr(request_json, 1, 500), "\n")
             
             response <- httr::POST(
               "https://rgent.onrender.com/chat/stream",
@@ -496,24 +480,16 @@ start_websocket_server <- function() {
               httr::add_headers("Accept" = "text/event-stream")
             )
             
-            cat("Response status:", httr::status_code(response), "\n")
-            cat("DEBUG: Response headers:", toString(httr::headers(response)), "\n")
-            
             if (httr::status_code(response) == 200) {
               # Handle streaming response
               response_text <- httr::content(response, "text")
-              cat("Streaming response received\n")
-              cat("DEBUG: Response text length:", nchar(response_text), "\n")
-              cat("DEBUG: First 200 chars of response:", substr(response_text, 1, 200), "\n")
               
               # Parse Server-Sent Events (SSE) format
               lines <- strsplit(response_text, "\n")[[1]]
-              cat("DEBUG: Number of lines:", length(lines), "\n")
               chunks <- c()
               full_response <- ""
               
               for (line in lines) {
-                cat("DEBUG: Processing line:", line, "\n")
                 if (grepl("^data: ", line)) {
                   # Extract JSON data from SSE format
                   json_data <- substring(line, 7)  # Remove "data: " prefix
@@ -2215,11 +2191,8 @@ safe_get_object_info <- function(obj_name) {
 update_workspace_index <- function() {
   # Safely scan workspace and update index
   tryCatch({
-    cat("DEBUG: Updating workspace index...\n")
-    
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -2249,11 +2222,9 @@ update_workspace_index <- function() {
     }
     
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
-    cat("DEBUG: Workspace index updated with", length(workspace_objects), "objects\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), "data_frames:", length(.GlobalEnv$workspace_index$data_frames), "functions:", length(.GlobalEnv$workspace_index$functions), "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
     
   }, error = function(e) {
-    cat("ERROR: Failed to update workspace index:", e$message, "\n")
+    # Silent fail
   })
 }
 
@@ -2299,17 +2270,8 @@ get_editor_context <- function() {
 # Simple context assembly (no complex environments)
 assemble_simple_context <- function(query) {
   tryCatch({
-    cat("DEBUG: Assembling simple context...\n")
-    
     # Get workspace_index from global environment
     workspace_index <- .GlobalEnv$workspace_index
-    
-    # Debug workspace_index
-    cat("DEBUG: workspace_index type:", class(workspace_index), "\n")
-    cat("DEBUG: workspace_index keys:", names(workspace_index), "\n")
-    cat("DEBUG: workspace_index$objects length:", length(workspace_index$objects), "\n")
-    cat("DEBUG: workspace_index$data_frames length:", length(workspace_index$data_frames), "\n")
-    cat("DEBUG: workspace_index$functions length:", length(workspace_index$functions), "\n")
     
     context_parts <- list()
     
@@ -2327,20 +2289,16 @@ assemble_simple_context <- function(query) {
     # 2. Get workspace objects
     if (length(workspace_index$objects) > 0) {
       object_names <- names(workspace_index$objects)
-      cat("DEBUG: Adding workspace objects section with", length(object_names), "objects\n")
       context_parts <- c(context_parts, list(
         paste("=== WORKSPACE OBJECTS ==="),
         paste("Total objects:", length(object_names)),
         paste("Objects:", paste(object_names, collapse = ", "))
       ))
-    } else {
-      cat("DEBUG: No workspace objects found in workspace_index$objects\n")
     }
     
     # 3. Get data frames info
     if (length(workspace_index$data_frames) > 0) {
       df_names <- names(workspace_index$data_frames)
-      cat("DEBUG: Adding data frames section with", length(df_names), "dataframes\n")
       df_info <- sapply(df_names, function(name) {
         info <- workspace_index$data_frames[[name]]
         if (!is.null(info$dimensions)) {
@@ -2354,19 +2312,17 @@ assemble_simple_context <- function(query) {
         paste(df_info, collapse = "\n")
       ))
     } else {
-      cat("DEBUG: No data frames found in workspace_index$data_frames\n")
+  
     }
     
     # 4. Get functions info
     if (length(workspace_index$functions) > 0) {
       func_names <- names(workspace_index$functions)
-      cat("DEBUG: Adding functions section with", length(func_names), "functions\n")
+
       context_parts <- c(context_parts, list(
         paste("=== FUNCTIONS ==="),
         paste("Functions:", paste(func_names, collapse = ", "))
       ))
-    } else {
-      cat("DEBUG: No functions found in workspace_index$functions\n")
     }
     
     # 5. Add conversation history
@@ -2389,10 +2345,7 @@ assemble_simple_context <- function(query) {
     # Combine all parts
     final_context <- paste(context_parts, collapse = "\n")
     
-    cat("DEBUG: Simple context assembled successfully\n")
-    cat("DEBUG: Final context length:", nchar(final_context), "\n")
-    cat("DEBUG: Final context contains 'WORKSPACE OBJECTS':", grepl("WORKSPACE OBJECTS", final_context), "\n")
-    cat("DEBUG: Final context contains 'DATA FRAMES':", grepl("DATA FRAMES", final_context), "\n")
+
     
     return(final_context)
     
