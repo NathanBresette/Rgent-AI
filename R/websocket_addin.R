@@ -1145,9 +1145,9 @@ start_websocket_server <- function() {
                 "5. Code examples for better visualizations"
               )
               
-              # Send to AI for streaming interpretation
-              ai_response <- httr::POST(
-                "https://rgent.onrender.com/stream",
+              # Send to AI for streaming interpretation using the same endpoint as regular chat
+              response <- httr::POST(
+                "https://rgent.onrender.com/chat/stream",
                 body = list(
                   access_code = get_current_access_code(),
                   prompt = prompt,
@@ -1158,17 +1158,35 @@ start_websocket_server <- function() {
                 ),
                 encode = "json",
                 httr::timeout(60),
-                httr::write_stream(function(chunk) {
-                  # Send each chunk to frontend
-                  chunk_response <- list(
-                    action = "plot_analysis_chunk",
-                    chunk = rawToChar(chunk)
-                  )
-                  ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                })
+                httr::add_headers("Accept" = "text/event-stream")
               )
               
-              if (httr::status_code(ai_response) == 200) {
+              if (httr::status_code(response) == 200) {
+                # Handle streaming response like regular chat
+                response_text <- httr::content(response, "text")
+                
+                # Parse Server-Sent Events (SSE) format
+                lines <- strsplit(response_text, "\n")[[1]]
+                chunks <- c()
+                full_response <- ""
+                
+                for (line in lines) {
+                  if (grepl("^data: ", line)) {
+                    # Extract data from SSE format
+                    data_content <- sub("^data: ", "", line)
+                    if (data_content != "[DONE]") {
+                      # Send chunk to frontend
+                      chunk_response <- list(
+                        action = "plot_analysis_chunk",
+                        chunk = data_content
+                      )
+                      ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                      chunks <- c(chunks, data_content)
+                      full_response <- paste0(full_response, data_content)
+                    }
+                  }
+                }
+                
                 # Send completion signal
                 completion_response <- list(
                   action = "plot_analysis_complete",
@@ -1178,7 +1196,7 @@ start_websocket_server <- function() {
               } else {
                 list(action = "plot_analysis", 
                      success = FALSE,
-                     message = paste("AI analysis failed. Status:", httr::status_code(ai_response)))
+                     message = paste("AI analysis failed. Status:", httr::status_code(response)))
               }
             }
           }, error = function(e) {
