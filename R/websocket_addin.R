@@ -4220,6 +4220,20 @@ identify_plot_type <- function(command) {
   
   if (grepl("hist\\(", command_lower)) {
     return("histogram")
+  } else if (grepl("prcomp\\(", command_lower) || grepl("biplot\\(", command_lower)) {
+    return("pca_plot")
+  } else if (grepl("kmeans\\(", command_lower) || grepl("hclust\\(", command_lower)) {
+    return("cluster_plot")
+  } else if (grepl("corrplot\\(", command_lower) || grepl("ggcorrplot\\(", command_lower)) {
+    return("correlation_plot")
+  } else if (grepl("heatmap\\(", command_lower) || grepl("geom_tile\\(", command_lower)) {
+    return("heatmap")
+  } else if (grepl("ts\\(", command_lower) || grepl("autoplot\\(", command_lower)) {
+    return("time_series")
+  } else if (grepl("acf\\(", command_lower) || grepl("pacf\\(", command_lower)) {
+    return("autocorrelation")
+  } else if (grepl("decompose\\(", command_lower)) {
+    return("seasonal_decomposition")
   } else if (grepl("plot\\(", command_lower)) {
     # Check if it's a line plot
     if (grepl("type\\s*=\\s*[\"']l[\"']", command_lower)) {
@@ -4292,20 +4306,10 @@ identify_plot_type <- function(command) {
     return("qq_plot")
   } else if (grepl("residuals\\(", command_lower) || grepl("fitted\\(", command_lower)) {
     return("residual_plot")
-  } else if (grepl("corrplot\\(", command_lower) || grepl("ggcorrplot\\(", command_lower)) {
-    return("correlation_plot")
-  } else if (grepl("heatmap\\(", command_lower) || grepl("geom_tile\\(", command_lower)) {
-    return("heatmap")
-  } else if (grepl("ts\\(", command_lower) || grepl("autoplot\\(", command_lower)) {
-    return("time_series")
-  } else if (grepl("acf\\(", command_lower) || grepl("pacf\\(", command_lower)) {
-    return("autocorrelation")
-  } else if (grepl("decompose\\(", command_lower)) {
-    return("seasonal_decomposition")
-  } else if (grepl("prcomp\\(", command_lower) || grepl("biplot\\(", command_lower)) {
-    return("pca_plot")
-  } else if (grepl("kmeans\\(", command_lower) || grepl("hclust\\(", command_lower)) {
-    return("cluster_plot")
+  } else if (grepl("qqnorm\\(", command_lower) || grepl("qqplot\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("residuals\\(", command_lower) || grepl("fitted\\(", command_lower)) {
+    return("residual_plot")
   } else if (grepl("geom_jitter\\(", command_lower)) {
     return("jitter_plot")
   } else if (grepl("geom_step\\(", command_lower) || grepl("stat_ecdf\\(", command_lower)) {
