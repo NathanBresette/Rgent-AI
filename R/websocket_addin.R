@@ -4221,6 +4221,9 @@ identify_plot_type <- function(command) {
 #' Extract data variables from plot command
 extract_plot_data <- function(command, plot_type) {
   tryCatch({
+    cat("DEBUG: extract_plot_data called with plot_type:", plot_type, "\n")
+    cat("DEBUG: Command to extract from:", command, "\n")
+    
     # Simple extraction - look for common patterns
     if (plot_type == "histogram") {
       # Extract data from hist(data)
@@ -4256,24 +4259,32 @@ extract_plot_data <- function(command, plot_type) {
         return(data_var)
       }
     } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
+      cat("DEBUG: Processing ggplot2 plot type:", plot_type, "\n")
       # For ggplot2 plots, extract the data frame and variables from aes()
       # First extract the data frame
       data_match <- regexpr("ggplot\\(([^,]+)", command)
+      cat("DEBUG: Data frame regex match position:", data_match, "\n")
       if (data_match > 0) {
         data_frame <- substr(command, data_match + 7, data_match + attr(data_match, "match.length") - 1)
+        cat("DEBUG: Extracted data frame:", data_frame, "\n")
         
         # Then extract variables from aes()
         aes_match <- regexpr("aes\\(([^)]+)\\)", command)
+        cat("DEBUG: aes() regex match position:", aes_match, "\n")
         if (aes_match > 0) {
           aes_content <- substr(command, aes_match + 5, aes_match + attr(aes_match, "match.length") - 2)
+          cat("DEBUG: Extracted aes content:", aes_content, "\n")
           
           # Extract x and y variables from aes(x=..., y=...)
           # Look for x= and y= patterns
           x_pattern <- "x\\s*=\\s*([^,]+)"
           y_pattern <- "y\\s*=\\s*([^,]+)"
           
+          cat("DEBUG: Looking for x and y variables in aes content\n")
           x_match <- regexpr(x_pattern, aes_content)
           y_match <- regexpr(y_pattern, aes_content)
+          cat("DEBUG: x_match position:", x_match, "\n")
+          cat("DEBUG: y_match position:", y_match, "\n")
           
           if (x_match > 0 && y_match > 0) {
             # Extract x variable
@@ -4290,6 +4301,9 @@ extract_plot_data <- function(command, plot_type) {
             x_var <- gsub("^\\s+|\\s+$", "", x_var)
             y_var <- gsub("^\\s+|\\s+$", "", y_var)
             
+            cat("DEBUG: Successfully extracted both x and y variables\n")
+            cat("DEBUG: x_var:", x_var, "\n")
+            cat("DEBUG: y_var:", y_var, "\n")
             return(list(
               data_frame = data_frame,
               x = x_var,
@@ -4297,10 +4311,12 @@ extract_plot_data <- function(command, plot_type) {
             ))
           } else if (x_match > 0) {
             # Only x variable found
+            cat("DEBUG: Only x variable found\n")
             x_start <- x_match + attr(x_match, "match.length")
             x_end <- x_start + attr(x_match, "match.length") - 1
             x_var <- substr(aes_content, x_start, x_end)
             x_var <- gsub("^\\s+|\\s+$", "", x_var)
+            cat("DEBUG: x_var:", x_var, "\n")
             
             return(list(
               data_frame = data_frame,
@@ -4308,6 +4324,7 @@ extract_plot_data <- function(command, plot_type) {
             ))
           } else {
             # If we can't extract variables, just return the data frame
+            cat("DEBUG: Could not extract x,y variables, returning data frame only\n")
             return(data_frame)
           }
         } else {
@@ -4447,23 +4464,42 @@ execute_plot_analysis <- function(commands) {
 #' Main plot analysis function
 analyze_last_plot <- function() {
   tryCatch({
+    cat("DEBUG: Starting plot analysis...\n")
+    
     # Step 1: Find last plot command
+    cat("DEBUG: Step 1 - Finding last plot command...\n")
     plot_info <- find_last_plot_command()
     
     if (!plot_info$found) {
+      cat("DEBUG: No plot command found\n")
       return(list(
         success = FALSE,
         message = "No plot command found in recent history. Try creating a plot first!"
       ))
     }
     
+    cat("DEBUG: Found plot command:", plot_info$command, "\n")
+    cat("DEBUG: Command length:", nchar(plot_info$command), "\n")
+    
     # Step 2: Identify plot type
+    cat("DEBUG: Step 2 - Identifying plot type...\n")
     plot_type <- identify_plot_type(plot_info$command)
+    cat("DEBUG: Identified plot type:", plot_type, "\n")
     
     # Step 3: Extract data variables
+    cat("DEBUG: Step 3 - Extracting data variables...\n")
     data_var <- extract_plot_data(plot_info$command, plot_type)
     
+    cat("DEBUG: Data variable extraction result:", class(data_var), "\n")
+    if (is.list(data_var)) {
+      cat("DEBUG: Data variable list names:", names(data_var), "\n")
+      cat("DEBUG: Data variable contents:", toString(data_var), "\n")
+    } else {
+      cat("DEBUG: Data variable (not list):", toString(data_var), "\n")
+    }
+    
     if (is.null(data_var)) {
+      cat("DEBUG: Data extraction failed - returning NULL\n")
       return(list(
         success = FALSE,
         message = "Could not extract data variables from plot command."
