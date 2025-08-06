@@ -4111,15 +4111,44 @@ identify_plot_type <- function(command) {
   } else if (grepl("ggpairs\\(", command_lower) || grepl("ggally::", command_lower)) {
     return("pairs")
   } else if (grepl("ggplot\\(", command_lower)) {
-    return("ggplot")
+    # For ggplot2, we need to look for the geom type to determine plot type
+    if (grepl("geom_violin\\(", command_lower)) {
+      return("violin")
+    } else if (grepl("geom_density\\(", command_lower)) {
+      return("density")
+    } else if (grepl("geom_line\\(", command_lower)) {
+      return("line_plot")
+    } else if (grepl("geom_point\\(", command_lower)) {
+      return("scatter")
+    } else if (grepl("geom_bar\\(", command_lower)) {
+      return("barplot")
+    } else if (grepl("geom_boxplot\\(", command_lower)) {
+      return("boxplot")
+    } else if (grepl("geom_histogram\\(", command_lower)) {
+      return("histogram")
+    } else if (grepl("geom_", command_lower)) {
+      # Default to scatter for other geom types
+      return("scatter")
+    } else {
+      # If no geom found, default to ggplot
+      return("ggplot")
+    }
   } else if (grepl("geom_density\\(", command_lower)) {
     return("density")
   } else if (grepl("geom_line\\(", command_lower)) {
     return("line_plot")
   } else if (grepl("geom_violin\\(", command_lower)) {
     return("violin")
+  } else if (grepl("geom_point\\(", command_lower)) {
+    return("scatter")
+  } else if (grepl("geom_bar\\(", command_lower)) {
+    return("barplot")
+  } else if (grepl("geom_boxplot\\(", command_lower)) {
+    return("boxplot")
+  } else if (grepl("geom_histogram\\(", command_lower)) {
+    return("histogram")
   } else if (grepl("geom_", command_lower)) {
-    return("ggplot")
+    return("scatter")
   } else if (grepl("plotly", command_lower)) {
     return("interactive")
   } else if (grepl("leaflet", command_lower)) {
@@ -4166,12 +4195,45 @@ extract_plot_data <- function(command, plot_type) {
         data_var <- substr(command, match + 7, match + attr(match, "match.length") - 2)
         return(data_var)
       }
-    } else if (plot_type == "violin") {
-      # For violin plots, we'll extract the data frame
-      match <- regexpr("ggplot\\(([^,]+)", command)
-      if (match > 0) {
-        data_var <- substr(command, match + 7, match + attr(match, "match.length") - 1)
-        return(data_var)
+    } else if (plot_type == "violin" || plot_type == "ggplot") {
+      # For ggplot2 plots, extract the data frame and variables from aes()
+      # First extract the data frame
+      data_match <- regexpr("ggplot\\(([^,]+)", command)
+      if (data_match > 0) {
+        data_frame <- substr(command, data_match + 7, data_match + attr(data_match, "match.length") - 1)
+        
+        # Then extract variables from aes()
+        aes_match <- regexpr("aes\\(([^)]+)\\)", command)
+        if (aes_match > 0) {
+          aes_content <- substr(command, aes_match + 5, aes_match + attr(aes_match, "match.length") - 2)
+          
+          # Extract x and y variables from aes(x=..., y=...)
+          x_match <- regexpr("x\\s*=\\s*([^,]+)", aes_content)
+          y_match <- regexpr("y\\s*=\\s*([^,]+)", aes_content)
+          
+          if (x_match > 0 && y_match > 0) {
+            x_var <- substr(aes_content, x_match + attr(x_match, "match.length"), 
+                           x_match + attr(x_match, "match.length") + attr(x_match, "match.length") - 1)
+            y_var <- substr(aes_content, y_match + attr(y_match, "match.length"), 
+                           y_match + attr(y_match, "match.length") + attr(y_match, "match.length") - 1)
+            
+            # Clean up variable names
+            x_var <- gsub("^\\s+|\\s+$", "", x_var)
+            y_var <- gsub("^\\s+|\\s+$", "", y_var)
+            
+            return(list(
+              data_frame = data_frame,
+              x = x_var,
+              y = y_var
+            ))
+          } else {
+            # If we can't extract x,y, just return the data frame
+            return(data_frame)
+          }
+        } else {
+          # If no aes() found, just return the data frame
+          return(data_frame)
+        }
       }
     }
     
@@ -4210,8 +4272,65 @@ generate_analysis_commands <- function(plot_type, data_var) {
     commands$summary_stats <- paste0("summary(", data_var, ")")
     commands$multivariate_analysis <- paste0("if(require(corrplot)) corrplot(cor(", data_var, ")) else 'corrplot package needed'")
   } else if (plot_type == "violin") {
-    commands$summary_stats <- paste0("summary(", data_var, ")")
-    commands$group_comparison <- paste0("if(require(dplyr)) ", data_var, " %>% group_by(cyl) %>% summarise(mean_mpg = mean(mpg)) else 'dplyr package needed'")
+    # Handle violin plots specifically
+    if (is.list(data_var) && !is.null(data_var$data_frame)) {
+      if (!is.null(data_var$x) && !is.null(data_var$y)) {
+        commands$summary_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+        commands$group_analysis <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$x, ") %>% summarise(mean_", data_var$y, " = mean(", data_var$y, ")) else 'dplyr package needed'")
+        commands$distribution <- paste0("density(", data_var$data_frame, "$", data_var$y, ")")
+      } else {
+        commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
+        commands$structure <- paste0("str(", data_var$data_frame, ")")
+      }
+    } else {
+      commands$summary_stats <- paste0("summary(", data_var, ")")
+      commands$structure <- paste0("str(", data_var, ")")
+    }
+  } else if (plot_type == "scatter" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle ggplot2 scatter plots
+    if (!is.null(data_var$x) && !is.null(data_var$y)) {
+      commands$correlation <- paste0("cor(", data_var$data_frame, "$", data_var$x, ", ", data_var$data_frame, "$", data_var$y, ")")
+      commands$regression <- paste0("summary(lm(", data_var$data_frame, "$", data_var$y, " ~ ", data_var$data_frame, "$", data_var$x, "))")
+      commands$summary_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+    } else {
+      commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
+      commands$structure <- paste0("str(", data_var$data_frame, ")")
+    }
+  } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle ggplot2 line plots
+    if (!is.null(data_var$x) && !is.null(data_var$y)) {
+      commands$correlation <- paste0("cor(", data_var$data_frame, "$", data_var$x, ", ", data_var$data_frame, "$", data_var$y, ")")
+      commands$trend_analysis <- paste0("summary(lm(", data_var$data_frame, "$", data_var$y, " ~ ", data_var$data_frame, "$", data_var$x, "))")
+      commands$time_series <- paste0("if(require(ts)) acf(", data_var$data_frame, "$", data_var$y, ") else 'ts package needed'")
+    } else {
+      commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
+      commands$structure <- paste0("str(", data_var$data_frame, ")")
+    }
+  } else if (plot_type == "density" && is.list(data_var) && !is.null(data_var$data_frame)) {
+    # Handle ggplot2 density plots
+    if (!is.null(data_var$y)) {
+      commands$basic_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+      commands$density_estimation <- paste0("density(", data_var$data_frame, "$", data_var$y, ")")
+      commands$normality <- paste0("shapiro.test(", data_var$data_frame, "$", data_var$y, ")")
+      commands$skewness <- paste0("if(require(e1071)) skewness(", data_var$data_frame, "$", data_var$y, ") else 'e1071 package needed'")
+    } else {
+      commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
+      commands$structure <- paste0("str(", data_var$data_frame, ")")
+    }
+  } else if (plot_type == "ggplot") {
+    # Generic ggplot2 handling
+    if (is.list(data_var) && !is.null(data_var$data_frame)) {
+      if (!is.null(data_var$x) && !is.null(data_var$y)) {
+        commands$summary_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+        commands$correlation <- paste0("cor(", data_var$data_frame, "$", data_var$x, ", ", data_var$data_frame, "$", data_var$y, ")")
+      } else {
+        commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
+        commands$structure <- paste0("str(", data_var$data_frame, ")")
+      }
+    } else {
+      commands$summary_stats <- paste0("summary(", data_var, ")")
+      commands$structure <- paste0("str(", data_var, ")")
+    }
   } else if (plot_type == "boxplot") {
     commands$basic_stats <- paste0("summary(", data_var, ")")
     commands$outliers <- paste0("boxplot.stats(", data_var, ")$out")
