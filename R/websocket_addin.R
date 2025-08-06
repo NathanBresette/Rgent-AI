@@ -2776,7 +2776,7 @@ cleanup_old_data <- function() {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      // Removed debug output
+      
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
       global_env$session_index$file_hashes <- new.env()
@@ -2811,7 +2811,7 @@ cleanup_old_data <- function() {
       gc()
       
       global_env$session_index$last_cleanup <- current_time
-      // Removed debug output
+      
     }
   }, error = function(e) {
     cat("ERROR: Cleanup failed:", e$message, "\n")
@@ -2921,7 +2921,7 @@ safe_index_update <- function() {
     perf_tracker <- track_performance("index_update")
     
     # Direct workspace scanning (no session_index dependency)
-    // Removed debug output
+    
     
     # Cleanup memory
     cleanup_old_data()
@@ -2943,7 +2943,7 @@ update_file_index <- function(file_path, file_content) {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      // Removed debug output
+      
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
     }
@@ -3007,7 +3007,7 @@ assemble_intelligent_context_safe <- function(query) {
 # =============================================================================
 
 # Initialize the simple system when package loads
-// Removed debug output
+
 
 # Initialize workspace_index in global environment
 if (!exists("workspace_index", envir = .GlobalEnv)) {
@@ -3018,7 +3018,7 @@ if (!exists("workspace_index", envir = .GlobalEnv)) {
     variables = list(),
     last_updated = NULL
   )
-  // Removed debug output
+  
 }
 
 update_workspace_index()
@@ -3402,7 +3402,7 @@ capture_context_smart <- function(query = NULL) {
           timestamp = Sys.time()
         ))
       } else {
-        // Removed debug output
+        
         # Return structured list with all objects
         return(list(
           workspace_objects = all_objects,
@@ -3433,11 +3433,11 @@ capture_context_smart <- function(query = NULL) {
 #' @export
 update_workspace_index_incremental <- function() {
   tryCatch({
-    // Removed debug output
+    
     
     # Ensure workspace_index exists
     if (!exists("workspace_index", envir = .GlobalEnv)) {
-      // Removed debug output
+      
       .GlobalEnv$workspace_index <- list(
         objects = list(),
         data_frames = list(),
@@ -3453,7 +3453,7 @@ update_workspace_index_incremental <- function() {
     # Get last scan info
     last_scan <- .GlobalEnv$workspace_index$last_scan_objects
     if (is.null(last_scan)) {
-      // Removed debug output
+      
       return(update_workspace_index_full())
     }
     
@@ -3533,7 +3533,7 @@ update_workspace_index_incremental <- function() {
     .GlobalEnv$workspace_index$last_scan_objects <- current_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    // Removed debug output
+    
 
     
   }, error = function(e) {
@@ -3547,7 +3547,7 @@ update_workspace_index_incremental <- function() {
 #' @export
 update_workspace_index_full <- function() {
   tryCatch({
-    // Removed debug output
+    
     
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
@@ -3589,13 +3589,13 @@ update_workspace_index_full <- function() {
 #' @export
 capture_context_smart_incremental <- function(query = NULL) {
   tryCatch({
-    // Removed debug output
+    
     
     # No incremental update needed - process all objects directly
     
     # Simple approach - process all objects each time
     workspace_objects <- tryCatch({
-      // Removed debug output
+      
       
       # Get all objects in global environment
       object_names <- ls(envir = globalenv())
@@ -3648,7 +3648,7 @@ capture_context_smart_incremental <- function(query = NULL) {
         filtered_objects <- smart_filter_objects(query, all_objects)
         return(filtered_objects)
       } else {
-        // Removed debug output
+        
         return(all_objects)
       }
       
@@ -3689,7 +3689,7 @@ capture_context_smart_incremental <- function(query = NULL) {
     })
     
     # Create context data
-    // Removed debug output
+    
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
@@ -3702,7 +3702,7 @@ capture_context_smart_incremental <- function(query = NULL) {
     # Convert back to list for consistency
     context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
     
-    // Removed debug output
+    
     context_data
     
   }, error = function(e) {
