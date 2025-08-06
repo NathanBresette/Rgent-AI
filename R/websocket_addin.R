@@ -2333,7 +2333,6 @@ chunk_file_robustly <- function(file_content, file_path) {
     
     # Fallback: Line-based chunking if function chunking fails
     if (length(chunks) == 0 || any(sapply(chunks, function(c) nchar(c$content) > 2000))) {
-      // Removed debug output
       chunks <- chunk_by_lines(file_content, max_lines = 50, file_path = file_path)
     }
     
