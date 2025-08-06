@@ -4072,7 +4072,7 @@ find_last_plot_command <- function() {
         "geom_bar(", "coord_polar("
       )
       
-      # First pass: Look specifically for ggplot commands
+      # First pass: Look specifically for ggplot commands (including geom_ commands)
       for (i in length(history_lines):1) {
         line <- history_lines[i]
         if (grepl("ggplot\\(", line, fixed = TRUE)) {
@@ -4082,7 +4082,17 @@ find_last_plot_command <- function() {
         }
       }
       
-      # Second pass: Look for other plot commands
+      # Second pass: Look for geom_ commands that might be part of ggplot
+      for (i in length(history_lines):1) {
+        line <- history_lines[i]
+        if (grepl("geom_", line, fixed = TRUE)) {
+          cat("DEBUG: Found geom command at position", i, ":", line, "\n")
+          # Check if this is part of a ggplot command by looking backwards
+          return(reconstruct_ggplot_command(history_lines, i))
+        }
+      }
+      
+      # Third pass: Look for other plot commands
       for (i in length(history_lines):1) {
         line <- history_lines[i]
         for (cmd in plot_commands) {
@@ -4109,13 +4119,55 @@ find_last_plot_command <- function() {
 reconstruct_ggplot_command <- function(history_lines, start_line) {
   tryCatch({
     cat("DEBUG: reconstruct_ggplot_command called with start_line:", start_line, "\n")
-    # Start from the ggplot line and collect subsequent lines
-    command_lines <- c()
-    current_line <- start_line
     
-    # Add the ggplot line
-    command_lines <- c(command_lines, history_lines[current_line])
-    cat("DEBUG: Added ggplot line:", history_lines[current_line], "\n")
+    # Check if we're starting from a geom line or ggplot line
+    current_line <- start_line
+    line <- history_lines[current_line]
+    
+    if (grepl("ggplot\\(", line)) {
+      # We're starting from a ggplot line
+      command_lines <- c(line)
+      cat("DEBUG: Starting from ggplot line:", line, "\n")
+      current_line <- current_line + 1
+    } else if (grepl("geom_", line)) {
+      # We're starting from a geom line, need to find the ggplot line
+      cat("DEBUG: Starting from geom line, looking for ggplot line\n")
+      
+      # Look backwards for the ggplot line
+      ggplot_line <- NULL
+      for (i in (current_line - 1):1) {
+        if (grepl("ggplot\\(", history_lines[i])) {
+          ggplot_line <- history_lines[i]
+          cat("DEBUG: Found ggplot line at position", i, ":", ggplot_line, "\n")
+          break
+        }
+      }
+      
+      if (is.null(ggplot_line)) {
+        # No ggplot line found, just return the geom line
+        cat("DEBUG: No ggplot line found, returning geom line only\n")
+        return(list(
+          command = line,
+          line_number = start_line,
+          found = TRUE
+        ))
+      }
+      
+      # Start with the ggplot line
+      command_lines <- c(ggplot_line)
+      cat("DEBUG: Starting with ggplot line:", ggplot_line, "\n")
+      
+      # Now collect all geom lines from the ggplot line onwards
+      current_line <- which(history_lines == ggplot_line)[1] + 1
+    } else {
+      # Unknown line type
+      cat("DEBUG: Unknown line type, returning as is\n")
+      return(list(
+        command = line,
+        line_number = start_line,
+        found = TRUE
+      ))
+    }
     
     # Look for continuation lines (lines with + or %>%)
     current_line <- current_line + 1
@@ -4267,6 +4319,9 @@ identify_plot_type <- function(command) {
     return("interactive")
   } else if (grepl("leaflet", command_lower)) {
     return("map")
+  } else if (grepl("plot\\(", command_lower)) {
+    # Fallback for any plot() command that wasn't caught above
+    return("scatter")
   } else {
     return("unknown")
   }
@@ -4287,7 +4342,7 @@ extract_plot_data <- function(command, plot_type) {
         return(data_var)
       }
     } else if (plot_type == "scatter" || plot_type == "line_plot") {
-      # Extract x and y from plot(x, y)
+      # First try to extract x and y from plot(x, y)
       match <- regexpr("plot\\(([^,]+),\\s*([^,)]+)[,)]", command)
       if (match > 0) {
         x_var <- substr(command, match + 5, match + attr(match, "match.length") - 1)
@@ -4297,6 +4352,13 @@ extract_plot_data <- function(command, plot_type) {
           y_var <- substr(command, match + 5 + y_match, match + 5 + y_match + attr(y_match, "match.length") - 2)
           return(list(x = x_var, y = y_var))
         }
+      }
+      
+      # If that fails, try to extract single data from plot(data)
+      match <- regexpr("plot\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 5, match + attr(match, "match.length") - 2)
+        return(data_var)
       }
     } else if (plot_type == "density") {
       # Extract data from density(data)
@@ -4338,6 +4400,16 @@ extract_plot_data <- function(command, plot_type) {
       match <- regexpr("(corrplot|ggcorrplot)\\(([^,)]+)[,)]", command)
       if (match > 0) {
         data_var <- substr(command, match + 10, match + attr(match, "match.length") - 2)
+        
+        # If the data_var contains nested functions like cor(mtcars), extract the inner data
+        if (grepl("cor\\(", data_var)) {
+          inner_match <- regexpr("cor\\(([^,)]+)[,)]", data_var)
+          if (inner_match > 0) {
+            inner_data <- substr(data_var, inner_match + 4, inner_match + attr(inner_match, "match.length") - 2)
+            return(inner_data)
+          }
+        }
+        
         return(data_var)
       }
     } else if (plot_type == "heatmap") {
@@ -4373,6 +4445,15 @@ extract_plot_data <- function(command, plot_type) {
       match <- regexpr("(prcomp|biplot)\\(([^,)]+)[,)]", command)
       if (match > 0) {
         data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+        
+        # Handle indexed data like pca_result (from prcomp(mtcars[,1:4]))
+        # If the data_var is a result object, try to get the original data
+        if (grepl("_result$", data_var) || grepl("_pca$", data_var)) {
+          # Try to find the original data by looking for the variable assignment
+          # This is a simplified approach - in practice, we'd need more sophisticated parsing
+          return(data_var)
+        }
+        
         return(data_var)
       }
     } else if (plot_type == "cluster_plot") {
@@ -4396,12 +4477,30 @@ extract_plot_data <- function(command, plot_type) {
         data_frame <- substr(command, data_match + 7, data_match + attr(data_match, "match.length") - 1)
         cat("DEBUG: Extracted data frame:", data_frame, "\n")
         
-        # Then extract variables from aes()
+        # Then extract variables from aes() - check both in ggplot() and in geom_*()
         aes_match <- regexpr("aes\\(([^)]+)\\)", command)
         cat("DEBUG: aes() regex match position:", aes_match, "\n")
-        if (aes_match > 0) {
+        
+        # If no aes() found in main command, look for aes() in geom_*() functions
+        if (aes_match <= 0) {
+          # Look for aes() inside geom_*() functions
+          geom_aes_match <- regexpr("geom_[^(]*\\([^)]*aes\\(([^)]+)\\)[^)]*\\)", command)
+          cat("DEBUG: geom_aes() regex match position:", geom_aes_match, "\n")
+          if (geom_aes_match > 0) {
+            # Extract the aes content from within the geom function
+            geom_content <- substr(command, geom_aes_match, geom_aes_match + attr(geom_aes_match, "match.length") - 1)
+            aes_in_geom_match <- regexpr("aes\\(([^)]+)\\)", geom_content)
+            if (aes_in_geom_match > 0) {
+              aes_content <- substr(geom_content, aes_in_geom_match + 5, aes_in_geom_match + attr(aes_in_geom_match, "match.length") - 2)
+              cat("DEBUG: Found aes() in geom function:", aes_content, "\n")
+            }
+          }
+        } else {
           aes_content <- substr(command, aes_match + 5, aes_match + attr(aes_match, "match.length") - 2)
-          cat("DEBUG: Extracted aes content:", aes_content, "\n")
+          cat("DEBUG: Extracted aes content from main command:", aes_content, "\n")
+        }
+        
+        if (exists("aes_content") && !is.null(aes_content)) {
           
           # Extract x and y variables from aes(x=..., y=...)
           # Look for x= and y= patterns
@@ -4456,7 +4555,8 @@ extract_plot_data <- function(command, plot_type) {
             return(data_frame)
           }
         } else {
-          # If no aes() found, just return the data frame
+          # If no aes() found anywhere, just return the data frame
+          cat("DEBUG: No aes() found in command, returning data frame only\n")
           return(data_frame)
         }
       }
