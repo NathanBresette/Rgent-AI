@@ -1085,8 +1085,16 @@
                 copyToClipboard(cleanCode, copyButton);
               };
               
+              const insertButton = document.createElement("button");
+              insertButton.className = "copy-button";
+              insertButton.textContent = "Insert at Cursor";
+              insertButton.onclick = function() {
+                insertCode(cleanCode);
+              };
+              
               headerDiv.appendChild(languageLabel);
               headerDiv.appendChild(copyButton);
+              headerDiv.appendChild(insertButton);
               codeDiv.appendChild(headerDiv);
               
               // Create code content div - extract just the code
