@@ -1,23 +1,23 @@
 # Debug wrapper functions to track down invalid 'envir' argument error
 safe_ls <- function(envir) {
-  cat('DEBUG: Calling ls with envir of class:', class(envir), 'type:', typeof(envir), '\n')
+  
   ls(envir = envir)
 }
 
 safe_get <- function(name, envir) {
   # First check if object exists and is accessible
   if (!exists(name, envir = envir, inherits = FALSE)) {
-    cat('DEBUG: Object', name, 'does not exist\n')
+
     return(NULL)
   }
   
   # Try to get the object safely
   tryCatch({
-    cat('DEBUG: Getting object:', name, '\n')
+
     obj <- get(name, envir = envir, inherits = FALSE)
     return(obj)
   }, error = function(e) {
-    cat('DEBUG: Error getting object', name, ':', e$message, '\n')
+    
     return(NULL)
   })
 }
@@ -1072,7 +1072,6 @@ start_websocket_server <- function() {
                 theme_name = theme_info$theme_name
               )
               ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
-              cat("Theme information sent to client\n")
             }, error = function(e) {
               cat("Error sending theme info:", e$message, "\n")
             })
@@ -1117,11 +1116,9 @@ launch_html_interface <- function() {
     for (path in possible_paths) {
       cat("  -", path, "\n")
     }
-    cat("Current working directory:", getwd(), "\n")
     return(invisible(FALSE))
   }
   
-  cat("Found HTML file at:", html_file, "\n")
   
   # Start HTTPS server for clipboard API support
   https_url <- start_https_server(html_file)
@@ -1130,7 +1127,6 @@ launch_html_interface <- function() {
     # Open HTTPS URL in browser
     browseURL(https_url)
     cat("WebSocket AI Chat opened with HTTPS support.\n")
-    cat("Clipboard API should now work properly!\n")
   } else {
     # Fallback to regular viewer pane
   temp_file <- tempfile(fileext = ".html")
@@ -1141,7 +1137,6 @@ launch_html_interface <- function() {
   }
   
   cat("You can continue using the R console while the chat is active.\n")
-  cat("To stop the server, run: stop_websocket_server()\n")
 }
 
 #' Start HTTPS server for HTML content
@@ -1230,7 +1225,7 @@ add_to_conversation_history <- function(role, message) {
     .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 5):length(.GlobalEnv$conversation_history)]
   }
   
-  cat("DEBUG: Added message to conversation history. Total messages:", length(conversation_history), "\n")
+  
 }
 
 #' Get conversation history as formatted string
@@ -1277,10 +1272,8 @@ capture_context <- function() {
         )
         
         # Add object-specific details with intelligent summarization
-        cat("Processing object:", obj_name, "class:", obj_info$class, "\n")
         
         if (is.data.frame(obj)) {
-          cat("  - Is data frame, adding concise info\n")
           obj_info$dimensions <- dim(obj)
           obj_info$column_names <- names(obj)
           obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
@@ -1298,11 +1291,9 @@ capture_context <- function() {
           } else {
             obj_info$sample_data <- list()
           }
-          cat("  - Concise data frame info added\n")
           
         } else if (is.vector(obj) && !is.list(obj)) {
           if (length(obj) <= 5) {
-            cat("  - Is small vector, adding values\n")
             tryCatch({
               obj_info$values <- as.character(obj)
             }, error = function(e) {
@@ -1310,18 +1301,15 @@ capture_context <- function() {
               obj_info$values <- paste("Error: Could not convert to character")
             })
           } else {
-            cat("  - Is large vector, adding basic summary\n")
             obj_info$summary <- list(
               total_length = length(obj),
               unique_count = tryCatch(length(unique(obj)), error = function(e) "unknown"),
               na_count = tryCatch(sum(is.na(obj)), error = function(e) "unknown")
             )
           }
-          cat("  - Vector info added\n")
           
         } else if (is.list(obj) && !is.data.frame(obj)) {
           if (length(obj) <= 3) {
-            cat("  - Is small list, adding basic structure\n")
             tryCatch({
               obj_info$list_structure <- lapply(names(obj), function(name) {
                 item <- obj[[name]]
@@ -1336,7 +1324,6 @@ capture_context <- function() {
               obj_info$list_structure <- list()
             })
           } else {
-            cat("  - Is large list, adding basic summary\n")
             tryCatch({
               obj_info$list_summary <- list(
                 total_items = length(obj),
@@ -1347,10 +1334,8 @@ capture_context <- function() {
               obj_info$list_summary <- list(total_items = length(obj), item_names = "unknown")
             })
           }
-          cat("  - List info added\n")
           
         } else if (is.function(obj)) {
-          cat("  - Is function, adding basic info\n")
           tryCatch({
             obj_info$function_args <- names(formals(obj))
           }, error = function(e) {
@@ -1358,27 +1343,20 @@ capture_context <- function() {
             obj_info$function_args <- "unknown"
           })
           obj_info$function_source <- if (is.primitive(obj)) "primitive" else "user-defined"
-          cat("  - Function info added\n")
           
         } else if (is.matrix(obj) || is.array(obj)) {
-          cat("  - Is matrix/array, adding basic info\n")
           obj_info$dimensions <- dim(obj)
-          cat("  - Matrix/array info added\n")
           
         } else if (is.environment(obj)) {
-          cat("  - Is environment, adding all contents\n")
           tryCatch({
             obj_info$env_contents <- ls(obj)
           }, error = function(e) {
             cat("  - Error listing environment contents:", e$message, "\n")
             obj_info$env_contents <- "unknown"
           })
-          cat("  - Environment info added\n")
           
         } else {
-          cat("  - Generic object, adding minimal info\n")
           obj_info$is_s4 <- isS4(obj)
-          cat("  - Generic object info added\n")
         }
         
         obj_info
@@ -1468,31 +1446,22 @@ capture_context <- function() {
     }
     
     # Return context data with simplified structure to avoid double encoding
-    cat("DEBUG: Creating context_data list...\n")
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
       file_info = file_info,
       timestamp = as.character(Sys.time())
     )
-    cat("DEBUG: Context data created successfully\n")
     
     # Convert to JSON and back to flatten nested structures
-    cat("DEBUG: Starting JSON conversion...\n")
     tryCatch({
-      cat("DEBUG: Converting to JSON...\n")
       json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
-      cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
-      cat("DEBUG: Converting back from JSON...\n")
       context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
-      cat("DEBUG: JSON back-conversion successful\n")
     }, error = function(e) {
       cat("Warning: Could not flatten context structure:", e$message, "\n")
       cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
       cat("Using original context structure\n")
     })
-    
-    cat("DEBUG: Returning context_data\n")
     context_data
   }, error = function(e) {
     cat("ERROR in capture_context:", e$message, "\n")
@@ -1756,12 +1725,10 @@ auto_capture_error <- function() {
       
       # If auto-fix mode is enabled, automatically analyze
       if (exists(".GlobalEnv$auto_fix_mode") && .GlobalEnv$auto_fix_mode) {
-        cat("Auto-fix mode enabled - analyzing error...\n")
         send_error_to_ai(last_error, console_context)
       }
     }
   }, error = function(e) {
-    cat("Error in auto_capture_error:", e$message, "\n")
   })
 }
 
@@ -1771,7 +1738,6 @@ execute_with_capture <- function(code) {
   tryCatch({
     eval(parse(text = code))
   }, error = function(e) {
-    cat("🔍 Auto-capture triggered by execute_with_capture!\n")
     auto_capture_error()
     stop(e$message)  # Re-throw the error
   })
@@ -1787,9 +1753,7 @@ toggle_auto_fix <- function() {
   .GlobalEnv$auto_fix_mode <- !.GlobalEnv$auto_fix_mode
   
   if (.GlobalEnv$auto_fix_mode) {
-    cat("✅ Auto-fix mode ENABLED - errors will be automatically analyzed\n")
   } else {
-    cat("❌ Auto-fix mode DISABLED - use debug button manually\n")
   }
   
   return(.GlobalEnv$auto_fix_mode)
@@ -2202,9 +2166,7 @@ update_workspace_index <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
-      cat("DEBUG: Processing object:", obj_name, "\n")
       obj_info <- safe_get_object_info(obj_name)
-      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
       
       # Store in appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
@@ -2214,10 +2176,8 @@ update_workspace_index <- function() {
         cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to functions\n")
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to variables\n")
       }
     }
     
@@ -2373,7 +2333,7 @@ chunk_file_robustly <- function(file_content, file_path) {
     
     # Fallback: Line-based chunking if function chunking fails
     if (length(chunks) == 0 || any(sapply(chunks, function(c) nchar(c$content) > 2000))) {
-      cat("DEBUG: Function chunking failed, using line-based fallback\n")
+      // Removed debug output
       chunks <- chunk_by_lines(file_content, max_lines = 50, file_path = file_path)
     }
     
@@ -2817,7 +2777,7 @@ cleanup_old_data <- function() {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      cat("DEBUG: Creating session_index in global environment for cleanup\n")
+      // Removed debug output
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
       global_env$session_index$file_hashes <- new.env()
@@ -2852,7 +2812,7 @@ cleanup_old_data <- function() {
       gc()
       
       global_env$session_index$last_cleanup <- current_time
-      cat("DEBUG: Memory cleanup completed\n")
+      // Removed debug output
     }
   }, error = function(e) {
     cat("ERROR: Cleanup failed:", e$message, "\n")
@@ -2962,7 +2922,7 @@ safe_index_update <- function() {
     perf_tracker <- track_performance("index_update")
     
     # Direct workspace scanning (no session_index dependency)
-    cat("DEBUG: Using direct workspace scanning for context\n")
+    // Removed debug output
     
     # Cleanup memory
     cleanup_old_data()
@@ -2984,7 +2944,7 @@ update_file_index <- function(file_path, file_content) {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      cat("DEBUG: Creating session_index in global environment\n")
+      // Removed debug output
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
     }
@@ -3015,8 +2975,6 @@ update_file_index <- function(file_path, file_content) {
       content_length = nchar(file_content)
     )
     
-    cat("DEBUG: Updated index for", file_path, "with", length(chunks), "chunks\n")
-    cat("DEBUG: File metadata:", file_metadata$function_count, "functions,", 
         file_metadata$chunk_count, "chunks\n")
     
   }, error = function(e) {
@@ -3050,7 +3008,7 @@ assemble_intelligent_context_safe <- function(query) {
 # =============================================================================
 
 # Initialize the simple system when package loads
-cat("DEBUG: Initializing simple, safe indexing system\n")
+// Removed debug output
 
 # Initialize workspace_index in global environment
 if (!exists("workspace_index", envir = .GlobalEnv)) {
@@ -3061,7 +3019,7 @@ if (!exists("workspace_index", envir = .GlobalEnv)) {
     variables = list(),
     last_updated = NULL
   )
-  cat("DEBUG: workspace_index initialized in global environment\n")
+  // Removed debug output
 }
 
 update_workspace_index()
@@ -3069,33 +3027,32 @@ update_workspace_index()
 #' Smart filtering functions for workspace objects
 #' @export
 smart_filter_objects <- function(query, objects) {
-  cat("DEBUG: Smart filtering query:", query, "\n")
-  cat("DEBUG: Total objects available:", length(objects), "\n")
+
   
   # Extract keywords from query
   keywords <- extract_keywords(query)
-  cat("DEBUG: Extracted keywords:", paste(keywords, collapse = ", "), "\n")
+
   
   # Try exact matches first
   exact_matches <- find_exact_matches(keywords, objects)
-  cat("DEBUG: Exact matches found:", length(exact_matches), "\n")
+
   
   # If no exact matches, try fuzzy/partial
   if (length(exact_matches) == 0) {
-    cat("DEBUG: No exact matches, trying fuzzy/partial matching\n")
+  
     matches <- find_partial_matches(keywords, objects)
-    cat("DEBUG: Partial/fuzzy matches found:", length(matches), "\n")
+    
   } else {
     matches <- exact_matches
   }
   
   # If still no matches, return everything (fallback)
   if (length(matches) == 0) {
-    cat("DEBUG: No matches found, using comprehensive mode (all objects)\n")
+  
     return(objects)
   }
   
-  cat("DEBUG: Returning filtered objects:", length(matches), "\n")
+
   return(matches)
 }
 
@@ -3154,7 +3111,6 @@ find_exact_matches <- function(keywords, objects) {
     # Check for exact matches
     for (keyword in keywords) {
       if (obj_name_lower == keyword) {
-        cat("DEBUG: Exact match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3176,14 +3132,12 @@ find_partial_matches <- function(keywords, objects) {
     for (keyword in keywords) {
       # Check if keyword is contained in object name
       if (grepl(keyword, obj_name_lower, fixed = TRUE)) {
-        cat("DEBUG: Partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
       
       # Check if object name is contained in keyword (for abbreviations)
       if (grepl(obj_name_lower, keyword, fixed = TRUE)) {
-        cat("DEBUG: Reverse partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3194,7 +3148,6 @@ find_partial_matches <- function(keywords, objects) {
       keyword_no_underscore <- gsub("_", "", keyword)
       
       if (obj_no_underscore == keyword_no_underscore) {
-        cat("DEBUG: Underscore variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3203,7 +3156,6 @@ find_partial_matches <- function(keywords, objects) {
       # "salesData" should match "sales_data"
       obj_camel <- gsub("_([a-z])", "\\U\\1", obj_name_lower, perl = TRUE)
       if (obj_camel == keyword) {
-        cat("DEBUG: CamelCase variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3212,22 +3164,18 @@ find_partial_matches <- function(keywords, objects) {
     # Check for data type matches
     for (keyword in keywords) {
       if (keyword == "dataframe" && obj$is_data_frame) {
-        cat("DEBUG: Dataframe type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "plot" && (grepl("plot", obj_name_lower) || grepl("graph", obj_name_lower) || grepl("chart", obj_name_lower))) {
-        cat("DEBUG: Plot type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "function" && obj$is_function) {
-        cat("DEBUG: Function type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "vector" && obj$is_vector) {
-        cat("DEBUG: Vector type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3446,9 +3394,7 @@ capture_context_smart <- function(query = NULL) {
       
       # Filter objects if query provided
       if (!is.null(query) && nchar(query) > 0) {
-        cat("DEBUG: Applying smart filtering for query:", query, "\n")
         filtered_objects <- smart_filter_objects(query, all_objects)
-        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         # Return structured list with filtered objects
         return(list(
           workspace_objects = filtered_objects,
@@ -3457,7 +3403,7 @@ capture_context_smart <- function(query = NULL) {
           timestamp = Sys.time()
         ))
       } else {
-        cat("DEBUG: No query provided, returning all objects\n")
+        // Removed debug output
         # Return structured list with all objects
         return(list(
           workspace_objects = all_objects,
@@ -3488,11 +3434,11 @@ capture_context_smart <- function(query = NULL) {
 #' @export
 update_workspace_index_incremental <- function() {
   tryCatch({
-    cat("DEBUG: Updating workspace index incrementally...\n")
+    // Removed debug output
     
     # Ensure workspace_index exists
     if (!exists("workspace_index", envir = .GlobalEnv)) {
-      cat("DEBUG: workspace_index not found, initializing...\n")
+      // Removed debug output
       .GlobalEnv$workspace_index <- list(
         objects = list(),
         data_frames = list(),
@@ -3504,12 +3450,11 @@ update_workspace_index_incremental <- function() {
     
     # Get current workspace objects
     current_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(current_objects), "current workspace objects\n")
     
     # Get last scan info
     last_scan <- .GlobalEnv$workspace_index$last_scan_objects
     if (is.null(last_scan)) {
-      cat("DEBUG: No previous scan found, doing full scan\n")
+      // Removed debug output
       return(update_workspace_index_full())
     }
     
@@ -3518,13 +3463,10 @@ update_workspace_index_incremental <- function() {
     removed_objects <- setdiff(last_scan, current_objects)
     
     cat("DEBUG: New objects:", length(new_objects), paste(new_objects, collapse = ", "), "\n")
-    cat("DEBUG: Removed objects:", length(removed_objects), paste(removed_objects, collapse = ", "), "\n")
     
     # Process only new objects
     if (length(new_objects) > 0) {
-      cat("DEBUG: Processing", length(new_objects), "new objects\n")
       for (obj_name in new_objects) {
-        cat("DEBUG: Processing new object:", obj_name, "\n")
         obj_info <- safe_get_object_info(obj_name)
         
         # Store in appropriate category
@@ -3532,22 +3474,17 @@ update_workspace_index_incremental <- function() {
         
         if (obj_info$is_data_frame) {
           .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to data_frames\n")
         } else if (obj_info$is_function) {
           .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to functions\n")
         } else {
           .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to variables\n")
         }
       }
     }
     
     # Remove deleted objects
     if (length(removed_objects) > 0) {
-      cat("DEBUG: Removing", length(removed_objects), "deleted objects\n")
       for (obj_name in removed_objects) {
-        cat("DEBUG: Removing object:", obj_name, "\n")
         .GlobalEnv$workspace_index$objects[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$functions[[obj_name]] <- NULL
@@ -3573,7 +3510,6 @@ update_workspace_index_incremental <- function() {
           current_class <- paste(class(current_obj), collapse = ", ")
           
           if (stored_obj$length != current_length || stored_obj$class != current_class) {
-            cat("DEBUG: Object modified:", obj_name, "\n")
             modified_objects <- c(modified_objects, obj_name)
             
             # Update the object info
@@ -3593,17 +3529,13 @@ update_workspace_index_incremental <- function() {
       }
     }
     
-    cat("DEBUG: Modified objects:", length(modified_objects), paste(modified_objects, collapse = ", "), "\n")
     
     # Update last scan info
     .GlobalEnv$workspace_index$last_scan_objects <- current_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    cat("DEBUG: Incremental update complete\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
-        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
-        "functions:", length(.GlobalEnv$workspace_index$functions), 
-        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
+    // Removed debug output
+
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index incrementally:", e$message, "\n")
@@ -3616,11 +3548,10 @@ update_workspace_index_incremental <- function() {
 #' @export
 update_workspace_index_full <- function() {
   tryCatch({
-    cat("DEBUG: Performing full workspace index update...\n")
+    // Removed debug output
     
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -3630,22 +3561,17 @@ update_workspace_index_full <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
-      cat("DEBUG: Processing object:", obj_name, "\n")
       obj_info <- safe_get_object_info(obj_name)
-      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
       
       # Store in appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to functions\n")
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to variables\n")
       }
     }
     
@@ -3653,11 +3579,7 @@ update_workspace_index_full <- function() {
     .GlobalEnv$workspace_index$last_scan_objects <- workspace_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    cat("DEBUG: Full workspace index updated with", length(workspace_objects), "objects\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
-        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
-        "functions:", length(.GlobalEnv$workspace_index$functions), 
-        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
+
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index:", e$message, "\n")
@@ -3668,28 +3590,23 @@ update_workspace_index_full <- function() {
 #' @export
 capture_context_smart_incremental <- function(query = NULL) {
   tryCatch({
-    cat("DEBUG: Capturing context with incremental processing...\n")
+    // Removed debug output
     
     # No incremental update needed - process all objects directly
     
     # Simple approach - process all objects each time
     workspace_objects <- tryCatch({
-      cat("DEBUG: Processing all workspace objects\n")
+      // Removed debug output
       
       # Get all objects in global environment
       object_names <- ls(envir = globalenv())
-      cat("DEBUG: Found", length(object_names), "objects\n")
       
       # Process each object with basic info
       all_objects <- lapply(object_names, function(obj_name) {
-        cat("DEBUG: About to process object:", obj_name, "\n")
         tryCatch({
-          cat("DEBUG: Getting object:", obj_name, "\n")
           obj <- get(obj_name, envir = globalenv())
-          cat("DEBUG: Successfully got object:", obj_name, "class:", class(obj), "\n")
           
           # Basic object info
-          cat("DEBUG: Creating obj_info for:", obj_name, "\n")
           obj_info <- list(
             name = obj_name,
             class = paste(class(obj), collapse = ", "),
@@ -3701,15 +3618,12 @@ capture_context_smart_incremental <- function(query = NULL) {
             is_matrix = is.matrix(obj),
             is_array = is.array(obj)
           )
-          cat("DEBUG: Created obj_info for:", obj_name, "\n")
           
           # Add basic details for dataframes only
           if (obj_info$is_data_frame) {
-            cat("  - Processing dataframe:", obj_name, "\n")
             obj_info$dimensions <- dim(obj)
             obj_info$column_names <- names(obj)
           } else if (obj_info$is_function) {
-            cat("  - Processing function:", obj_name, "\n")
             tryCatch({
               obj_info$arguments <- names(formals(obj))
             }, error = function(e) {
@@ -3732,12 +3646,10 @@ capture_context_smart_incremental <- function(query = NULL) {
       
       # Filter objects if query provided
       if (!is.null(query) && nchar(query) > 0) {
-        cat("DEBUG: Applying smart filtering for query:", query, "\n")
         filtered_objects <- smart_filter_objects(query, all_objects)
-        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         return(filtered_objects)
       } else {
-        cat("DEBUG: No query provided, returning all indexed objects\n")
+        // Removed debug output
         return(all_objects)
       }
       
@@ -3778,7 +3690,7 @@ capture_context_smart_incremental <- function(query = NULL) {
     })
     
     # Create context data
-    cat("DEBUG: Creating context_data list...\n")
+    // Removed debug output
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
@@ -3787,12 +3699,11 @@ capture_context_smart_incremental <- function(query = NULL) {
     
     # Convert to JSON and back to ensure proper structure
     json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
-    cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
     
     # Convert back to list for consistency
     context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
     
-    cat("DEBUG: Returning context_data\n")
+    // Removed debug output
     context_data
     
   }, error = function(e) {
