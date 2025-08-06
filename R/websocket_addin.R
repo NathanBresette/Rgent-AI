@@ -4068,6 +4068,14 @@ find_last_plot_command <- function() {
       
       for (i in length(history_lines):1) {
         line <- history_lines[i]
+        
+        # Check for ggplot2 commands specifically
+        if (grepl("ggplot\\(", line, fixed = TRUE)) {
+          # For ggplot2, we need to reconstruct the multi-line command
+          return(reconstruct_ggplot_command(history_lines, i))
+        }
+        
+        # Check for other plot commands
         for (cmd in plot_commands) {
           if (grepl(cmd, line, fixed = TRUE)) {
             return(list(
@@ -4084,6 +4092,58 @@ find_last_plot_command <- function() {
     
   }, error = function(e) {
     return(list(found = FALSE, message = paste("Error reading history:", e$message)))
+  })
+}
+
+#' Reconstruct multi-line ggplot2 command
+reconstruct_ggplot_command <- function(history_lines, start_line) {
+  tryCatch({
+    # Start from the ggplot line and collect subsequent lines
+    command_lines <- c()
+    current_line <- start_line
+    
+    # Add the ggplot line
+    command_lines <- c(command_lines, history_lines[current_line])
+    
+    # Look for continuation lines (lines with + or %>%)
+    current_line <- current_line + 1
+    while (current_line <= length(history_lines)) {
+      line <- history_lines[current_line]
+      
+      # Check if this line continues the ggplot command
+      if (grepl("^\\s*\\+", line) || grepl("^\\s*%>%", line) || 
+          grepl("geom_", line) || grepl("labs\\(", line) || 
+          grepl("theme\\(", line) || grepl("scale_", line) ||
+          grepl("facet_", line) || grepl("coord_", line)) {
+        command_lines <- c(command_lines, line)
+        current_line <- current_line + 1
+      } else {
+        # Check if the previous line ended with + (indicating continuation)
+        if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
+          command_lines <- c(command_lines, line)
+          current_line <- current_line + 1
+        } else {
+          break
+        }
+      }
+    }
+    
+    # Combine all lines into a single command
+    full_command <- paste(command_lines, collapse = " ")
+    
+    return(list(
+      command = full_command,
+      line_number = start_line,
+      found = TRUE
+    ))
+    
+  }, error = function(e) {
+    # Fallback to just the ggplot line
+    return(list(
+      command = history_lines[start_line],
+      line_number = start_line,
+      found = TRUE
+    ))
   })
 }
 
@@ -4195,7 +4255,7 @@ extract_plot_data <- function(command, plot_type) {
         data_var <- substr(command, match + 7, match + attr(match, "match.length") - 2)
         return(data_var)
       }
-    } else if (plot_type == "violin" || plot_type == "ggplot") {
+    } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
       # For ggplot2 plots, extract the data frame and variables from aes()
       # First extract the data frame
       data_match <- regexpr("ggplot\\(([^,]+)", command)
@@ -4208,14 +4268,23 @@ extract_plot_data <- function(command, plot_type) {
           aes_content <- substr(command, aes_match + 5, aes_match + attr(aes_match, "match.length") - 2)
           
           # Extract x and y variables from aes(x=..., y=...)
-          x_match <- regexpr("x\\s*=\\s*([^,]+)", aes_content)
-          y_match <- regexpr("y\\s*=\\s*([^,]+)", aes_content)
+          # Look for x= and y= patterns
+          x_pattern <- "x\\s*=\\s*([^,]+)"
+          y_pattern <- "y\\s*=\\s*([^,]+)"
+          
+          x_match <- regexpr(x_pattern, aes_content)
+          y_match <- regexpr(y_pattern, aes_content)
           
           if (x_match > 0 && y_match > 0) {
-            x_var <- substr(aes_content, x_match + attr(x_match, "match.length"), 
-                           x_match + attr(x_match, "match.length") + attr(x_match, "match.length") - 1)
-            y_var <- substr(aes_content, y_match + attr(y_match, "match.length"), 
-                           y_match + attr(y_match, "match.length") + attr(y_match, "match.length") - 1)
+            # Extract x variable
+            x_start <- x_match + attr(x_match, "match.length")
+            x_end <- x_start + attr(x_match, "match.length") - 1
+            x_var <- substr(aes_content, x_start, x_end)
+            
+            # Extract y variable  
+            y_start <- y_match + attr(y_match, "match.length")
+            y_end <- y_start + attr(y_match, "match.length") - 1
+            y_var <- substr(aes_content, y_start, y_end)
             
             # Clean up variable names
             x_var <- gsub("^\\s+|\\s+$", "", x_var)
@@ -4226,8 +4295,19 @@ extract_plot_data <- function(command, plot_type) {
               x = x_var,
               y = y_var
             ))
+          } else if (x_match > 0) {
+            # Only x variable found
+            x_start <- x_match + attr(x_match, "match.length")
+            x_end <- x_start + attr(x_match, "match.length") - 1
+            x_var <- substr(aes_content, x_start, x_end)
+            x_var <- gsub("^\\s+|\\s+$", "", x_var)
+            
+            return(list(
+              data_frame = data_frame,
+              x = x_var
+            ))
           } else {
-            # If we can't extract x,y, just return the data frame
+            # If we can't extract variables, just return the data frame
             return(data_frame)
           }
         } else {
