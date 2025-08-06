@@ -1,0 +1,4 @@
+Name: Launch AI Chat
+Description: Launch RStudio AI Chat interface
+Binding: launch_ai_chat
+Interactive: true 

@@ -168,9 +168,8 @@ ai_smart_insert <- function(code, location_hint = NULL) {
 #' @export
 execute_code <- function(code) {
   tryCatch({
-      # Evaluate the code in the global environment
-  global_env <- globalenv()
-  result <- eval(parse(text = code), envir = global_env)
+    # Evaluate the code in the global environment
+    result <- eval(parse(text = code), envir = .GlobalEnv)
     
     # Print the result if it's not NULL
     if (!is.null(result)) {

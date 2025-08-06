@@ -4,10 +4,9 @@
 #' @export
 send_env_context_to_backend <- function() {
   # Capture environment context
-  global_env <- globalenv()
   context_data <- list(
     loaded_packages = .packages(),
-    workspace_objects = ls(envir = global_env),
+    workspace_objects = ls(envir = .GlobalEnv),
     r_version = R.version.string,
     platform = R.version$platform,
     timestamp = Sys.time(),
