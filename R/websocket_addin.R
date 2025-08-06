@@ -4062,7 +4062,9 @@ find_last_plot_command <- function() {
         "hist(", "plot(", "boxplot(", "barplot(", "scatterplot(",
         "ggplot(", "qplot(", "ggplotly(",
         "plotly::", "leaflet::", "dygraph(",
-        "density(", "pairs(", "ggpairs(", "GGally::"
+        "density(", "pairs(", "ggpairs(", "GGally::",
+        "qqnorm(", "qqplot(", "qqline(", "residuals(", "fitted(",
+        "geom_qq(", "geom_qq_line(", "geom_smooth("
       )
       
       # First pass: Look specifically for ggplot commands
@@ -4195,15 +4197,21 @@ identify_plot_type <- function(command) {
       return("barplot")
     } else if (grepl("geom_boxplot\\(", command_lower)) {
       return("boxplot")
-    } else if (grepl("geom_histogram\\(", command_lower)) {
-      return("histogram")
-    } else if (grepl("geom_", command_lower)) {
-      # Default to scatter for other geom types
-      return("scatter")
-    } else {
-      # If no geom found, default to ggplot
-      return("ggplot")
-    }
+      } else if (grepl("geom_histogram\\(", command_lower)) {
+    return("histogram")
+  } else if (grepl("geom_qq\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("geom_qq_line\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("geom_smooth\\(", command_lower)) {
+    return("residual_plot")
+  } else if (grepl("geom_", command_lower)) {
+    # Default to scatter for other geom types
+    return("scatter")
+  } else {
+    # If no geom found, default to ggplot
+    return("ggplot")
+  }
   } else if (grepl("geom_density\\(", command_lower)) {
     return("density")
   } else if (grepl("geom_line\\(", command_lower)) {
@@ -4218,8 +4226,18 @@ identify_plot_type <- function(command) {
     return("boxplot")
   } else if (grepl("geom_histogram\\(", command_lower)) {
     return("histogram")
+  } else if (grepl("geom_qq\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("geom_qq_line\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("geom_smooth\\(", command_lower)) {
+    return("residual_plot")
   } else if (grepl("geom_", command_lower)) {
     return("scatter")
+  } else if (grepl("qqnorm\\(", command_lower) || grepl("qqplot\\(", command_lower)) {
+    return("qq_plot")
+  } else if (grepl("residuals\\(", command_lower) || grepl("fitted\\(", command_lower)) {
+    return("residual_plot")
   } else if (grepl("plotly", command_lower)) {
     return("interactive")
   } else if (grepl("leaflet", command_lower)) {
@@ -4267,6 +4285,27 @@ extract_plot_data <- function(command, plot_type) {
       match <- regexpr("(pairs|ggpairs)\\(([^,)]+)[,)]", command)
       if (match > 0) {
         data_var <- substr(command, match + 7, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "qq_plot") {
+      # Extract data from qqnorm(data) or qqplot(data)
+      match <- regexpr("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "residual_plot") {
+      # Extract data from residuals(model) or fitted(model)
+      match <- regexpr("(residuals|fitted)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 10, match + attr(match, "match.length") - 2)
+        return(data_var)
+      }
+    } else if (plot_type == "map") {
+      # Extract data from leaflet(data) or similar
+      match <- regexpr("leaflet\\(([^,)]+)[,)]", command)
+      if (match > 0) {
+        data_var <- substr(command, match + 9, match + attr(match, "match.length") - 2)
         return(data_var)
       }
     } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
@@ -4379,6 +4418,20 @@ generate_analysis_commands <- function(plot_type, data_var) {
     commands$correlation_matrix <- paste0("cor(", data_var, ")")
     commands$summary_stats <- paste0("summary(", data_var, ")")
     commands$multivariate_analysis <- paste0("if(require(corrplot)) corrplot(cor(", data_var, ")) else 'corrplot package needed'")
+  } else if (plot_type == "qq_plot") {
+    commands$normality_test <- paste0("shapiro.test(", data_var, ")")
+    commands$summary_stats <- paste0("summary(", data_var, ")")
+    commands$skewness <- paste0("if(require(e1071)) skewness(", data_var, ") else 'e1071 package needed'")
+    commands$kurtosis <- paste0("if(require(e1071)) kurtosis(", data_var, ") else 'e1071 package needed'")
+  } else if (plot_type == "residual_plot") {
+    commands$residual_analysis <- paste0("summary(", data_var, ")")
+    commands$normality_test <- paste0("shapiro.test(", data_var, ")")
+    commands$homoscedasticity <- paste0("if(require(lmtest)) bptest(", data_var, ") else 'lmtest package needed'")
+    commands$autocorrelation <- paste0("if(require(lmtest)) dwtest(", data_var, ") else 'lmtest package needed'")
+  } else if (plot_type == "map") {
+    commands$spatial_analysis <- paste0("summary(", data_var, ")")
+    commands$coordinates_check <- paste0("if(require(sf)) st_bbox(", data_var, ") else 'sf package needed'")
+    commands$data_structure <- paste0("str(", data_var, ")")
   } else if (plot_type == "violin") {
     # Handle violin plots specifically
     if (is.list(data_var) && !is.null(data_var$data_frame)) {
