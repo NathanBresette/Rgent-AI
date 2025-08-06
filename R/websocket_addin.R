@@ -4066,18 +4066,22 @@ find_last_plot_command <- function() {
         "pairs(", "ggpairs(", "GGally::"
       )
       
+      # First pass: Look specifically for ggplot commands
       for (i in length(history_lines):1) {
         line <- history_lines[i]
-        
-        # Check for ggplot2 commands specifically
         if (grepl("ggplot\\(", line, fixed = TRUE)) {
+          cat("DEBUG: Found ggplot line at position", i, ":", line, "\n")
           # For ggplot2, we need to reconstruct the multi-line command
           return(reconstruct_ggplot_command(history_lines, i))
         }
-        
-        # Check for other plot commands
+      }
+      
+      # Second pass: Look for other plot commands
+      for (i in length(history_lines):1) {
+        line <- history_lines[i]
         for (cmd in plot_commands) {
           if (grepl(cmd, line, fixed = TRUE)) {
+            cat("DEBUG: Found plot command at position", i, ":", line, "\n")
             return(list(
               command = line,
               line_number = i,
@@ -4098,31 +4102,38 @@ find_last_plot_command <- function() {
 #' Reconstruct multi-line ggplot2 command
 reconstruct_ggplot_command <- function(history_lines, start_line) {
   tryCatch({
+    cat("DEBUG: reconstruct_ggplot_command called with start_line:", start_line, "\n")
     # Start from the ggplot line and collect subsequent lines
     command_lines <- c()
     current_line <- start_line
     
     # Add the ggplot line
     command_lines <- c(command_lines, history_lines[current_line])
+    cat("DEBUG: Added ggplot line:", history_lines[current_line], "\n")
     
     # Look for continuation lines (lines with + or %>%)
     current_line <- current_line + 1
+    cat("DEBUG: Starting to look for continuation lines from line", current_line, "\n")
     while (current_line <= length(history_lines)) {
       line <- history_lines[current_line]
+      cat("DEBUG: Checking line", current_line, ":", line, "\n")
       
       # Check if this line continues the ggplot command
       if (grepl("^\\s*\\+", line) || grepl("^\\s*%>%", line) || 
           grepl("geom_", line) || grepl("labs\\(", line) || 
           grepl("theme\\(", line) || grepl("scale_", line) ||
           grepl("facet_", line) || grepl("coord_", line)) {
+        cat("DEBUG: Found continuation line:", line, "\n")
         command_lines <- c(command_lines, line)
         current_line <- current_line + 1
       } else {
         # Check if the previous line ended with + (indicating continuation)
         if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
+          cat("DEBUG: Previous line ended with +, adding:", line, "\n")
           command_lines <- c(command_lines, line)
           current_line <- current_line + 1
         } else {
+          cat("DEBUG: No more continuation lines found\n")
           break
         }
       }
@@ -4130,6 +4141,7 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     
     # Combine all lines into a single command
     full_command <- paste(command_lines, collapse = " ")
+    cat("DEBUG: Final reconstructed command:", full_command, "\n")
     
     return(list(
       command = full_command,
