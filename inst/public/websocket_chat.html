@@ -662,13 +662,12 @@
           <div class="guide-section">
             <h3>🚀 Getting Started</h3>
             <div class="guide-card">
-              <h4>Ask Questions in Plain English</h4>
-              <p>Simply type your questions naturally. The AI understands R programming and will help you with:</p>
+              <h4>Be Specific</h4>
               <ul>
-                <li>"Create a function to analyze sales data"</li>
-                <li>"Debug this error in my ggplot"</li>
-                <li>"Explain what this dplyr code does"</li>
-                <li>"Optimize this loop for better performance"</li>
+                <li>✅ "Create a function to calculate mean by group"</li>
+                <li>❌ "help me with data"</li>
+                <li>✅ "Debug this ggplot error: object not found"</li>
+                <li>❌ "it's not working"</li>
               </ul>
             </div>
           </div>
@@ -677,11 +676,11 @@
             <h3>🔧 Key Features</h3>
             <div class="guide-card">
               <h4>Smart Context Capture</h4>
-              <p>Automatically captures your entire R environment - data frames, functions, variables, and active code.</p>
+              <p>Automatically captures your entire R environment - data frames, functions, variables, plots, and active code.</p>
             </div>
             <div class="guide-card">
               <h4>Real-time Streaming</h4>
-              <p>Watch AI responses stream in real-time, just like ChatGPT. No waiting for complete responses.</p>
+              <p>Watch AI responses stream in real-time. No waiting for complete responses.</p>
             </div>
             <div class="guide-card">
               <h4>Code Insertion</h4>
@@ -701,6 +700,7 @@
             <h3>⚡ Performance Tips</h3>
             <div class="guide-card">
               <h4>Keep Environment Clean</h4>
+              <p>This will save tokens and cost:</p>
               <ul>
                 <li>Remove unused variables: <code>rm(unused_var)</code></li>
                 <li>Clear large objects: <code>rm(large_dataframe)</code></li>
@@ -708,32 +708,9 @@
                 <li>Use <code>rm(list = ls())</code> for fresh start</li>
               </ul>
             </div>
-            <div class="guide-card">
-              <h4>Be Specific</h4>
-              <ul>
-                <li>✅ "Create a function to calculate mean by group"</li>
-                <li>❌ "help me with data"</li>
-                <li>✅ "Debug this ggplot error: object not found"</li>
-                <li>❌ "it's not working"</li>
-              </ul>
-            </div>
           </div>
           
-          <div class="guide-section">
-            <h3>🎯 Pro Tips</h3>
-            <div class="guide-card">
-              <h4>Context Awareness</h4>
-              <p>The AI knows your active file, cursor position, and workspace objects. Use this to your advantage!</p>
-            </div>
-            <div class="guide-card">
-              <h4>Conversation Memory</h4>
-              <p>Chat history is maintained throughout your session. Reference previous questions and answers.</p>
-            </div>
-            <div class="guide-card">
-              <h4>Code Blocks</h4>
-              <p>Generated code comes with "Copy" and "Insert at Cursor" buttons for easy integration.</p>
-            </div>
-          </div>
+
           
           <div class="guide-section">
             <h3>🔍 Troubleshooting</h3>
@@ -743,7 +720,6 @@
                 <li>Your environment might be too large</li>
                 <li>Try <code>rm(list = ls())</code> to clear workspace</li>
                 <li>Restart R session for fresh start</li>
-                <li>Check Usage tab to monitor costs</li>
               </ul>
             </div>
             <div class="guide-card">
@@ -754,6 +730,10 @@
                 <li>Try refreshing the page</li>
                 <li>Restart the addin if needed</li>
               </ul>
+            </div>
+            <div class="guide-card">
+              <h4>Still Stuck?</h4>
+              <p>Contact us at <a href="mailto:founders@rgentai.com">founders@rgentai.com</a></p>
             </div>
           </div>
         </div>
