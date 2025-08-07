@@ -98,12 +98,19 @@
         color: var(--text-primary); 
         line-height: 1.5;
         word-wrap: break-word;
-        word-break: normal;
-        overflow-wrap: break-word;
-        hyphens: none;
-        white-space: normal;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      /* Logo Styling */
+      .logo-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      
+      .logo-image {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
       }
       
       .ai-message strong {
@@ -523,7 +530,9 @@
     </style>
 </head>
 <body>
-            <h2>RgentAI Assistant</h2>
+            <div class="logo-container">
+                <img src="rgentlogo.png" alt="RgentAI" class="logo-image">
+            </div>
     
     <!-- Access Code Section -->
     <div id="access-section" class="access-section">
