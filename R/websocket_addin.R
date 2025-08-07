@@ -1579,12 +1579,41 @@ start_https_server <- function(html_file) {
       port,
       list(
         call = function(req) {
-          # Serve the HTML file
-          list(
-            status = 200L,
-            headers = list("Content-Type" = "text/html"),
-            body = readLines(html_file, warn = FALSE)
-          )
+          # Get the request path
+          path <- req$PATH_INFO
+          
+          # Determine the file path based on the request
+          if (path == "/" || path == "/index.html") {
+            # Serve the HTML file
+            list(
+              status = 200L,
+              headers = list("Content-Type" = "text/html"),
+              body = readLines(html_file, warn = FALSE)
+            )
+          } else if (path == "/rgentlogo.png") {
+            # Serve the logo image
+            logo_file <- file.path(dirname(html_file), "rgentlogo.png")
+            if (file.exists(logo_file)) {
+              list(
+                status = 200L,
+                headers = list("Content-Type" = "image/png"),
+                body = readBin(logo_file, "raw", file.info(logo_file)$size)
+              )
+            } else {
+              list(
+                status = 404L,
+                headers = list("Content-Type" = "text/plain"),
+                body = "Logo not found"
+              )
+            }
+          } else {
+            # Default response
+            list(
+              status = 404L,
+              headers = list("Content-Type" = "text/plain"),
+              body = "Not found"
+            )
+          }
         }
       ),
       ssl = list(
