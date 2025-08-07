@@ -112,6 +112,8 @@
         width: auto;
         object-fit: contain;
         border: 1px solid red; /* Debug border */
+        display: block;
+        max-width: 200px;
       }
       
       .ai-message strong {
@@ -532,7 +534,7 @@
 </head>
 <body>
             <div class="logo-container">
-                <img src="./rgentlogo.png" alt="RgentAI" class="logo-image">
+                <img src="./rgentlogo.png" alt="RgentAI" class="logo-image" onerror="console.log('Logo failed to load'); this.style.display='none';" onload="console.log('Logo loaded successfully');">
             </div>
     
     <!-- Access Code Section -->
