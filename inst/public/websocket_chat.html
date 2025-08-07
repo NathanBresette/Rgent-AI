@@ -250,7 +250,19 @@
       }
       .input-container {
         display: flex;
+        flex-direction: column;
         gap: 10px;
+      }
+      
+      .input-row {
+        display: flex;
+        gap: 10px;
+      }
+      
+      .button-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
       }
       input[type="text"] { 
         flex: 1;
@@ -473,10 +485,14 @@
           <div class="message ai-message">Connecting to RStudio...</div>
         </div>
         <div class="input-container">
-          <input type="text" id="user-input" placeholder="Type your question here..." disabled>
-                      <button onclick="sendMessage()" id="send-button" disabled class="send-button">Send</button>
-          <button onclick="debugLastError()" id="debug-error-button" disabled class="debug-button">&#128027; Debug Last Error</button>
-          <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">📊 Analyze Last Plot</button>
+          <div class="input-row">
+            <input type="text" id="user-input" placeholder="Type your question here..." disabled>
+            <button onclick="sendMessage()" id="send-button" disabled class="send-button">Send</button>
+          </div>
+          <div class="button-row">
+            <button onclick="debugLastError()" id="debug-error-button" disabled class="debug-button">&#128027; Debug Last Error</button>
+            <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">📊 Analyze Last Plot</button>
+          </div>
         </div>
         <div class="status" id="status">Connecting...</div>
       </div>
