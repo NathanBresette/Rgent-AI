@@ -66,9 +66,9 @@
       }
       
       .chat-container { 
-        height: 70vh; 
-        min-height: 300px;
-        max-height: 80vh;
+        height: 60vh; 
+        min-height: 250px;
+        max-height: 70vh;
         overflow-y: auto; 
         border: 1px solid var(--border-color); 
         border-radius: 8px; 
@@ -1138,8 +1138,8 @@
         const chatContainer = document.getElementById("chat-container");
         if (chatContainer) {
           const viewportHeight = window.innerHeight;
-          const availableHeight = viewportHeight - 200; // Account for header, input, margins
-          chatContainer.style.height = Math.max(300, Math.min(availableHeight, viewportHeight * 0.8)) + "px";
+          const availableHeight = viewportHeight - 250; // Account for header, input, margins
+          chatContainer.style.height = Math.max(250, Math.min(availableHeight, viewportHeight * 0.6)) + "px";
         }
       }
       
