@@ -104,22 +104,16 @@
       .logo-container {
         display: flex;
         align-items: center;
+        justify-content: center;
         margin-bottom: 20px;
+        padding: 10px 0;
       }
       
-      .logo-image {
-        width: 32px;
-        height: 32px;
-        margin-right: 12px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      
-      .logo-text {
-        font-size: 24px;
-        font-weight: bold;
-        color: var(--text-primary);
-        font-family: 'Arial', sans-serif;
+      .logo-banner {
+        height: 40px;
+        width: auto;
+        max-width: 200px;
+        object-fit: contain;
       }
       
       .ai-message strong {
@@ -540,8 +534,7 @@
 </head>
 <body>
             <div class="logo-container">
-                <img src="rgentlogo.png" alt="RgentAI Logo" class="logo-image">
-                <div class="logo-text">RgentAI</div>
+                <img src="rgentlogo.png" alt="RgentAI Logo" class="logo-banner">
             </div>
     
     <!-- Access Code Section -->
