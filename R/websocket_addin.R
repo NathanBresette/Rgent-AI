@@ -1534,9 +1534,18 @@ launch_html_interface <- function() {
     cat("Clipboard API should now work properly!\n")
   } else {
     # Fallback to regular viewer pane
-  temp_file <- tempfile(fileext = ".html")
-  file.copy(html_file, temp_file)
-  rstudioapi::viewer(temp_file)
+    temp_file <- tempfile(fileext = ".html")
+    file.copy(html_file, temp_file)
+    
+    # Also copy the logo file to the same temp directory
+    logo_file <- file.path(dirname(html_file), "rgentlogo.png")
+    if (file.exists(logo_file)) {
+      temp_logo_file <- file.path(dirname(temp_file), "rgentlogo.png")
+      file.copy(logo_file, temp_logo_file)
+      cat("DEBUG: Copied logo to temp directory:", temp_logo_file, "\n")
+    }
+    
+    rstudioapi::viewer(temp_file)
     cat("WebSocket AI Chat opened in viewer pane (HTTP fallback).\n")
     cat("Clipboard API may not work due to browser restrictions.\n")
   }
@@ -1581,9 +1590,11 @@ start_https_server <- function(html_file) {
         call = function(req) {
           # Get the request path
           path <- req$PATH_INFO
+          cat("DEBUG: Request path:", path, "\n")
           
           # Determine the file path based on the request
           if (path == "/" || path == "/index.html") {
+            cat("DEBUG: Serving HTML file\n")
             # Serve the HTML file
             list(
               status = 200L,
@@ -1593,13 +1604,17 @@ start_https_server <- function(html_file) {
           } else if (path == "/rgentlogo.png") {
             # Serve the logo image
             logo_file <- file.path(dirname(html_file), "rgentlogo.png")
+            cat("DEBUG: Looking for logo at:", logo_file, "\n")
+            cat("DEBUG: Logo file exists:", file.exists(logo_file), "\n")
             if (file.exists(logo_file)) {
+              cat("DEBUG: Serving logo image\n")
               list(
                 status = 200L,
                 headers = list("Content-Type" = "image/png"),
                 body = readBin(logo_file, "raw", file.info(logo_file)$size)
               )
             } else {
+              cat("DEBUG: Logo file not found\n")
               list(
                 status = 404L,
                 headers = list("Content-Type" = "text/plain"),
@@ -1607,6 +1622,7 @@ start_https_server <- function(html_file) {
               )
             }
           } else {
+            cat("DEBUG: Unknown path, returning 404\n")
             # Default response
             list(
               status = 404L,
