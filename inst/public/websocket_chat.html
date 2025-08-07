@@ -66,8 +66,9 @@
       }
       
       .chat-container { 
-        height: calc(100vh - 300px); 
+        height: 70vh; 
         min-height: 300px;
+        max-height: 80vh;
         overflow-y: auto; 
         border: 1px solid var(--border-color); 
         border-radius: 8px; 
@@ -1131,6 +1132,22 @@
           streamingTimeout = null;
         }
       }
+      
+      // Dynamic resize function for chat container
+      function resizeChatContainer() {
+        const chatContainer = document.getElementById("chat-container");
+        if (chatContainer) {
+          const viewportHeight = window.innerHeight;
+          const availableHeight = viewportHeight - 200; // Account for header, input, margins
+          chatContainer.style.height = Math.max(300, Math.min(availableHeight, viewportHeight * 0.8)) + "px";
+        }
+      }
+      
+      // Add resize listener
+      window.addEventListener('resize', resizeChatContainer);
+      
+      // Initial resize
+      document.addEventListener('DOMContentLoaded', resizeChatContainer);
       
 
       
