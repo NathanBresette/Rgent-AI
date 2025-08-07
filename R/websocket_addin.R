@@ -1179,20 +1179,28 @@ start_websocket_server <- function() {
                    success = FALSE, 
                    message = analysis_result$message)
             } else {
-              # Send step 2 progress
+              # Send step 1 progress
+              progress_msg <- list(
+                action = "chat_with_ai",
+                message = "*Step 1: Analyzing plot structure and data...*"
+              )
+              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+              
+              # Step 2: Send step 2 progress
               progress_msg <- list(
                 action = "chat_with_ai",
                 message = "*Step 2: Running statistical analysis...*"
               )
               ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
               
-              # Step 3: Send to AI for interpretation
+              # Step 3: Send step 3 progress
               progress_msg <- list(
                 action = "chat_with_ai",
                 message = "*Step 3: Generating insights and recommendations...*"
               )
               ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-              # Step 2: Send analysis to AI for interpretation
+              
+              # Get analysis data
               analysis <- analysis_result$analysis
               
               # Create AI prompt for plot analysis
@@ -1217,32 +1225,138 @@ start_websocket_server <- function() {
                 "5. Code examples for better visualizations"
               )
               
-              # Send to AI for interpretation using regular chat endpoint
-              response <- httr::POST(
-                "https://rgent.onrender.com/chat",
-                body = list(
+              # Send to AI for interpretation using streaming endpoint
+              tryCatch({
+                # Prepare request body for streaming
+                request_body <- list(
                   access_code = get_current_access_code(),
                   prompt = prompt,
                   context_data = list(
                     plot_analysis = analysis,
                     workspace_objects = capture_context()$workspace_objects
                   )
-                ),
-                encode = "json",
-                httr::timeout(60)
-              )
-              
-              if (httr::status_code(response) == 200) {
-                ai_result <- httr::content(response)
-                list(action = "plot_analysis", 
-                     success = TRUE,
-                     plot_info = analysis,
-                     ai_interpretation = ai_result$response)
-              } else {
+                )
+                
+                cat("DEBUG: Sending plot analysis to streaming endpoint...\n")
+                response <- httr::POST(
+                  "https://rgent.onrender.com/chat/stream",
+                  body = request_body,
+                  encode = "json",
+                  httr::timeout(60),  # 60 second timeout for plot analysis
+                  httr::add_headers("Accept" = "text/event-stream")
+                )
+                
+                cat("Plot analysis response status:", httr::status_code(response), "\n")
+                
+                if (httr::status_code(response) == 200) {
+                  # Handle streaming response
+                  response_text <- httr::content(response, "text")
+                  cat("Streaming plot analysis response received\n")
+                  cat("DEBUG: Response text length:", nchar(response_text), "\n")
+                  
+                  # Parse Server-Sent Events (SSE) format
+                  lines <- strsplit(response_text, "\n")[[1]]
+                  cat("DEBUG: Number of lines:", length(lines), "\n")
+                  full_response <- ""
+                  
+                  for (line in lines) {
+                    cat("DEBUG: Processing plot analysis line:", line, "\n")
+                    if (grepl("^data: ", line)) {
+                      # Extract JSON data from SSE format
+                      json_data <- substring(line, 7)  # Remove "data: " prefix
+                      cat("DEBUG: Extracted JSON data:", json_data, "\n")
+                      if (json_data != "[DONE]") {
+                        tryCatch({
+                          chunk_data <- jsonlite::fromJSON(json_data)
+                          cat("DEBUG: Parsed chunk_data:", toString(chunk_data), "\n")
+                          
+                          if (!is.null(chunk_data$chunk)) {
+                            full_response <- paste0(full_response, chunk_data$chunk)
+                            
+                            # Accumulate chunks and send in larger batches
+                            if (!exists("current_chunk_buffer")) {
+                              current_chunk_buffer <- ""
+                            }
+                            current_chunk_buffer <- paste0(current_chunk_buffer, chunk_data$chunk)
+                            
+                            # Check if we're in the middle of a code block
+                            code_block_open <- grepl("```[^`]*$", current_chunk_buffer)
+                            code_block_complete <- grepl("```.*```", current_chunk_buffer)
+                            
+                            # Also check if we have an incomplete function call (starts with function name but no closing)
+                            incomplete_function <- grepl("^[a-zA-Z_][a-zA-Z0-9_]*\\([^)]*$", current_chunk_buffer)
+                            
+                            # Send chunk to frontend when we have a complete word or sentence
+                            # Also send when we have a complete code block
+                            # Don't send if we're in the middle of a code block or incomplete function
+                            if (!code_block_open && !incomplete_function && (grepl("[.!?]\\s*$", current_chunk_buffer) || 
+                                grepl("\\n\\n", current_chunk_buffer) ||
+                                grepl("```$", current_chunk_buffer) ||
+                                nchar(current_chunk_buffer) > 100)) {
+                              
+                              chunk_response <- list(
+                                action = "ai_response",
+                                streaming = TRUE,
+                                chunk = current_chunk_buffer
+                              )
+                              ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                              
+                              # Reset buffer
+                              current_chunk_buffer <- ""
+                              
+                              # Small delay for streaming effect
+                              Sys.sleep(0.1)
+                            }
+                          }
+                          
+                          # Check if this is the final chunk
+                          if (!is.null(chunk_data$done) && chunk_data$done) {
+                            cat("DEBUG: Received final plot analysis chunk, finishing stream\n")
+                            
+                            # Send any remaining buffer
+                            if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
+                              chunk_response <- list(
+                                action = "ai_response",
+                                streaming = TRUE,
+                                chunk = current_chunk_buffer
+                              )
+                              ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                            }
+                            
+                            break
+                          }
+                        }, error = function(e) {
+                          cat("Error parsing plot analysis chunk:", e$message, "\n")
+                        })
+                      }
+                    }
+                  }
+                  
+                  # Send finish signal
+                  finish_response <- list(
+                    action = "ai_response",
+                    streaming = TRUE,
+                    finished = TRUE
+                  )
+                  ws$send(jsonlite::toJSON(finish_response, auto_unbox = TRUE))
+                  
+                  list(action = "plot_analysis_streaming_complete")
+                  
+                } else {
+                  cat("Backend returned error status:", httr::status_code(response), "\n")
+                  error_content <- httr::content(response)
+                  cat("Error content:", toString(error_content), "\n")
+                  list(action = "plot_analysis", 
+                       success = FALSE,
+                       message = paste("AI analysis failed. Status:", httr::status_code(response)))
+                }
+              }, error = function(e) {
+                cat("Exception during plot analysis backend call:", e$message, "\n")
+                cat("DEBUG: Exception details:", toString(e), "\n")
                 list(action = "plot_analysis", 
                      success = FALSE,
-                     message = paste("AI analysis failed. Status:", httr::status_code(response)))
-              }
+                     message = paste("Plot analysis failed:", e$message))
+              })
             }
           }, error = function(e) {
             list(action = "plot_analysis", 
