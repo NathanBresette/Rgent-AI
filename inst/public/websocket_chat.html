@@ -304,18 +304,14 @@
       
       /* Total Cost Box - Horizontal Prominent Display */
       .total-cost-box {
-        background: linear-gradient(135deg, var(--rgent-primary), var(--rgent-accent));
+        background: var(--bg-card);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
         text-align: center;
-        color: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      }
-      
-      .total-cost-box.today {
-        background: linear-gradient(135deg, #28a745, #20c997);
+        color: var(--text-primary);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
       .total-cost-header {
@@ -326,19 +322,18 @@
         margin: 0 0 5px 0;
         font-size: 18px;
         font-weight: bold;
-        color: white;
+        color: var(--text-primary);
       }
       
       .total-cost-header small {
-        color: rgba(255, 255, 255, 0.8);
+        color: var(--text-secondary);
         font-size: 12px;
       }
       
       .total-cost-amount {
         font-size: 32px;
         font-weight: bold;
-        color: white;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        color: var(--text-primary);
       }
       
       /* Input Output Container - Side by Side */
@@ -354,6 +349,7 @@
         border-radius: 8px;
         padding: 15px;
         text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
       .stat-card h4 {
@@ -496,7 +492,7 @@
               <!-- Total Cost - Horizontal Box at Top -->
               <div class="total-cost-box">
                 <div class="total-cost-header">
-                  <h3>💰 Total Cost</h3>
+                  <h3>Total Cost</h3>
                   <small>All time</small>
                 </div>
                 <div class="total-cost-amount" id="total-cost-overall">-</div>
@@ -505,12 +501,12 @@
               <!-- Input and Output Side by Side -->
               <div class="input-output-container">
                 <div class="stat-card">
-                  <h4>📥 Total Input Tokens</h4>
+                  <h4>Total Input Tokens</h4>
                   <div id="total-input-tokens">-</div>
                   <small id="total-input-rate">Rate: $0.0013/1K</small>
                 </div>
                 <div class="stat-card">
-                  <h4>📤 Total Output Tokens</h4>
+                  <h4>Total Output Tokens</h4>
                   <div id="total-output-tokens">-</div>
                   <small id="total-output-rate">Rate: $0.00533/1K</small>
                 </div>
@@ -524,7 +520,7 @@
               <!-- Today's Total Cost - Horizontal Box at Top -->
               <div class="total-cost-box today">
                 <div class="total-cost-header">
-                  <h3>💰 Today's Total Cost</h3>
+                  <h3>Today's Total Cost</h3>
                   <small>Today's usage</small>
                 </div>
                 <div class="total-cost-amount" id="today-total-cost">-</div>
@@ -533,12 +529,12 @@
               <!-- Today's Input and Output Side by Side -->
               <div class="input-output-container">
                 <div class="stat-card">
-                  <h4>📥 Input Tokens</h4>
+                  <h4>Input Tokens</h4>
                   <div id="today-input-tokens">-</div>
                   <small id="today-input-rate">Rate: $0.0013/1K</small>
                 </div>
                 <div class="stat-card">
-                  <h4>📤 Output Tokens</h4>
+                  <h4>Output Tokens</h4>
                   <div id="today-output-tokens">-</div>
                   <small id="today-output-rate">Rate: $0.00533/1K</small>
                 </div>
