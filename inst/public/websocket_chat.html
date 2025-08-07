@@ -98,33 +98,12 @@
         color: var(--text-primary); 
         line-height: 1.5;
         word-wrap: break-word;
-        padding: 12px 16px;
-        border-radius: 12px;
+        word-break: normal;
+        overflow-wrap: break-word;
+        hyphens: none;
+        white-space: normal;
         border: 1px solid var(--border-color);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 12px;
-        max-width: 85%;
-        margin-right: auto;
-      }
-      
-      /* Logo Styling */
-      .logo-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        margin-bottom: 20px;
-        padding: 15px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      }
-      
-      .logo-banner {
-        height: 35px;
-        width: auto;
-        max-width: 180px;
-        object-fit: contain;
-        filter: brightness(1.1) contrast(1.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
       .ai-message strong {
@@ -437,7 +416,6 @@
         font-size: 14px;
         background-color: var(--input-bg);
         color: var(--text-primary);
-        text-align: center;
       }
       
       .access-help {
@@ -544,9 +522,7 @@
     </style>
 </head>
 <body>
-            <div class="logo-container">
-                <img src="rgentlogo.png" alt="RgentAI Logo" class="logo-banner">
-            </div>
+            <h2>RgentAI Assistant</h2>
     
     <!-- Access Code Section -->
     <div id="access-section" class="access-section">
