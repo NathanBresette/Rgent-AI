@@ -108,12 +108,18 @@
       }
       
       .logo-image {
-        height: 40px;
-        width: auto;
-        object-fit: contain;
-        border: 1px solid red; /* Debug border */
-        display: block;
-        max-width: 200px;
+        width: 32px;
+        height: 32px;
+        margin-right: 12px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      
+      .logo-text {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--text-primary);
+        font-family: 'Arial', sans-serif;
       }
       
       .ai-message strong {
@@ -534,7 +540,8 @@
 </head>
 <body>
             <div class="logo-container">
-                <img src="./rgentlogo.png" alt="RgentAI" class="logo-image" onerror="console.log('Logo failed to load'); this.style.display='none';" onload="console.log('Logo loaded successfully');">
+                <img src="rgentlogo.png" alt="RgentAI Logo" class="logo-image">
+                <div class="logo-text">RgentAI</div>
             </div>
     
     <!-- Access Code Section -->
