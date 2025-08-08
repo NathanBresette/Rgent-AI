@@ -1524,88 +1524,16 @@ launch_html_interface <- function() {
   
   cat("Found HTML file at:", html_file, "\n")
   
-  # Start HTTPS server for clipboard API support
-  https_url <- start_https_server(html_file)
-  
-  if (!is.null(https_url)) {
-    # Open HTTPS URL in browser
-    browseURL(https_url)
-    cat("WebSocket AI Chat opened with HTTPS support.\n")
-    cat("Clipboard API should now work properly!\n")
-  } else {
-    # Fallback to regular viewer pane
+  # Open directly in the RStudio viewer pane (localhost file)
   temp_file <- tempfile(fileext = ".html")
   file.copy(html_file, temp_file)
   rstudioapi::viewer(temp_file)
-    cat("WebSocket AI Chat opened in viewer pane (HTTP fallback).\n")
-    cat("Clipboard API may not work due to browser restrictions.\n")
-  }
   
+  cat("WebSocket AI Chat opened in viewer pane.\n")
   cat("You can continue using the R console while the chat is active.\n")
   cat("To stop the server, run: stop_websocket_server()\n")
 }
 
-#' Start HTTPS server for HTML content
-start_https_server <- function(html_file) {
-  # Check if we can create SSL certificates
-  if (!requireNamespace("openssl", quietly = TRUE)) {
-    cat("openssl package not available - installing...\n")
-    install.packages("openssl", repos = "https://cran.r-project.org")
-  }
-  
-  # Check if magrittr is available for pipe operator
-  if (!requireNamespace("magrittr", quietly = TRUE)) {
-    cat("magrittr package not available - installing...\n")
-    install.packages("magrittr", repos = "https://cran.r-project.org")
-  }
-  
-  tryCatch({
-    # Generate self-signed certificate
-    cert_dir <- tempdir()
-    key_file <- file.path(cert_dir, "server.key")
-    cert_file <- file.path(cert_dir, "server.crt")
-    
-    # Generate certificate using openssl package (without pipe)
-    key <- openssl::rsa_keygen(2048)
-    openssl::write_pem(key, key_file)
-    
-    # Create certificate using openssl command line
-    system(paste0("openssl req -new -x509 -key ", key_file, " -out ", cert_file, " -days 365 -subj '/CN=localhost'"))
-    
-    # Start HTTPS server using httpuv
-    port <- 8443
-    server <- httpuv::startServer(
-      "127.0.0.1", 
-      port,
-      list(
-        call = function(req) {
-          # Serve the HTML file
-          list(
-            status = 200L,
-            headers = list("Content-Type" = "text/html"),
-            body = readLines(html_file, warn = FALSE)
-          )
-        }
-      ),
-      ssl = list(
-        cert = cert_file,
-        key = key_file
-      )
-    )
-    
-    # Store server reference
-    .GlobalEnv$https_server <- server
-    
-    https_url <- paste0("https://127.0.0.1:", port)
-    cat("HTTPS server started at:", https_url, "\n")
-    
-    return(https_url)
-    
-  }, error = function(e) {
-    cat("Failed to start HTTPS server:", e$message, "\n")
-    return(NULL)
-  })
-}
 
 #' Add message to conversation history
 #' @param role The role of the message sender ("user" or "ai")
