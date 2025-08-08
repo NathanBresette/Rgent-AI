@@ -93,9 +93,6 @@ launch_websocket_chat <- function() {
   # Add the task callback
   addTaskCallback(error_callback, name = "error_monitor")
   
-  cat("✅ Auto-capture system initialized with task callback\n")
-  cat("Errors will be automatically detected and captured!\n")
-  
   # Initialize auto-fix mode as disabled
   if (!exists(".GlobalEnv$auto_fix_mode")) {
     .GlobalEnv$auto_fix_mode <- FALSE
@@ -1419,8 +1416,6 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
-          cat("WebSocket connection opened\n")
-          
           # Send theme information immediately upon connection
           tryCatch({
             theme_info <- get_rstudio_theme()
@@ -1433,9 +1428,8 @@ start_websocket_server <- function() {
               colors = theme_info$colors
             )
             ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
-            cat("Theme information sent to client\n")
           }, error = function(e) {
-            cat("Error sending theme info:", e$message, "\n")
+            # ignore theme send errors
           })
           
           # Set up message handler
@@ -1444,55 +1438,45 @@ start_websocket_server <- function() {
           })
         },
         onWSClose = function(ws) {
-          cat("WebSocket connection closed\n")
+          # no-op
         }
       )
     )
     
-    cat("WebSocket server started on ws://127.0.0.1:8888\n")
-    
-  }, error = function(e) {
-    cat("Error starting WebSocket server on port 8888:", e$message, "\n")
-    cat("Trying alternative port 8889...\n")
-    
-    # Try alternative port
-    tryCatch({
-      .GlobalEnv$websocket_server <- httpuv::startServer(
-        "127.0.0.1", 
-        8889,
-        list(
-          onWSOpen = function(ws) {
-            cat("WebSocket connection opened on port 8889\n")
-            
-            # Send theme information immediately upon connection
-            tryCatch({
-              theme_info <- get_rstudio_theme()
-              theme_message <- list(
-                action = "theme_info",
-                is_dark = theme_info$is_dark,
-                theme_name = theme_info$theme_name
-              )
-              ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
-              cat("Theme information sent to client\n")
-            }, error = function(e) {
-              cat("Error sending theme info:", e$message, "\n")
-            })
-            
-            # Set up message handler
-            ws$onMessage(function(isBinary, data) {
-              message_handler(ws, isBinary, data)
-            })
-          },
-          onWSClose = function(ws) {
-            cat("WebSocket connection closed\n")
-          }
+      }, error = function(e) {
+      # Try alternative port silently
+      tryCatch({
+        .GlobalEnv$websocket_server <- httpuv::startServer(
+          "127.0.0.1", 
+          8889,
+          list(
+            onWSOpen = function(ws) {
+              tryCatch({
+                theme_info <- get_rstudio_theme()
+                theme_message <- list(
+                  action = "theme_info",
+                  is_dark = theme_info$is_dark,
+                  theme_name = theme_info$theme_name
+                )
+                ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
+              }, error = function(e) {
+                # ignore
+              })
+              
+              # Set up message handler
+              ws$onMessage(function(isBinary, data) {
+                message_handler(ws, isBinary, data)
+              })
+            },
+            onWSClose = function(ws) {
+              # no-op
+            }
+          )
         )
-      )
-      cat("WebSocket server started on ws://127.0.0.1:8889\n")
-    }, error = function(e2) {
-      stop("Failed to start WebSocket server on both ports")
+      }, error = function(e2) {
+        stop("Failed to start WebSocket server on both ports")
+      })
     })
-  })
 }
 
 #' Launch HTML interface with HTTPS support for clipboard API
@@ -1522,16 +1506,10 @@ launch_html_interface <- function() {
     return(invisible(FALSE))
   }
   
-  cat("Found HTML file at:", html_file, "\n")
-  
   # Open directly in the RStudio viewer pane (localhost file)
   temp_file <- tempfile(fileext = ".html")
   file.copy(html_file, temp_file)
   rstudioapi::viewer(temp_file)
-  
-  cat("WebSocket AI Chat opened in viewer pane.\n")
-  cat("You can continue using the R console while the chat is active.\n")
-  cat("To stop the server, run: stop_websocket_server()\n")
 }
 
 
@@ -1841,12 +1819,11 @@ stop_websocket_server <- function() {
     tryCatch({
       httpuv::stopServer(.GlobalEnv$websocket_server)
       .GlobalEnv$websocket_server <- NULL
-      cat("WebSocket server stopped\n")
     }, error = function(e) {
-      cat("Error stopping server:", e$message, "\n")
+      # silently ignore
     })
   } else {
-    cat("No WebSocket server running\n")
+    # no-op
   }
 }
 
