@@ -410,7 +410,7 @@ start_websocket_server <- function() {
             last_context <- .GlobalEnv$last_context_state
             if (!is.null(last_context)) {
               changes <- detect_context_changes(last_context, current_context)
-              cat("Detected changes, storing...\n")
+              
               
               # Store changes in backend
               tryCatch({
@@ -424,7 +424,7 @@ start_websocket_server <- function() {
                   encode = "json",
                   httr::timeout(10)
                 )
-                cat("Changes stored\n")
+                
               }, error = function(e) {
                 cat("Failed to store changes:", e$message, "\n")
               })
@@ -437,44 +437,20 @@ start_websocket_server <- function() {
           # Use streaming RAG chat endpoint
           tryCatch({
             # Prepare request body for simple chat
-            cat("DEBUG: current_context type:", class(current_context), "\n")
-            cat("DEBUG: current_context keys:", names(current_context), "\n")
-            cat("DEBUG: current_context length:", length(current_context), "\n")
-            cat("DEBUG: current_context structure:", str(current_context, max.level = 1), "\n")
             
             # Check if context has meaningful data
             if (!is.null(current_context$workspace_objects)) {
-              cat("DEBUG: Number of workspace objects:", length(current_context$workspace_objects), "\n")
               object_names <- sapply(current_context$workspace_objects, function(obj) obj$name)
-              cat("DEBUG: Object names:", paste(object_names, collapse = ", "), "\n")
             }
             
             if (!is.null(current_context$file_info)) {
-              cat("DEBUG: Has file info:", !is.null(current_context$file_info$file_contents), "\n")
               if (!is.null(current_context$file_info$file_contents)) {
-                cat("DEBUG: File content length:", nchar(current_context$file_info$file_contents), "\n")
               }
             }
             
-            # Debug intelligent_context
-            cat("DEBUG: intelligent_context type:", class(intelligent_context), "\n")
-            cat("DEBUG: intelligent_context length:", length(intelligent_context), "\n")
-            cat("DEBUG: intelligent_context first 200 chars:", substr(intelligent_context, 1, 200), "\n")
-            cat("DEBUG: intelligent_context contains 'dataframe':", grepl("dataframe", tolower(intelligent_context)), "\n")
-            cat("DEBUG: intelligent_context contains 'sales_data':", grepl("sales_data", intelligent_context), "\n")
-            
-            # Debug current_context structure
-            cat("DEBUG: current_context type:", class(current_context), "\n")
-            cat("DEBUG: current_context keys:", names(current_context), "\n")
-            cat("DEBUG: current_context length:", length(current_context), "\n")
-            
             # Debug workspace_objects
             if ("workspace_objects" %in% names(current_context)) {
-              cat("DEBUG: workspace_objects type:", class(current_context$workspace_objects), "\n")
-              cat("DEBUG: workspace_objects length:", length(current_context$workspace_objects), "\n")
               if (length(current_context$workspace_objects) > 0) {
-                cat("DEBUG: First workspace object:", names(current_context$workspace_objects)[1], "\n")
-                cat("DEBUG: First object structure:", str(current_context$workspace_objects[[1]]), "\n")
               }
             }
             
@@ -522,23 +498,13 @@ start_websocket_server <- function() {
             )
             
             # Debug the final request structure
-            cat("DEBUG: Request body structure:\n")
-            cat("DEBUG: - access_code:", request_body$access_code, "\n")
-            cat("DEBUG: - prompt:", request_body$prompt, "\n")
-            cat("DEBUG: - context_data keys:", names(request_body$context_data), "\n")
-            cat("DEBUG: - context_data workspace_objects length:", length(request_body$context_data$workspace_objects), "\n")
-            cat("DEBUG: - context_data file_info keys:", names(request_body$context_data$file_info), "\n")
-            cat("DEBUG: - context_data environment_info keys:", names(request_body$context_data$environment_info), "\n")
             
-            cat("DEBUG: Sending request with context_data length:", length(request_body$context_data), "\n")
-            cat("DEBUG: Request URL: https://rgent.onrender.com/chat/stream\n")
-            cat("DEBUG: Request body keys:", names(request_body), "\n")
-            cat("DEBUG: About to make HTTP request to backend...\n")
+                          
             
+                        
             # Debug the actual JSON being sent
             request_json <- jsonlite::toJSON(request_body, auto_unbox = TRUE)
-            cat("DEBUG: Request JSON length:", nchar(request_json), "\n")
-            cat("DEBUG: Request JSON preview:", substr(request_json, 1, 500), "\n")
+            
             
             response <- httr::POST(
               "https://rgent.onrender.com/chat/stream",
@@ -548,32 +514,24 @@ start_websocket_server <- function() {
               httr::add_headers("Accept" = "text/event-stream")
             )
             
-            cat("Response status:", httr::status_code(response), "\n")
-            cat("DEBUG: Response headers:", toString(httr::headers(response)), "\n")
+
             
             if (httr::status_code(response) == 200) {
               # Handle streaming response
-              response_text <- httr::content(response, "text")
-              cat("Streaming response received\n")
-              cat("DEBUG: Response text length:", nchar(response_text), "\n")
-              cat("DEBUG: First 200 chars of response:", substr(response_text, 1, 200), "\n")
+                             response_text <- httr::content(response, "text")
               
               # Parse Server-Sent Events (SSE) format
-              lines <- strsplit(response_text, "\n")[[1]]
-              cat("DEBUG: Number of lines:", length(lines), "\n")
-              chunks <- c()
-              full_response <- ""
+                             lines <- strsplit(response_text, "\n")[[1]]
+               chunks <- c()
+               full_response <- ""
               
               for (line in lines) {
-                cat("DEBUG: Processing line:", line, "\n")
                 if (grepl("^data: ", line)) {
                   # Extract JSON data from SSE format
                   json_data <- substring(line, 7)  # Remove "data: " prefix
-                  cat("DEBUG: Extracted JSON data:", json_data, "\n")
                   if (json_data != "[DONE]") {
                     tryCatch({
                       chunk_data <- jsonlite::fromJSON(json_data)
-                      cat("DEBUG: Parsed chunk_data:", toString(chunk_data), "\n")
                       
                       if (!is.null(chunk_data$chunk)) {
                         chunks <- c(chunks, chunk_data$chunk)
@@ -609,17 +567,13 @@ start_websocket_server <- function() {
                           
                           # Reset buffer
                           current_chunk_buffer <- ""
-                        
-                        # Small delay for streaming effect
-                          Sys.sleep(0.1)
                         }
                       }
                       
                       # Check if this is the final chunk
-                      if (!is.null(chunk_data$done) && chunk_data$done) {
-                        cat("DEBUG: Received final chunk, finishing stream\n")
-                        
-                        # Send any remaining buffer
+                                               if (!is.null(chunk_data$done) && chunk_data$done) {
+                           
+                           # Send any remaining buffer
                         if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
                           chunk_response <- list(
                             action = "ai_response",
@@ -641,7 +595,6 @@ start_websocket_server <- function() {
               # Add AI response to conversation history
               if (nchar(full_response) > 0) {
                 add_to_conversation_history("ai", full_response)
-                cat("DEBUG: Added AI response to conversation history. Length:", nchar(full_response), "\n")
               }
               
               # Send finish signal
@@ -1640,7 +1593,6 @@ capture_context <- function() {
             obj_info$function_args <- "unknown"
           })
           obj_info$function_source <- if (is.primitive(obj)) "primitive" else "user-defined"
-          cat("  - Function info added\n")
           
         } else if (is.matrix(obj) || is.array(obj)) {
                     obj_info$dimensions <- dim(obj)
@@ -3354,33 +3306,24 @@ update_workspace_index()
 #' Smart filtering functions for workspace objects
 #' @export
 smart_filter_objects <- function(query, objects) {
-  cat("DEBUG: Smart filtering query:", query, "\n")
-  cat("DEBUG: Total objects available:", length(objects), "\n")
-  
   # Extract keywords from query
   keywords <- extract_keywords(query)
-  cat("DEBUG: Extracted keywords:", paste(keywords, collapse = ", "), "\n")
   
   # Try exact matches first
   exact_matches <- find_exact_matches(keywords, objects)
-  cat("DEBUG: Exact matches found:", length(exact_matches), "\n")
   
   # If no exact matches, try fuzzy/partial
-  if (length(exact_matches) == 0) {
-    cat("DEBUG: No exact matches, trying fuzzy/partial matching\n")
-    matches <- find_partial_matches(keywords, objects)
-    cat("DEBUG: Partial/fuzzy matches found:", length(matches), "\n")
+  matches <- if (length(exact_matches) == 0) {
+    find_partial_matches(keywords, objects)
   } else {
-    matches <- exact_matches
+    exact_matches
   }
   
   # If still no matches, return everything (fallback)
   if (length(matches) == 0) {
-    cat("DEBUG: No matches found, using comprehensive mode (all objects)\n")
     return(objects)
   }
   
-  cat("DEBUG: Returning filtered objects:", length(matches), "\n")
   return(matches)
 }
 
@@ -3693,10 +3636,8 @@ capture_context_smart <- function(query = NULL) {
               obj_info$arguments <- list()
               obj_info$body_preview <- "Error: Could not process function"
             })
-            cat("  - Function info added\n")
             
           } else {
-            cat("  - Is other object type, adding basic info\n")
             tryCatch({
               obj_info$summary <- list(
                 class = paste(class(obj), collapse = ", "),
@@ -3704,10 +3645,8 @@ capture_context_smart <- function(query = NULL) {
                 mode = mode(obj)
               )
             }, error = function(e) {
-              cat("  - Error processing other object:", e$message, "\n")
               obj_info$summary <- list(class = "unknown", length = "unknown", mode = "unknown")
             })
-            cat("  - Other object info added\n")
           }
           
           return(obj_info)
@@ -3723,7 +3662,7 @@ capture_context_smart <- function(query = NULL) {
       
       # Filter objects if query provided
       if (!is.null(query) && nchar(query) > 0) {
-        cat("DEBUG: Applying smart filtering for query:", query, "\n")
+        
         filtered_objects <- smart_filter_objects(query, all_objects)
         cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         # Return structured list with filtered objects
