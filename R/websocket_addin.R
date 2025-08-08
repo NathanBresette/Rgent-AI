@@ -57,9 +57,9 @@ get_current_access_code <- function() {
   }
 }
 
-#' Launch WebSocket-based AI Chat Addin
+#' Launch Rgent
 #' @export
-launch_websocket_chat <- function() {
+run_rgent <- function() {
   # Check if RStudio API is available
   if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
     stop("RStudio API is not available. Please run this in RStudio.")
@@ -104,6 +104,10 @@ launch_websocket_chat <- function() {
   # Create and launch HTML interface
   launch_html_interface()
 }
+
+#' Backwards compatibility alias
+#' @export
+launch_websocket_chat <- run_rgent
 
 #' Get RStudio theme information
 #' @return List containing theme information
