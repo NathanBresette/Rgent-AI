@@ -454,25 +454,7 @@ start_websocket_server <- function() {
               }
             }
             
-            # Debug file_info
-            if ("file_info" %in% names(current_context)) {
-              cat("DEBUG: file_info type:", class(current_context$file_info), "\n")
-              cat("DEBUG: file_info keys:", names(current_context$file_info), "\n")
-              if ("file_contents" %in% names(current_context$file_info)) {
-                file_content <- current_context$file_info$file_contents
-                cat("DEBUG: file_contents type:", class(file_content), "\n")
-                cat("DEBUG: file_contents length:", length(file_content), "\n")
-                if (length(file_content) > 0) {
-                  cat("DEBUG: First line of file:", toString(file_content[1]), "\n")
-                }
-              }
-            }
-            
-            # Debug environment_info
-            if ("environment_info" %in% names(current_context)) {
-              cat("DEBUG: environment_info type:", class(current_context$environment_info), "\n")
-              cat("DEBUG: environment_info keys:", names(current_context$environment_info), "\n")
-            }
+            # Optionally inspect context components (silent)
             
             # Get access code from global environment or use default
             current_access_code <- if (!is.null(.GlobalEnv$current_access_code)) .GlobalEnv$current_access_code else "DEMO123"
@@ -1524,7 +1506,6 @@ capture_context <- function() {
         # Add object-specific details with intelligent summarization
         
         if (is.data.frame(obj)) {
-          cat("  - Is data frame, adding concise info\n")
           obj_info$dimensions <- dim(obj)
           obj_info$column_names <- names(obj)
           obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
@@ -3547,7 +3528,6 @@ capture_context_smart <- function(query = NULL) {
           # Add object-specific details with intelligent summarization
           
           if (is.data.frame(obj)) {
-            cat("  - Is data frame, adding concise info\n")
             obj_info$dimensions <- dim(obj)
             obj_info$column_names <- names(obj)
             obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
@@ -3599,7 +3579,6 @@ capture_context_smart <- function(query = NULL) {
                 obj_info$list_structure <- list()
               })
             } else {
-              cat("  - Is large list, adding basic summary\n")
               tryCatch({
                 obj_info$list_summary <- list(
                   total_items = length(obj),
@@ -3664,7 +3643,6 @@ capture_context_smart <- function(query = NULL) {
       if (!is.null(query) && nchar(query) > 0) {
         
         filtered_objects <- smart_filter_objects(query, all_objects)
-        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
         # Return structured list with filtered objects
         return(list(
           workspace_objects = filtered_objects,
