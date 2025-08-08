@@ -1193,6 +1193,13 @@
         addMessage(message, "user");
         input.value = "";
         
+        // Insert AI placeholder while thinking
+        const thinking = document.createElement("div");
+        thinking.className = "message ai-message";
+        thinking.id = "ai-thinking";
+        thinking.textContent = "Thinking...";
+        document.getElementById("chat-container").appendChild(thinking);
+        
         // Send to R via WebSocket
         ws.send(JSON.stringify({
           action: "chat_with_ai",
@@ -1202,6 +1209,10 @@
       
       function addStreamingChunk(chunk) {
         if (!currentStreamingMessage) {
+          // Remove thinking placeholder if present
+          const placeholder = document.getElementById("ai-thinking");
+          if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+          
           // Start new streaming message
           currentStreamingMessage = document.createElement("div");
           currentStreamingMessage.className = "message ai-message";
