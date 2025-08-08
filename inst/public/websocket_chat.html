@@ -1119,15 +1119,28 @@
               }
               break;
             case "debug_info":
-              // Skip the verbose progress updates - just show the AI fix directly
+              // Append progress into single plot analysis message if present
+              const paDiv = document.getElementById("plot-analysis-progress");
+              if (paDiv && data.message) {
+                paDiv.innerHTML += '<br/>' + data.message;
+                paDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+              }
               break;
             case "debug_ai_response":
               if (data.streaming) {
+                // Stream into a single AI message; placeholder was already created
                 addStreamingChunk(data.chunk);
               } else {
-                console.log("DEBUG: Finishing debug streaming");
                 finishStreaming();
-                // No buttons - just show the debug analysis
+                // Append final text into the placeholder if present, else add normally
+                const pa = document.getElementById("plot-analysis-progress");
+                if (pa && data.message) {
+                  pa.innerHTML += '<br/>' + data.message;
+                  processMarkdownFormatting(pa);
+                  processPlotAnalysisContent(pa);
+                } else if (data.message) {
+                  addPlotAnalysisMessage(data.message);
+                }
               }
               break;
             case "chat_with_ai":
@@ -1760,8 +1773,14 @@
           return;
         }
         
-        // Add initial message showing we're starting analysis
-        addMessage("🔍 **Starting Plot Analysis...**\n\n*Step 1: Scanning R history for plot commands...*", "ai");
+        // Create a single placeholder message and append step updates into it
+        const container = document.getElementById("chat-container");
+        const pa = document.createElement("div");
+        pa.className = "message ai-message";
+        pa.id = "plot-analysis-progress";
+        pa.innerHTML = "🔍 Starting Plot Analysis...<br/>Step 1: Scanning R history for plot commands...";
+        container.appendChild(pa);
+        container.scrollTop = container.scrollHeight;
         
         // Send the analyze request
         ws.send(JSON.stringify({
