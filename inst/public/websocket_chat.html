@@ -1080,45 +1080,15 @@
           switch(data.action) {
             case "ai_response":
               if (data.streaming) {
-                // If plot analysis is in progress, buffer instead of creating new bubbles
-                if (window.plotAnalysisInProgress) {
-                  if (data.chunk) {
-                    window.plotAnalysisBuffer += data.chunk;
-                  }
-                  if (data.finished) {
-                    const pa = document.getElementById("plot-analysis-progress");
-                    if (pa) {
-                      if (window.plotAnalysisBuffer) {
-                        pa.innerHTML += '<br/>' + window.plotAnalysisBuffer;
-                      }
-                      processMarkdownFormatting(pa);
-                      processPlotAnalysisContent(pa);
-                    }
-                    window.plotAnalysisInProgress = false;
-                    window.plotAnalysisBuffer = "";
-                    finishStreaming();
-                  }
-                } else {
-                  // Normal chat streaming
-                  if (data.chunk) {
-                    addStreamingChunk(data.chunk);
-                  } else if (data.finished) {
-                    finishStreaming();
-                  }
+                // Handle streaming response
+                if (data.chunk) {
+                  addStreamingChunk(data.chunk);
+                } else if (data.finished) {
+                  finishStreaming();
                 }
               } else {
-                // Non-streaming message
-                if (window.plotAnalysisInProgress) {
-                  const pa = document.getElementById("plot-analysis-progress");
-                  if (pa && data.message) {
-                    pa.innerHTML += '<br/>' + data.message;
-                    processMarkdownFormatting(pa);
-                    processPlotAnalysisContent(pa);
-                  }
-                  // Keep plotAnalysisInProgress true until final analysis arrives
-                } else {
-                  addMessage(data.message, "ai");
-                }
+                // Handle regular response
+                addMessage(data.message, "ai");
               }
               break;
             case "inserted":
@@ -1149,71 +1119,28 @@
               }
               break;
             case "debug_info":
-              // Append progress into single plot analysis message if present
-              const paDiv = document.getElementById("plot-analysis-progress");
-              if (paDiv && data.message) {
-                paDiv.innerHTML += '<br/>' + data.message;
-                processMarkdownFormatting(paDiv);
-                paDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
-              }
+              // Skip the verbose progress updates - just show the AI fix directly
               break;
             case "debug_ai_response":
               if (data.streaming) {
-                // During plot analysis, buffer chunks to avoid multiple messages
-                if (window.plotAnalysisInProgress) {
-                  if (data.chunk) {
-                    window.plotAnalysisBuffer += data.chunk;
-                  }
-                } else {
-                  addStreamingChunk(data.chunk);
-                }
+                addStreamingChunk(data.chunk);
               } else {
+                console.log("DEBUG: Finishing debug streaming");
                 finishStreaming();
-                const pa = document.getElementById("plot-analysis-progress");
-                // Append buffered content then final message
-                if (window.plotAnalysisInProgress && pa) {
-                  if (window.plotAnalysisBuffer) {
-                    pa.innerHTML += '<br/>' + window.plotAnalysisBuffer;
-                  }
-                  if (data.message) {
-                    pa.innerHTML += '<br/>' + data.message;
-                  }
-                  processMarkdownFormatting(pa);
-                  processPlotAnalysisContent(pa);
-                } else if (data.message) {
-                  addPlotAnalysisMessage(data.message);
-                }
-                // Reset flags
-                window.plotAnalysisInProgress = false;
-                window.plotAnalysisBuffer = "";
+                // No buttons - just show the debug analysis
               }
               break;
             case "chat_with_ai":
-              // During plot analysis, append progress lines to the single bubble
-              if (window.plotAnalysisInProgress) {
-                const pa = document.getElementById("plot-analysis-progress");
-                if (pa && data.message) {
-                  pa.innerHTML += '<br/>' + data.message;
-                  processMarkdownFormatting(pa);
-                  processPlotAnalysisContent(pa);
-                  pa.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-              } else if (data.message) {
+              // Handle messages sent to the chat interface
+              if (data.message) {
                 addMessage(data.message, "ai");
               }
               break;
             case "plot_analysis":
               if (data.success) {
-                // Append completion banner into the same bubble
-                const pa = document.getElementById("plot-analysis-progress");
+                // Process plot analysis response properly
                 const fullMessage = "✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation;
-                if (pa) {
-                  pa.innerHTML += '<br/>' + fullMessage;
-                  processMarkdownFormatting(pa);
-                  processPlotAnalysisContent(pa);
-                } else {
-                  addPlotAnalysisMessage(fullMessage);
-                }
+                addPlotAnalysisMessage(fullMessage);
               } else {
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
@@ -1224,18 +1151,6 @@
               if (data.is_dark !== undefined) {
                 applyTheme(data.is_dark, data.theme_name, data.colors);
               }
-              break;
-
-            case "plot_analysis_streaming_complete":
-              // Streaming finished; ensure placeholder is formatted and keep as single bubble
-              (function(){
-                const pa = document.getElementById("plot-analysis-progress");
-                if (pa) {
-                  processMarkdownFormatting(pa);
-                  processPlotAnalysisContent(pa);
-                }
-                // Do not create any new messages here
-              })();
               break;
 
           }
@@ -1293,17 +1208,6 @@
       }
       
       function addStreamingChunk(chunk) {
-        // During plot analysis, never start a new bubble; buffer to placeholder
-        if (window.plotAnalysisInProgress) {
-          const pa = document.getElementById("plot-analysis-progress");
-          if (pa) {
-            pa.innerHTML += chunk;
-            const container = document.getElementById("chat-container");
-            container.scrollTop = container.scrollHeight;
-          }
-          return;
-        }
-        
         if (!currentStreamingMessage) {
           // Remove thinking placeholder if present
           const placeholder = document.getElementById("ai-thinking");
@@ -1456,62 +1360,80 @@
             if ((part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
                 (part.includes("<code") && part.includes("</code>"))) {
-              // This is a code block - build it similarly to normal chat so buttons behave the same
+              // This is a code block - style it
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
               
-              // Compute cleaned code first
+              // Create header with copy button
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "code-block-header";
+              
+              const languageLabel = document.createElement("span");
+              languageLabel.textContent = "R Code";
+              
+              const copyButton = document.createElement("button");
+              copyButton.className = "copy-button";
+              copyButton.textContent = "Copy";
+              copyButton.onclick = function() {
+                // Use the cleaned code for copying, not the original HTML
+                copyToClipboard(cleanCode, copyButton);
+              };
+              
+              const insertButton = document.createElement("button");
+              insertButton.className = "copy-button";
+              insertButton.textContent = "Insert at Cursor";
+              insertButton.onclick = function() {
+                insertCode(cleanCode);
+              };
+              
+              headerDiv.appendChild(languageLabel);
+              headerDiv.appendChild(copyButton);
+              headerDiv.appendChild(insertButton);
+              codeDiv.appendChild(headerDiv);
+              
+              // Create code content div - extract just the code
+              const codeContent = document.createElement("div");
               let cleanCode;
               if (part.startsWith("```r\n")) {
+                // Markdown format - remove ```r\n at start and ``` at end
                 cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n")) {
+                // Markdown format - remove ```R\n at start and ``` at end
                 cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
+                // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
+                // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else {
+                // HTML format - extract clean text from nested HTML
+                // Create a temporary div to parse HTML and extract text
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
+                
+                // If that didn't work, try manual removal
                 if (!cleanCode || cleanCode.trim() === '') {
                   cleanCode = part.replace(/<code[^>]*>/g, "").replace(/<\/code>/g, "");
                   cleanCode = cleanCode.replace(/<[^>]*>/g, "");
                   cleanCode = cleanCode.replace(/style="[^"]*"/g, "");
                 }
               }
-              // Final cleanup like normal flow
-              cleanCode = cleanCode.replace(/^["']?r["']?\s*/, "");
-              cleanCode = cleanCode.replace(/^\s*["']?r["']?\s*/, "");
+              
+              // Remove any remaining artifacts like single quotes or language identifiers
+              cleanCode = cleanCode.replace(/^['"]?r['"]?\s*/, ""); // Remove 'r', "r", or r at start
+              cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, ""); // Remove with whitespace
+              
+              // Remove any remaining "R" at the start
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
+              
+              // Decode HTML entities
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
               
-              // Header with language + Copy (same as normal)
-              const headerDiv = document.createElement("div");
-              headerDiv.className = "code-block-header";
-              const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
-              const copyButton = document.createElement("button");
-              copyButton.className = "copy-button";
-              copyButton.textContent = "Copy";
-              copyButton.onclick = function() { copyToClipboard(cleanCode, copyButton); };
-              headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              codeDiv.appendChild(headerDiv);
-              
-              // Code content matches normal chat styling
-              codeDiv.textContent = cleanCode;
-              
-              // Buttons below the code: Insert (same class as normal chat)
-              const buttonContainer = document.createElement("div");
-              buttonContainer.style.marginTop = "10px";
-              const insertButton = document.createElement("button");
-              insertButton.className = "insert-button";
-              insertButton.textContent = "Insert";
-              insertButton.onclick = function() { insertCode(cleanCode); };
-              buttonContainer.appendChild(insertButton);
-              codeDiv.appendChild(buttonContainer);
+              codeContent.textContent = cleanCode;
+              codeDiv.appendChild(codeContent);
               
               messageDiv.appendChild(codeDiv);
             } else if (part.trim()) {
@@ -1606,7 +1528,6 @@
               headerDiv.appendChild(copyButton);
               codeDiv.appendChild(headerDiv);
               
-              // Code content matches normal chat styling
               codeDiv.textContent = cleanCode;
               
               // Add buttons
@@ -1839,18 +1760,8 @@
           return;
         }
         
-        // Flag and buffer for consolidated plot analysis output
-        window.plotAnalysisInProgress = true;
-        window.plotAnalysisBuffer = "";
-        
-        // Create a single placeholder message and append step updates into it
-        const container = document.getElementById("chat-container");
-        const pa = document.createElement("div");
-        pa.className = "message ai-message";
-        pa.id = "plot-analysis-progress";
-        pa.innerHTML = "🔍 Starting Plot Analysis...<br/>Step 1: Scanning R history for plot commands...";
-        container.appendChild(pa);
-        container.scrollTop = container.scrollHeight;
+        // Add initial message showing we're starting analysis
+        addMessage("🔍 **Starting Plot Analysis...**\n\n*Step 1: Scanning R history for plot commands...*", "ai");
         
         // Send the analyze request
         ws.send(JSON.stringify({
@@ -1906,62 +1817,74 @@
             if ((part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
                 (part.includes("<code") && part.includes("</code>"))) {
-              // This is a code block - build it similarly to normal chat so buttons behave the same
+              // This is a code block - style it with only Copy/Insert buttons
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
               
-              // Compute cleaned code first
+              // Create header with copy button
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "code-block-header";
+              
+              const languageLabel = document.createElement("span");
+              languageLabel.textContent = "R Code";
+              
+              const copyButton = document.createElement("button");
+              copyButton.className = "copy-button";
+              copyButton.textContent = "Copy";
+              copyButton.onclick = function() {
+                copyToClipboard(cleanCode, copyButton);
+              };
+              
+              const insertButton = document.createElement("button");
+              insertButton.className = "copy-button";
+              insertButton.textContent = "Insert at Cursor";
+              insertButton.onclick = function() {
+                insertCode(cleanCode);
+              };
+              
+              headerDiv.appendChild(languageLabel);
+              headerDiv.appendChild(copyButton);
+              headerDiv.appendChild(insertButton);
+              codeDiv.appendChild(headerDiv);
+              
+              // Create code content div - extract just the code
+              const codeContent = document.createElement("div");
               let cleanCode;
               if (part.startsWith("```r\n")) {
+                // Markdown format - remove ```r\n at start and ``` at end
                 cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n")) {
+                // Markdown format - remove ```R\n at start and ``` at end
                 cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
+                // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
+                // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else {
+                // HTML format - extract clean text from nested HTML
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
+                
+                // If that didn't work, try manual removal
                 if (!cleanCode || cleanCode.trim() === '') {
                   cleanCode = part.replace(/<code[^>]*>/g, "").replace(/<\/code>/g, "");
                   cleanCode = cleanCode.replace(/<[^>]*>/g, "");
                   cleanCode = cleanCode.replace(/style="[^"]*"/g, "");
                 }
               }
-              // Final cleanup like normal flow
-              cleanCode = cleanCode.replace(/^["']?r["']?\s*/, "");
-              cleanCode = cleanCode.replace(/^\s*["']?r["']?\s*/, "");
+              
+              // Remove any remaining artifacts
+              cleanCode = cleanCode.replace(/^['"]?r['"]?\s*/, "");
+              cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, "");
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
               
-              // Header with language + Copy (same as normal)
-              const headerDiv = document.createElement("div");
-              headerDiv.className = "code-block-header";
-              const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
-              const copyButton = document.createElement("button");
-              copyButton.className = "copy-button";
-              copyButton.textContent = "Copy";
-              copyButton.onclick = function() { copyToClipboard(cleanCode, copyButton); };
-              headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              codeDiv.appendChild(headerDiv);
-              
-              // Code content matches normal chat styling
-              codeDiv.textContent = cleanCode;
-              
-              // Buttons below the code: Insert (same class as normal chat)
-              const buttonContainer = document.createElement("div");
-              buttonContainer.style.marginTop = "10px";
-              const insertButton = document.createElement("button");
-              insertButton.className = "insert-button";
-              insertButton.textContent = "Insert";
-              insertButton.onclick = function() { insertCode(cleanCode); };
-              buttonContainer.appendChild(insertButton);
-              codeDiv.appendChild(buttonContainer);
+              codeContent.textContent = cleanCode;
+              codeDiv.appendChild(codeContent);
               
               messageDiv.appendChild(codeDiv);
             } else if (part.trim()) {
