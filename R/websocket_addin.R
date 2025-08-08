@@ -1157,7 +1157,7 @@ start_websocket_server <- function() {
                   )
                 )
                 
-                cat("DEBUG: Sending plot analysis to streaming endpoint...\n")
+                
                 response <- httr::POST(
                   "https://rgent.onrender.com/chat/stream",
                   body = request_body,
@@ -1166,29 +1166,22 @@ start_websocket_server <- function() {
                   httr::add_headers("Accept" = "text/event-stream")
                 )
                 
-                cat("Plot analysis response status:", httr::status_code(response), "\n")
                 
                 if (httr::status_code(response) == 200) {
                   # Handle streaming response
                   response_text <- httr::content(response, "text")
-                  cat("Streaming plot analysis response received\n")
-                  cat("DEBUG: Response text length:", nchar(response_text), "\n")
                   
                   # Parse Server-Sent Events (SSE) format
                   lines <- strsplit(response_text, "\n")[[1]]
-                  cat("DEBUG: Number of lines:", length(lines), "\n")
                   full_response <- ""
                   
                   for (line in lines) {
-                    cat("DEBUG: Processing plot analysis line:", line, "\n")
                     if (grepl("^data: ", line)) {
                       # Extract JSON data from SSE format
                       json_data <- substring(line, 7)  # Remove "data: " prefix
-                      cat("DEBUG: Extracted JSON data:", json_data, "\n")
                       if (json_data != "[DONE]") {
                         tryCatch({
                           chunk_data <- jsonlite::fromJSON(json_data)
-                          cat("DEBUG: Parsed chunk_data:", toString(chunk_data), "\n")
                           
                           if (!is.null(chunk_data$chunk)) {
                             full_response <- paste0(full_response, chunk_data$chunk)
@@ -1224,16 +1217,13 @@ start_websocket_server <- function() {
                               # Reset buffer
                               current_chunk_buffer <- ""
                               
-                              # Small delay for streaming effect
-                              Sys.sleep(0.1)
                             }
                           }
                           
                           # Check if this is the final chunk
-                          if (!is.null(chunk_data$done) && chunk_data$done) {
-                            cat("DEBUG: Received final plot analysis chunk, finishing stream\n")
-                            
-                            # Send any remaining buffer
+                                                      if (!is.null(chunk_data$done) && chunk_data$done) {
+                              
+                              # Send any remaining buffer
                             if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
                               chunk_response <- list(
                                 action = "ai_response",
@@ -3949,7 +3939,7 @@ find_last_plot_command <- function() {
         # First check for specific plot commands (excluding geom_)
         for (cmd in plot_commands) {
           if (grepl(cmd, line, fixed = TRUE)) {
-            cat("DEBUG: Found plot command at position", i, ":", line, "\n")
+            
             return(list(
               command = line,
               line_number = i,
@@ -4200,8 +4190,8 @@ identify_plot_type <- function(command) {
 #' Extract data variables from plot command
 extract_plot_data <- function(command, plot_type) {
   tryCatch({
-    cat("DEBUG: extract_plot_data called with plot_type:", plot_type, "\n")
-    cat("DEBUG: Command to extract from:", command, "\n")
+    
+    
     
     # Simple extraction - look for common patterns
     if (plot_type == "histogram") {
@@ -4637,39 +4627,24 @@ execute_plot_analysis <- function(commands) {
 #' Main plot analysis function
 analyze_last_plot <- function() {
   tryCatch({
-    cat("DEBUG: Starting plot analysis...\n")
+    
     
     # Step 1: Find last plot command
     cat("DEBUG: Step 1 - Finding last plot command...\n")
     plot_info <- find_last_plot_command()
     
     if (!plot_info$found) {
-      cat("DEBUG: No plot command found\n")
       return(list(
         success = FALSE,
         message = "No plot command found in recent history. Try creating a plot first!"
       ))
     }
     
-    cat("DEBUG: Found plot command:", plot_info$command, "\n")
-    cat("DEBUG: Command length:", nchar(plot_info$command), "\n")
-    
-    # Step 2: Identify plot type
-    cat("DEBUG: Step 2 - Identifying plot type...\n")
+    # Identify plot type
     plot_type <- identify_plot_type(plot_info$command)
-    cat("DEBUG: Identified plot type:", plot_type, "\n")
     
-    # Step 3: Extract data variables
-    cat("DEBUG: Step 3 - Extracting data variables...\n")
+    # Extract data variables
     data_var <- extract_plot_data(plot_info$command, plot_type)
-    
-    cat("DEBUG: Data variable extraction result:", class(data_var), "\n")
-    if (is.list(data_var)) {
-      cat("DEBUG: Data variable list names:", names(data_var), "\n")
-      cat("DEBUG: Data variable contents:", toString(data_var), "\n")
-    } else {
-      cat("DEBUG: Data variable (not list):", toString(data_var), "\n")
-    }
     
     if (is.null(data_var)) {
       cat("DEBUG: Data extraction failed - returning NULL\n")
