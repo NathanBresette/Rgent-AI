@@ -592,18 +592,18 @@ start_websocket_server <- function() {
               cat("Backend returned error status:", httr::status_code(response), "\n")
               error_content <- httr::content(response)
               cat("Error content:", toString(error_content), "\n")
-              cat("DEBUG: Full error response:", toString(error_content), "\n")
+              # Silenced verbose debug: Full error response
               list(action = "ai_response", message = paste("Error connecting to AI service. Status:", httr::status_code(response)))
             }
           }, error = function(e) {
             cat("Exception during backend call:", e$message, "\n")
-            cat("DEBUG: Exception details:", toString(e), "\n")
-            cat("DEBUG: Exception class:", class(e), "\n")
+            # Silenced debug: Exception details
+            # Silenced debug: Exception class
             
             # Check if it's a timeout error
             if (grepl("timeout", tolower(e$message)) || grepl("timed out", tolower(e$message))) {
               # First retry with increased timeout
-              cat("DEBUG: Timeout detected, attempting retry with increased timeout...\n")
+              # Silenced debug: Timeout detected, attempting retry
               
               # Send "One moment..." message to user
               retry_message <- list(
@@ -652,7 +652,7 @@ start_websocket_server <- function() {
                 }
               }, error = function(retry_e) {
                 # Second retry also failed, send tips
-                cat("DEBUG: Retry also failed:", retry_e$message, "\n")
+                # Silenced debug: Retry also failed
                 tips_message <- list(
                   action = "ai_response", 
                   message = paste(
@@ -1010,7 +1010,7 @@ start_websocket_server <- function() {
                              } else {
                  # Error response
                  error_content <- httr::content(response, "text", encoding = "UTF-8")
-                 cat("DEBUG: Full error response:", toString(error_content), "\n")
+                 # Silenced verbose debug: Full error response
                  
                  error_response <- list(
                    action = "debug_ai_response",
@@ -1020,8 +1020,8 @@ start_websocket_server <- function() {
                  ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
                }
                           }, error = function(e) {
-               cat("DEBUG: Exception details:", toString(e), "\n")
-               cat("DEBUG: Exception class:", class(e), "\n")
+               # Silenced debug: Exception details
+               # Silenced debug: Exception class
                
                # Send a simple error message if streaming fails
                error_response <- list(
@@ -1261,7 +1261,7 @@ start_websocket_server <- function() {
                 }
               }, error = function(e) {
                 cat("Exception during plot analysis backend call:", e$message, "\n")
-                cat("DEBUG: Exception details:", toString(e), "\n")
+                # Silenced debug: Exception details
                 list(action = "plot_analysis", 
                      success = FALSE,
                      message = paste("Plot analysis failed:", e$message))
@@ -1306,11 +1306,8 @@ start_websocket_server <- function() {
       cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
       error_response <- list(action = "error", message = e$message)
       tryCatch({
-        cat("DEBUG: Sending error response to frontend...\n")
         error_json <- jsonlite::toJSON(error_response, auto_unbox = TRUE)
-        cat("DEBUG: Error JSON length:", nchar(error_json), "\n")
         ws$send(error_json)
-        cat("DEBUG: Error response sent successfully\n")
       }, error = function(e2) {
         cat("Failed to send error response:", e2$message, "\n")
         cat("Error details:", tryCatch(toString(e2), error = function(e3) "Error converting error to string"), "\n")
@@ -2487,7 +2484,7 @@ assemble_simple_context <- function(query) {
         paste("Objects:", paste(object_names, collapse = ", "))
       ))
     } else {
-      cat("DEBUG: No workspace objects found in workspace_index$objects\n")
+      # Silenced debug: no workspace objects
     }
     
     # 3. Get data frames info
@@ -2507,7 +2504,7 @@ assemble_simple_context <- function(query) {
         paste(df_info, collapse = "\n")
       ))
     } else {
-      cat("DEBUG: No data frames found in workspace_index$data_frames\n")
+      # Silenced debug: no data frames
     }
     
     # 4. Get functions info
@@ -2519,7 +2516,7 @@ assemble_simple_context <- function(query) {
         paste("Functions:", paste(func_names, collapse = ", "))
       ))
     } else {
-      cat("DEBUG: No functions found in workspace_index$functions\n")
+      # Silenced debug: no functions
     }
     
     # 5. Add conversation history
@@ -2570,7 +2567,7 @@ chunk_file_robustly <- function(file_content, file_path) {
     
     # Fallback: Line-based chunking if function chunking fails
     if (length(chunks) == 0 || any(sapply(chunks, function(c) nchar(c$content) > 2000))) {
-      cat("DEBUG: Function chunking failed, using line-based fallback\n")
+      # Silenced debug: function chunking fallback
       chunks <- chunk_by_lines(file_content, max_lines = 50, file_path = file_path)
     }
     
@@ -3014,7 +3011,7 @@ cleanup_old_data <- function() {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      cat("DEBUG: Creating session_index in global environment for cleanup\n")
+      # Silenced debug: creating session_index for cleanup
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
       global_env$session_index$file_hashes <- new.env()
@@ -3049,7 +3046,7 @@ cleanup_old_data <- function() {
       gc()
       
       global_env$session_index$last_cleanup <- current_time
-      cat("DEBUG: Memory cleanup completed\n")
+      # Silenced debug: memory cleanup completed
     }
   }, error = function(e) {
     cat("ERROR: Cleanup failed:", e$message, "\n")
@@ -3159,7 +3156,7 @@ safe_index_update <- function() {
     perf_tracker <- track_performance("index_update")
     
     # Direct workspace scanning (no session_index dependency)
-    cat("DEBUG: Using direct workspace scanning for context\n")
+    # Silenced debug: using direct workspace scanning
     
     # Cleanup memory
     cleanup_old_data()
@@ -3181,7 +3178,7 @@ update_file_index <- function(file_path, file_content) {
     # Ensure session_index is accessible
     global_env <- globalenv()
     if (!exists("session_index", envir = global_env)) {
-      cat("DEBUG: Creating session_index in global environment\n")
+      # Silenced debug: creating session_index
       global_env$session_index <- new.env()
       global_env$session_index$file_chunks <- new.env()
     }
@@ -3212,9 +3209,7 @@ update_file_index <- function(file_path, file_content) {
       content_length = nchar(file_content)
     )
     
-    cat("DEBUG: Updated index for", file_path, "with", length(chunks), "chunks\n")
-    cat("DEBUG: File metadata:", file_metadata$function_count, "functions,", 
-        file_metadata$chunk_count, "chunks\n")
+    # Silenced debug: index and file metadata updated
     
   }, error = function(e) {
     cat("ERROR: Failed to update index for", file_path, ":", e$message, "\n")
@@ -3342,7 +3337,6 @@ find_exact_matches <- function(keywords, objects) {
     # Check for exact matches
     for (keyword in keywords) {
       if (obj_name_lower == keyword) {
-        cat("DEBUG: Exact match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3364,14 +3358,12 @@ find_partial_matches <- function(keywords, objects) {
     for (keyword in keywords) {
       # Check if keyword is contained in object name
       if (grepl(keyword, obj_name_lower, fixed = TRUE)) {
-        cat("DEBUG: Partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
       
       # Check if object name is contained in keyword (for abbreviations)
       if (grepl(obj_name_lower, keyword, fixed = TRUE)) {
-        cat("DEBUG: Reverse partial match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3382,7 +3374,6 @@ find_partial_matches <- function(keywords, objects) {
       keyword_no_underscore <- gsub("_", "", keyword)
       
       if (obj_no_underscore == keyword_no_underscore) {
-        cat("DEBUG: Underscore variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3391,7 +3382,6 @@ find_partial_matches <- function(keywords, objects) {
       # "salesData" should match "sales_data"
       obj_camel <- gsub("_([a-z])", "\\U\\1", obj_name_lower, perl = TRUE)
       if (obj_camel == keyword) {
-        cat("DEBUG: CamelCase variation match found:", obj_name, "for keyword:", keyword, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3400,22 +3390,18 @@ find_partial_matches <- function(keywords, objects) {
     # Check for data type matches
     for (keyword in keywords) {
       if (keyword == "dataframe" && obj$is_data_frame) {
-        cat("DEBUG: Dataframe type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "plot" && (grepl("plot", obj_name_lower) || grepl("graph", obj_name_lower) || grepl("chart", obj_name_lower))) {
-        cat("DEBUG: Plot type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "function" && obj$is_function) {
-        cat("DEBUG: Function type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
       if (keyword == "vector" && obj$is_vector) {
-        cat("DEBUG: Vector type match found:", obj_name, "\n")
         matches[[obj_name]] <- obj
         break
       }
@@ -3630,7 +3616,6 @@ capture_context_smart <- function(query = NULL) {
           timestamp = Sys.time()
         ))
       } else {
-        cat("DEBUG: No query provided, returning all objects\n")
         # Return structured list with all objects
         return(list(
           workspace_objects = all_objects,
@@ -3661,11 +3646,11 @@ capture_context_smart <- function(query = NULL) {
 #' @export
 update_workspace_index_incremental <- function() {
   tryCatch({
-    cat("DEBUG: Updating workspace index incrementally...\n")
+    # Silenced debug: updating workspace index incrementally
     
     # Ensure workspace_index exists
     if (!exists("workspace_index", envir = .GlobalEnv)) {
-      cat("DEBUG: workspace_index not found, initializing...\n")
+      # Silenced debug: initializing workspace_index
       .GlobalEnv$workspace_index <- list(
         objects = list(),
         data_frames = list(),
@@ -3677,12 +3662,12 @@ update_workspace_index_incremental <- function() {
     
     # Get current workspace objects
     current_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(current_objects), "current workspace objects\n")
+    # Silenced debug: found current workspace objects
     
     # Get last scan info
     last_scan <- .GlobalEnv$workspace_index$last_scan_objects
     if (is.null(last_scan)) {
-      cat("DEBUG: No previous scan found, doing full scan\n")
+      # Silenced debug: no previous scan, full scan
       return(update_workspace_index_full())
     }
     
@@ -3690,14 +3675,14 @@ update_workspace_index_incremental <- function() {
     new_objects <- setdiff(current_objects, last_scan)
     removed_objects <- setdiff(last_scan, current_objects)
     
-    cat("DEBUG: New objects:", length(new_objects), paste(new_objects, collapse = ", "), "\n")
-    cat("DEBUG: Removed objects:", length(removed_objects), paste(removed_objects, collapse = ", "), "\n")
+    # Silenced debug: new objects info
+    # Silenced debug: removed objects info
     
     # Process only new objects
     if (length(new_objects) > 0) {
-      cat("DEBUG: Processing", length(new_objects), "new objects\n")
+      # Silenced debug: processing new objects
       for (obj_name in new_objects) {
-        cat("DEBUG: Processing new object:", obj_name, "\n")
+        # Silenced debug: processing new object
         obj_info <- safe_get_object_info(obj_name)
         
         # Store in appropriate category
@@ -3705,22 +3690,22 @@ update_workspace_index_incremental <- function() {
         
         if (obj_info$is_data_frame) {
           .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to data_frames\n")
+          # Silenced debug: added to data_frames
         } else if (obj_info$is_function) {
           .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to functions\n")
+          # Silenced debug: added to functions
         } else {
           .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-          cat("DEBUG: Added", obj_name, "to variables\n")
+          # Silenced debug: added to variables
         }
       }
     }
     
     # Remove deleted objects
     if (length(removed_objects) > 0) {
-      cat("DEBUG: Removing", length(removed_objects), "deleted objects\n")
-      for (obj_name in removed_objects) {
-        cat("DEBUG: Removing object:", obj_name, "\n")
+      # Silenced debug: removing deleted objects
+              for (obj_name in removed_objects) {
+          # Silenced debug: removing object
         .GlobalEnv$workspace_index$objects[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- NULL
         .GlobalEnv$workspace_index$functions[[obj_name]] <- NULL
@@ -3746,7 +3731,7 @@ update_workspace_index_incremental <- function() {
           current_class <- paste(class(current_obj), collapse = ", ")
           
           if (stored_obj$length != current_length || stored_obj$class != current_class) {
-            cat("DEBUG: Object modified:", obj_name, "\n")
+            # Silenced debug: object modified
             modified_objects <- c(modified_objects, obj_name)
             
             # Update the object info
@@ -3766,17 +3751,14 @@ update_workspace_index_incremental <- function() {
       }
     }
     
-    cat("DEBUG: Modified objects:", length(modified_objects), paste(modified_objects, collapse = ", "), "\n")
+    # Silenced debug: modified objects summary
     
     # Update last scan info
     .GlobalEnv$workspace_index$last_scan_objects <- current_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    cat("DEBUG: Incremental update complete\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
-        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
-        "functions:", length(.GlobalEnv$workspace_index$functions), 
-        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
+    # Silenced debug: incremental update complete
+    # Silenced debug: final counts summary
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index incrementally:", e$message, "\n")
@@ -3789,11 +3771,11 @@ update_workspace_index_incremental <- function() {
 #' @export
 update_workspace_index_full <- function() {
   tryCatch({
-    cat("DEBUG: Performing full workspace index update...\n")
+    # Silenced debug: performing full workspace index update
     
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
+    # Silenced debug: found workspace objects
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -3803,22 +3785,22 @@ update_workspace_index_full <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
-      cat("DEBUG: Processing object:", obj_name, "\n")
+      # Silenced debug: processing object
       obj_info <- safe_get_object_info(obj_name)
-      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
+      # Silenced debug: object info flags
       
       # Store in appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to data_frames\n")
+        # Silenced debug: added to data_frames
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to functions\n")
+        # Silenced debug: added to functions
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to variables\n")
+        # Silenced debug: added to variables
       }
     }
     
@@ -3826,11 +3808,7 @@ update_workspace_index_full <- function() {
     .GlobalEnv$workspace_index$last_scan_objects <- workspace_objects
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
     
-    cat("DEBUG: Full workspace index updated with", length(workspace_objects), "objects\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), 
-        "data_frames:", length(.GlobalEnv$workspace_index$data_frames), 
-        "functions:", length(.GlobalEnv$workspace_index$functions), 
-        "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
+    # Silenced debug: full workspace index updated and final counts
     
   }, error = function(e) {
     cat("ERROR: Failed to update workspace index:", e$message, "\n")
@@ -3841,7 +3819,7 @@ update_workspace_index_full <- function() {
 #' @export
 capture_context_smart_incremental <- function(query = NULL) {
   tryCatch({
-    cat("DEBUG: Capturing context with incremental processing...\n")
+    # Silenced debug: capturing context with incremental processing
     
     # No incremental update needed - process all objects directly
     
@@ -3939,14 +3917,14 @@ find_last_plot_command <- function() {
         
         # Then check for ggplot commands (they need special handling)
         if (grepl("ggplot\\(", line, fixed = TRUE)) {
-          cat("DEBUG: Found ggplot line at position", i, ":", line, "\n")
+          # Silenced debug: found ggplot line
           # For ggplot2, we need to reconstruct the multi-line command
           return(reconstruct_ggplot_command(history_lines, i))
         }
         
         # Finally check for geom_ commands that might be part of ggplot
         if (grepl("geom_", line, fixed = TRUE)) {
-          cat("DEBUG: Found geom command at position", i, ":", line, "\n")
+          # Silenced debug: found geom command
           # Check if this is part of a ggplot command by looking backwards
           return(reconstruct_ggplot_command(history_lines, i))
         }
@@ -3963,7 +3941,7 @@ find_last_plot_command <- function() {
 #' Reconstruct multi-line ggplot2 command
 reconstruct_ggplot_command <- function(history_lines, start_line) {
   tryCatch({
-    cat("DEBUG: reconstruct_ggplot_command called with start_line:", start_line, "\n")
+    # Silenced debug: reconstruct_ggplot_command called
     
     # Check if we're starting from a geom line or ggplot line
     current_line <- start_line
@@ -3972,25 +3950,25 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     if (grepl("ggplot\\(", line)) {
       # We're starting from a ggplot line
       command_lines <- c(line)
-      cat("DEBUG: Starting from ggplot line:", line, "\n")
+      # Silenced debug: starting from ggplot line
       current_line <- current_line + 1
     } else if (grepl("geom_", line)) {
       # We're starting from a geom line, need to find the ggplot line
-      cat("DEBUG: Starting from geom line, looking for ggplot line\n")
+      # Silenced debug: starting from geom line, looking for ggplot line
       
       # Look backwards for the ggplot line
       ggplot_line <- NULL
       for (i in (current_line - 1):1) {
         if (grepl("ggplot\\(", history_lines[i])) {
           ggplot_line <- history_lines[i]
-          cat("DEBUG: Found ggplot line at position", i, ":", ggplot_line, "\n")
+          # Silenced debug: found ggplot line while backtracking
           break
         }
       }
       
       if (is.null(ggplot_line)) {
         # No ggplot line found, just return the geom line
-        cat("DEBUG: No ggplot line found, returning geom line only\n")
+        # Silenced debug: no ggplot line found; returning geom line
         return(list(
           command = line,
           line_number = start_line,
@@ -4000,13 +3978,12 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
       
       # Start with the ggplot line
       command_lines <- c(ggplot_line)
-      cat("DEBUG: Starting with ggplot line:", ggplot_line, "\n")
+      # Silenced debug: starting with ggplot line
       
       # Now collect all geom lines from the ggplot line onwards
       current_line <- which(history_lines == ggplot_line)[1] + 1
     } else {
-      # Unknown line type
-      cat("DEBUG: Unknown line type, returning as is\n")
+      # Unknown line type - returning as is
       return(list(
         command = line,
         line_number = start_line,
@@ -4016,27 +3993,27 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     
     # Look for continuation lines (lines with + or %>%)
     current_line <- current_line + 1
-    cat("DEBUG: Starting to look for continuation lines from line", current_line, "\n")
+    # Silenced debug: scanning for continuation lines
     while (current_line <= length(history_lines)) {
       line <- history_lines[current_line]
-      cat("DEBUG: Checking line", current_line, ":", line, "\n")
+      # Silenced debug: checking line
       
       # Check if this line continues the ggplot command
       if (grepl("^\\s*\\+", line) || grepl("^\\s*%>%", line) || 
           grepl("geom_", line) || grepl("labs\\(", line) || 
           grepl("theme\\(", line) || grepl("scale_", line) ||
           grepl("facet_", line) || grepl("coord_", line)) {
-        cat("DEBUG: Found continuation line:", line, "\n")
+        # Silenced debug: found continuation line
         command_lines <- c(command_lines, line)
         current_line <- current_line + 1
       } else {
         # Check if the previous line ended with + (indicating continuation)
         if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
-          cat("DEBUG: Previous line ended with +, adding:", line, "\n")
+          # Silenced debug: previous line ended with +
           command_lines <- c(command_lines, line)
           current_line <- current_line + 1
         } else {
-          cat("DEBUG: No more continuation lines found\n")
+          # Silenced debug: no more continuation lines found
           break
         }
       }
@@ -4044,7 +4021,7 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     
     # Combine all lines into a single command
     full_command <- paste(command_lines, collapse = " ")
-    cat("DEBUG: Final reconstructed command:", full_command, "\n")
+    # Silenced debug: final reconstructed command
     
     return(list(
       command = full_command,
@@ -4317,36 +4294,36 @@ extract_plot_data <- function(command, plot_type) {
       # They will be caught by the violin/ggplot section below
       return(NULL)
     } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
-      cat("DEBUG: Processing ggplot2 plot type:", plot_type, "\n")
+      # Silenced debug: processing ggplot2 plot type
       # For ggplot2 plots, extract the data frame and variables from aes()
       # First extract the data frame
       data_match <- regexpr("ggplot\\(([^,]+)", command)
-      cat("DEBUG: Data frame regex match position:", data_match, "\n")
+      # Silenced debug: data frame regex match position
       if (data_match > 0) {
         data_frame <- substr(command, data_match + 7, data_match + attr(data_match, "match.length") - 1)
-        cat("DEBUG: Extracted data frame:", data_frame, "\n")
+        # Silenced debug: extracted data frame
         
         # Then extract variables from aes() - check both in ggplot() and in geom_*()
         aes_match <- regexpr("aes\\(([^)]+)\\)", command)
-        cat("DEBUG: aes() regex match position:", aes_match, "\n")
+        # Silenced debug: aes() regex match position
         
         # If no aes() found in main command, look for aes() in geom_*() functions
         if (aes_match <= 0) {
           # Look for aes() inside geom_*() functions
           geom_aes_match <- regexpr("geom_[^(]*\\([^)]*aes\\(([^)]+)\\)[^)]*\\)", command)
-          cat("DEBUG: geom_aes() regex match position:", geom_aes_match, "\n")
+          # Silenced debug: geom_aes() regex match position
           if (geom_aes_match > 0) {
             # Extract the aes content from within the geom function
             geom_content <- substr(command, geom_aes_match, geom_aes_match + attr(geom_aes_match, "match.length") - 1)
-            aes_in_geom_match <- regexpr("aes\\(([^)]+)\\)", geom_content)
-            if (aes_in_geom_match > 0) {
-              aes_content <- substr(geom_content, aes_in_geom_match + 5, aes_in_geom_match + attr(aes_in_geom_match, "match.length") - 2)
-              cat("DEBUG: Found aes() in geom function:", aes_content, "\n")
-            }
+                          aes_in_geom_match <- regexpr("aes\\(([^)]+)\\)", geom_content)
+              if (aes_in_geom_match > 0) {
+                aes_content <- substr(geom_content, aes_in_geom_match + 5, aes_in_geom_match + attr(aes_in_geom_match, "match.length") - 2)
+                # Silenced debug: aes() found in geom function
+              }
           }
         } else {
           aes_content <- substr(command, aes_match + 5, aes_match + attr(aes_match, "match.length") - 2)
-          cat("DEBUG: Extracted aes content from main command:", aes_content, "\n")
+          # Silenced debug: extracted aes content from main command
         }
         
         if (exists("aes_content") && !is.null(aes_content)) {
@@ -4356,11 +4333,9 @@ extract_plot_data <- function(command, plot_type) {
           x_pattern <- "x\\s*=\\s*([^,]+)"
           y_pattern <- "y\\s*=\\s*([^,]+)"
           
-          cat("DEBUG: Looking for x and y variables in aes content\n")
+          # Silenced debug: inspecting aes for x and y
           x_match <- regexpr(x_pattern, aes_content)
           y_match <- regexpr(y_pattern, aes_content)
-          cat("DEBUG: x_match position:", x_match, "\n")
-          cat("DEBUG: y_match position:", y_match, "\n")
           
           if (x_match > 0 && y_match > 0) {
             # Extract x variable
@@ -4377,9 +4352,7 @@ extract_plot_data <- function(command, plot_type) {
             x_var <- gsub("^\\s+|\\s+$", "", x_var)
             y_var <- gsub("^\\s+|\\s+$", "", y_var)
             
-            cat("DEBUG: Successfully extracted both x and y variables\n")
-            cat("DEBUG: x_var:", x_var, "\n")
-            cat("DEBUG: y_var:", y_var, "\n")
+            # Silenced debug: extracted x and y variables
             return(list(
               data_frame = data_frame,
               x = x_var,
@@ -4387,12 +4360,12 @@ extract_plot_data <- function(command, plot_type) {
             ))
           } else if (x_match > 0) {
             # Only x variable found
-            cat("DEBUG: Only x variable found\n")
+            # Silenced debug: only x variable found
             x_start <- x_match + attr(x_match, "match.length")
             x_end <- x_start + attr(x_match, "match.length") - 1
             x_var <- substr(aes_content, x_start, x_end)
             x_var <- gsub("^\\s+|\\s+$", "", x_var)
-            cat("DEBUG: x_var:", x_var, "\n")
+            # Silenced debug: x_var value
             
             return(list(
               data_frame = data_frame,
@@ -4400,12 +4373,12 @@ extract_plot_data <- function(command, plot_type) {
             ))
           } else {
             # If we can't extract variables, just return the data frame
-            cat("DEBUG: Could not extract x,y variables, returning data frame only\n")
+            # Silenced debug: could not extract x,y variables; returning data frame
             return(data_frame)
           }
         } else {
           # If no aes() found anywhere, just return the data frame
-          cat("DEBUG: No aes() found in command, returning data frame only\n")
+          # Silenced debug: no aes() found; returning data frame
           return(data_frame)
         }
       }
@@ -4636,7 +4609,7 @@ analyze_last_plot <- function() {
     data_var <- extract_plot_data(plot_info$command, plot_type)
     
     if (is.null(data_var)) {
-      cat("DEBUG: Data extraction failed - returning NULL\n")
+      # Silenced debug: data extraction failed
       return(list(
         success = FALSE,
         message = "Could not extract data variables from plot command."
