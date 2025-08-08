@@ -1039,7 +1039,6 @@ start_websocket_server <- function() {
         },
         "new_conversation" = {
           # Clear conversation history
-          cat("Starting new conversation - clearing history\n")
           
           # Clear conversation history
           .GlobalEnv$conversation_history <- list()
@@ -1087,7 +1086,7 @@ start_websocket_server <- function() {
         },
         "analyze_last_plot" = {
           # Analyze the last plot command and provide insights
-          cat("Analyzing last plot...\n")
+          
           
           tryCatch({
             # Step 1: Find and analyze the last plot
@@ -1666,31 +1665,21 @@ capture_context <- function() {
     }
     
     # Return context data with simplified structure to avoid double encoding
-    cat("DEBUG: Creating context_data list...\n")
     context_data <- list(
       workspace_objects = workspace_objects,
       environment_info = environment_info,
       file_info = file_info,
       timestamp = as.character(Sys.time())
     )
-    cat("DEBUG: Context data created successfully\n")
     
     # Convert to JSON and back to flatten nested structures
-    cat("DEBUG: Starting JSON conversion...\n")
     tryCatch({
-      cat("DEBUG: Converting to JSON...\n")
       json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
-      cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
-      cat("DEBUG: Converting back from JSON...\n")
       context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
-      cat("DEBUG: JSON back-conversion successful\n")
     }, error = function(e) {
-      cat("Warning: Could not flatten context structure:", e$message, "\n")
-      cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
-      cat("Using original context structure\n")
+      # Fallback silently to original structure
     })
     
-    cat("DEBUG: Returning context_data\n")
     context_data
   }, error = function(e) {
     cat("ERROR in capture_context:", e$message, "\n")
@@ -4630,7 +4619,7 @@ analyze_last_plot <- function() {
     
     
     # Step 1: Find last plot command
-    cat("DEBUG: Step 1 - Finding last plot command...\n")
+    
     plot_info <- find_last_plot_command()
     
     if (!plot_info$found) {
