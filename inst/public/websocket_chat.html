@@ -1456,80 +1456,64 @@
             if ((part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
                 (part.includes("<code") && part.includes("</code>"))) {
-              // This is a code block - style it
+              // This is a code block - build it similarly to normal chat so buttons behave the same
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
               
-              // Create header with copy button
-              const headerDiv = document.createElement("div");
-              headerDiv.className = "code-block-header";
-              
-              const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
-              
-              const copyButton = document.createElement("button");
-              copyButton.className = "copy-button";
-              copyButton.textContent = "Copy";
-              copyButton.onclick = function() {
-                // Use the cleaned code for copying, not the original HTML
-                copyToClipboard(cleanCode, copyButton);
-              };
-              
-              const insertButton = document.createElement("button");
-              insertButton.className = "copy-button";
-              insertButton.textContent = "Insert at Cursor";
-              insertButton.onclick = function() {
-                insertCode(cleanCode);
-              };
-              
-              headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              headerDiv.appendChild(insertButton);
-              codeDiv.appendChild(headerDiv);
-              
-              // Create code content div - extract just the code
-              const codeContent = document.createElement("div");
+              // Compute cleaned code first
               let cleanCode;
               if (part.startsWith("```r\n")) {
-                // Markdown format - remove ```r\n at start and ``` at end
                 cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n")) {
-                // Markdown format - remove ```R\n at start and ``` at end
                 cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
-                // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
-                // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else {
-                // HTML format - extract clean text from nested HTML
-                // Create a temporary div to parse HTML and extract text
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
-                
-                // If that didn't work, try manual removal
                 if (!cleanCode || cleanCode.trim() === '') {
                   cleanCode = part.replace(/<code[^>]*>/g, "").replace(/<\/code>/g, "");
                   cleanCode = cleanCode.replace(/<[^>]*>/g, "");
                   cleanCode = cleanCode.replace(/style="[^"]*"/g, "");
                 }
               }
-              
-              // Remove any remaining artifacts like single quotes or language identifiers
-              cleanCode = cleanCode.replace(/^['"]?r['"]?\s*/, ""); // Remove 'r', "r", or r at start
-              cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, ""); // Remove with whitespace
-              
-              // Remove any remaining "R" at the start
+              // Final cleanup like normal flow
+              cleanCode = cleanCode.replace(/^["']?r["']?\s*/, "");
+              cleanCode = cleanCode.replace(/^\s*["']?r["']?\s*/, "");
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
-              
-              // Decode HTML entities
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
               
+              // Header with language + Copy (same as normal)
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "code-block-header";
+              const languageLabel = document.createElement("span");
+              languageLabel.textContent = "R Code";
+              const copyButton = document.createElement("button");
+              copyButton.className = "copy-button";
+              copyButton.textContent = "Copy";
+              copyButton.onclick = function() { copyToClipboard(cleanCode, copyButton); };
+              headerDiv.appendChild(languageLabel);
+              headerDiv.appendChild(copyButton);
+              codeDiv.appendChild(headerDiv);
+              
+              // Code content
+              const codeContent = document.createElement("div");
               codeContent.textContent = cleanCode;
               codeDiv.appendChild(codeContent);
+              
+              // Buttons below the code: Insert (same class as normal chat)
+              const buttonContainer = document.createElement("div");
+              buttonContainer.style.marginTop = "10px";
+              const insertButton = document.createElement("button");
+              insertButton.className = "insert-button";
+              insertButton.textContent = "Insert";
+              insertButton.onclick = function() { insertCode(cleanCode); };
+              buttonContainer.appendChild(insertButton);
+              codeDiv.appendChild(buttonContainer);
               
               messageDiv.appendChild(codeDiv);
             } else if (part.trim()) {
@@ -1923,74 +1907,64 @@
             if ((part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
                 (part.includes("<code") && part.includes("</code>"))) {
-              // This is a code block - style it with only Copy/Insert buttons
+              // This is a code block - build it similarly to normal chat so buttons behave the same
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
               
-              // Create header with copy button
-              const headerDiv = document.createElement("div");
-              headerDiv.className = "code-block-header";
-              
-              const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
-              
-              const copyButton = document.createElement("button");
-              copyButton.className = "copy-button";
-              copyButton.textContent = "Copy";
-              copyButton.onclick = function() {
-                copyToClipboard(cleanCode, copyButton);
-              };
-              
-              const insertButton = document.createElement("button");
-              insertButton.className = "copy-button";
-              insertButton.textContent = "Insert at Cursor";
-              insertButton.onclick = function() {
-                insertCode(cleanCode);
-              };
-              
-              headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              headerDiv.appendChild(insertButton);
-              codeDiv.appendChild(headerDiv);
-              
-              // Create code content div - extract just the code
-              const codeContent = document.createElement("div");
+              // Compute cleaned code first
               let cleanCode;
               if (part.startsWith("```r\n")) {
-                // Markdown format - remove ```r\n at start and ``` at end
                 cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n")) {
-                // Markdown format - remove ```R\n at start and ``` at end
                 cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
-                // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
-                // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else {
-                // HTML format - extract clean text from nested HTML
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
-                
-                // If that didn't work, try manual removal
                 if (!cleanCode || cleanCode.trim() === '') {
                   cleanCode = part.replace(/<code[^>]*>/g, "").replace(/<\/code>/g, "");
                   cleanCode = cleanCode.replace(/<[^>]*>/g, "");
                   cleanCode = cleanCode.replace(/style="[^"]*"/g, "");
                 }
               }
-              
-              // Remove any remaining artifacts
-              cleanCode = cleanCode.replace(/^['"]?r['"]?\s*/, "");
-              cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, "");
+              // Final cleanup like normal flow
+              cleanCode = cleanCode.replace(/^["']?r["']?\s*/, "");
+              cleanCode = cleanCode.replace(/^\s*["']?r["']?\s*/, "");
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
               
+              // Header with language + Copy (same as normal)
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "code-block-header";
+              const languageLabel = document.createElement("span");
+              languageLabel.textContent = "R Code";
+              const copyButton = document.createElement("button");
+              copyButton.className = "copy-button";
+              copyButton.textContent = "Copy";
+              copyButton.onclick = function() { copyToClipboard(cleanCode, copyButton); };
+              headerDiv.appendChild(languageLabel);
+              headerDiv.appendChild(copyButton);
+              codeDiv.appendChild(headerDiv);
+              
+              // Code content
+              const codeContent = document.createElement("div");
               codeContent.textContent = cleanCode;
               codeDiv.appendChild(codeContent);
+              
+              // Buttons below the code: Insert (same class as normal chat)
+              const buttonContainer = document.createElement("div");
+              buttonContainer.style.marginTop = "10px";
+              const insertButton = document.createElement("button");
+              insertButton.className = "insert-button";
+              insertButton.textContent = "Insert";
+              insertButton.onclick = function() { insertCode(cleanCode); };
+              buttonContainer.appendChild(insertButton);
+              codeDiv.appendChild(buttonContainer);
               
               messageDiv.appendChild(codeDiv);
             } else if (part.trim()) {
