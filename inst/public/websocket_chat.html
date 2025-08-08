@@ -1153,6 +1153,7 @@
               const paDiv = document.getElementById("plot-analysis-progress");
               if (paDiv && data.message) {
                 paDiv.innerHTML += '<br/>' + data.message;
+                processMarkdownFormatting(paDiv);
                 paDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
               }
               break;
@@ -1188,16 +1189,31 @@
               }
               break;
             case "chat_with_ai":
-              // Handle messages sent to the chat interface
-              if (data.message) {
+              // During plot analysis, append progress lines to the single bubble
+              if (window.plotAnalysisInProgress) {
+                const pa = document.getElementById("plot-analysis-progress");
+                if (pa && data.message) {
+                  pa.innerHTML += '<br/>' + data.message;
+                  processMarkdownFormatting(pa);
+                  processPlotAnalysisContent(pa);
+                  pa.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+              } else if (data.message) {
                 addMessage(data.message, "ai");
               }
               break;
             case "plot_analysis":
               if (data.success) {
-                // Process plot analysis response properly
+                // Append completion banner into the same bubble
+                const pa = document.getElementById("plot-analysis-progress");
                 const fullMessage = "✅ **Plot Analysis Complete!**\n\n" + data.ai_interpretation;
-                addPlotAnalysisMessage(fullMessage);
+                if (pa) {
+                  pa.innerHTML += '<br/>' + fullMessage;
+                  processMarkdownFormatting(pa);
+                  processPlotAnalysisContent(pa);
+                } else {
+                  addPlotAnalysisMessage(fullMessage);
+                }
               } else {
                 addMessage("❌ **Plot Analysis Failed:** " + data.message, "ai");
               }
@@ -1208,6 +1224,18 @@
               if (data.is_dark !== undefined) {
                 applyTheme(data.is_dark, data.theme_name, data.colors);
               }
+              break;
+
+            case "plot_analysis_streaming_complete":
+              // Streaming finished; ensure placeholder is formatted and keep as single bubble
+              (function(){
+                const pa = document.getElementById("plot-analysis-progress");
+                if (pa) {
+                  processMarkdownFormatting(pa);
+                  processPlotAnalysisContent(pa);
+                }
+                // Do not create any new messages here
+              })();
               break;
 
           }
