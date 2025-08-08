@@ -137,11 +137,6 @@ get_rstudio_theme <- function() {
             console_background = theme_data$console_background,
             console_foreground = theme_data$console_foreground
           )
-          
-          cat("Detected RStudio theme:", theme_data$editor, "\n")
-          cat("Global theme:", theme_data$global, "\n")
-          cat("Is dark theme:", theme_data$dark, "\n")
-          cat("Colors:", toString(theme_data[c("foreground", "background", "console_background", "console_foreground")]), "\n")
         }
       }, error = function(e) {
         cat("Could not get detailed theme info:", e$message, "\n")
@@ -166,9 +161,8 @@ start_websocket_server <- function() {
   if (!is.null(.GlobalEnv$websocket_server)) {
     tryCatch({
       httpuv::stopServer(.GlobalEnv$websocket_server)
-      cat("Stopped existing WebSocket server\n")
     }, error = function(e) {
-      cat("No existing server to stop\n")
+      # no-op
     })
   }
   
@@ -176,23 +170,17 @@ start_websocket_server <- function() {
   .GlobalEnv$websocket_server <- NULL
   
   # Define message handler function
-  message_handler <- function(ws, isBinary, data) {
-    cat("Raw message received:", data, "\n")
-    cat("DEBUG: Message length:", nchar(data), "\n")
-    
+    message_handler <- function(ws, isBinary, data) {
     # Global error handler to catch any unhandled errors
     tryCatch({
       # Parse JSON message
       request <- jsonlite::fromJSON(data)
-      cat("Parsed request:", request$action, "\n")
-                  cat("DEBUG: Request details:", tryCatch(toString(request), error = function(e) "Error converting request to string"), "\n")
-      
+    
       # Handle different actions
       response <- switch(request$action,
         "set_access_code" = {
           # Store access code from frontend
           .GlobalEnv$current_access_code <- request$access_code
-          cat("Access code set to:", request$access_code, "\n")
           list(action = "access_code_set", status = "success")
         },
         "get_context" = {
@@ -1366,11 +1354,8 @@ start_websocket_server <- function() {
       
       # Send response back to JavaScript
       tryCatch({
-        cat("DEBUG: Sending response to frontend...\n")
         response_json <- jsonlite::toJSON(response, auto_unbox = TRUE)
-        cat("DEBUG: Response JSON length:", nchar(response_json), "\n")
         ws$send(response_json)
-        cat("DEBUG: Response sent successfully\n")
       }, error = function(e) {
         cat("ERROR sending response to frontend:", e$message, "\n")
         cat("Error details:", tryCatch(toString(e), error = function(e2) "Error converting error to string"), "\n")
