@@ -1128,19 +1128,33 @@
               break;
             case "debug_ai_response":
               if (data.streaming) {
-                // Stream into a single AI message; placeholder was already created
-                addStreamingChunk(data.chunk);
+                // During plot analysis, buffer chunks to avoid multiple messages
+                if (window.plotAnalysisInProgress) {
+                  if (data.chunk) {
+                    window.plotAnalysisBuffer += data.chunk;
+                  }
+                } else {
+                  addStreamingChunk(data.chunk);
+                }
               } else {
                 finishStreaming();
-                // Append final text into the placeholder if present, else add normally
                 const pa = document.getElementById("plot-analysis-progress");
-                if (pa && data.message) {
-                  pa.innerHTML += '<br/>' + data.message;
+                // Append buffered content then final message
+                if (window.plotAnalysisInProgress && pa) {
+                  if (window.plotAnalysisBuffer) {
+                    pa.innerHTML += '<br/>' + window.plotAnalysisBuffer;
+                  }
+                  if (data.message) {
+                    pa.innerHTML += '<br/>' + data.message;
+                  }
                   processMarkdownFormatting(pa);
                   processPlotAnalysisContent(pa);
                 } else if (data.message) {
                   addPlotAnalysisMessage(data.message);
                 }
+                // Reset flags
+                window.plotAnalysisInProgress = false;
+                window.plotAnalysisBuffer = "";
               }
               break;
             case "chat_with_ai":
@@ -1772,6 +1786,10 @@
           alert("Not connected to RStudio");
           return;
         }
+        
+        // Flag and buffer for consolidated plot analysis output
+        window.plotAnalysisInProgress = true;
+        window.plotAnalysisBuffer = "";
         
         // Create a single placeholder message and append step updates into it
         const container = document.getElementById("chat-container");
