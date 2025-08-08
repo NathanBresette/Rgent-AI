@@ -1080,15 +1080,45 @@
           switch(data.action) {
             case "ai_response":
               if (data.streaming) {
-                // Handle streaming response
-                if (data.chunk) {
-                  addStreamingChunk(data.chunk);
-                } else if (data.finished) {
-                  finishStreaming();
+                // If plot analysis is in progress, buffer instead of creating new bubbles
+                if (window.plotAnalysisInProgress) {
+                  if (data.chunk) {
+                    window.plotAnalysisBuffer += data.chunk;
+                  }
+                  if (data.finished) {
+                    const pa = document.getElementById("plot-analysis-progress");
+                    if (pa) {
+                      if (window.plotAnalysisBuffer) {
+                        pa.innerHTML += '<br/>' + window.plotAnalysisBuffer;
+                      }
+                      processMarkdownFormatting(pa);
+                      processPlotAnalysisContent(pa);
+                    }
+                    window.plotAnalysisInProgress = false;
+                    window.plotAnalysisBuffer = "";
+                    finishStreaming();
+                  }
+                } else {
+                  // Normal chat streaming
+                  if (data.chunk) {
+                    addStreamingChunk(data.chunk);
+                  } else if (data.finished) {
+                    finishStreaming();
+                  }
                 }
               } else {
-                // Handle regular response
-                addMessage(data.message, "ai");
+                // Non-streaming message
+                if (window.plotAnalysisInProgress) {
+                  const pa = document.getElementById("plot-analysis-progress");
+                  if (pa && data.message) {
+                    pa.innerHTML += '<br/>' + data.message;
+                    processMarkdownFormatting(pa);
+                    processPlotAnalysisContent(pa);
+                  }
+                  // Keep plotAnalysisInProgress true until final analysis arrives
+                } else {
+                  addMessage(data.message, "ai");
+                }
               }
               break;
             case "inserted":
@@ -1235,6 +1265,17 @@
       }
       
       function addStreamingChunk(chunk) {
+        // During plot analysis, never start a new bubble; buffer to placeholder
+        if (window.plotAnalysisInProgress) {
+          const pa = document.getElementById("plot-analysis-progress");
+          if (pa) {
+            pa.innerHTML += chunk;
+            const container = document.getElementById("chat-container");
+            container.scrollTop = container.scrollHeight;
+          }
+          return;
+        }
+        
         if (!currentStreamingMessage) {
           // Remove thinking placeholder if present
           const placeholder = document.getElementById("ai-thinking");
