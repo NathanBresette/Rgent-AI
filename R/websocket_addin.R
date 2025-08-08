@@ -1,6 +1,6 @@
 # Debug wrapper functions to track down invalid 'envir' argument error
 safe_ls <- function(envir) {
-  cat('DEBUG: Calling ls with envir of class:', class(envir), 'type:', typeof(envir), '\n')
+  
   ls(envir = envir)
 }
 
@@ -13,7 +13,7 @@ safe_get <- function(name, envir) {
   
   # Try to get the object safely
   tryCatch({
-    cat('DEBUG: Getting object:', name, '\n')
+    
     obj <- get(name, envir = envir, inherits = FALSE)
     return(obj)
   }, error = function(e) {
@@ -1569,7 +1569,6 @@ capture_context <- function() {
         )
         
         # Add object-specific details with intelligent summarization
-        cat("Processing object:", obj_name, "class:", obj_info$class, "\n")
         
         if (is.data.frame(obj)) {
           cat("  - Is data frame, adding concise info\n")
@@ -1590,11 +1589,9 @@ capture_context <- function() {
           } else {
             obj_info$sample_data <- list()
           }
-          cat("  - Concise data frame info added\n")
           
         } else if (is.vector(obj) && !is.list(obj)) {
           if (length(obj) <= 5) {
-            cat("  - Is small vector, adding values\n")
             tryCatch({
               obj_info$values <- as.character(obj)
             }, error = function(e) {
@@ -1602,18 +1599,15 @@ capture_context <- function() {
               obj_info$values <- paste("Error: Could not convert to character")
             })
           } else {
-            cat("  - Is large vector, adding basic summary\n")
             obj_info$summary <- list(
               total_length = length(obj),
               unique_count = tryCatch(length(unique(obj)), error = function(e) "unknown"),
               na_count = tryCatch(sum(is.na(obj)), error = function(e) "unknown")
             )
           }
-          cat("  - Vector info added\n")
           
         } else if (is.list(obj) && !is.data.frame(obj)) {
           if (length(obj) <= 3) {
-            cat("  - Is small list, adding basic structure\n")
             tryCatch({
               obj_info$list_structure <- lapply(names(obj), function(name) {
                 item <- obj[[name]]
@@ -1628,21 +1622,17 @@ capture_context <- function() {
               obj_info$list_structure <- list()
             })
           } else {
-            cat("  - Is large list, adding basic summary\n")
             tryCatch({
               obj_info$list_summary <- list(
                 total_items = length(obj),
-                item_names = names(obj)[1:5]  # Only first 5 names
+                item_names = names(obj)[1:5]
               )
             }, error = function(e) {
-              cat("  - Error processing list summary:", e$message, "\n")
               obj_info$list_summary <- list(total_items = length(obj), item_names = "unknown")
             })
           }
-          cat("  - List info added\n")
           
         } else if (is.function(obj)) {
-          cat("  - Is function, adding basic info\n")
           tryCatch({
             obj_info$function_args <- names(formals(obj))
           }, error = function(e) {
@@ -1653,25 +1643,18 @@ capture_context <- function() {
           cat("  - Function info added\n")
           
         } else if (is.matrix(obj) || is.array(obj)) {
-          cat("  - Is matrix/array, adding basic info\n")
-          obj_info$dimensions <- dim(obj)
-          cat("  - Matrix/array info added\n")
-          
-        } else if (is.environment(obj)) {
-          cat("  - Is environment, adding all contents\n")
+                    obj_info$dimensions <- dim(obj)
+                      
+          } else if (is.environment(obj)) {
           tryCatch({
             obj_info$env_contents <- ls(obj)
-          }, error = function(e) {
-            cat("  - Error listing environment contents:", e$message, "\n")
-            obj_info$env_contents <- "unknown"
-          })
-          cat("  - Environment info added\n")
-          
-        } else {
-          cat("  - Generic object, adding minimal info\n")
-          obj_info$is_s4 <- isS4(obj)
-          cat("  - Generic object info added\n")
-        }
+                      }, error = function(e) {
+              obj_info$env_contents <- "unknown"
+            })
+            
+          } else {
+            obj_info$is_s4 <- isS4(obj)
+          }
         
         obj_info
       }, error = function(e) {
@@ -3619,7 +3602,6 @@ capture_context_smart <- function(query = NULL) {
           )
           
           # Add object-specific details with intelligent summarization
-          cat("Processing object:", obj_name, "class:", obj_info$class, "\n")
           
           if (is.data.frame(obj)) {
             cat("  - Is data frame, adding concise info\n")
@@ -3640,11 +3622,9 @@ capture_context_smart <- function(query = NULL) {
             } else {
               obj_info$sample_data <- list()
             }
-            cat("  - Concise data frame info added\n")
             
           } else if (is.vector(obj) && !is.list(obj)) {
             if (length(obj) <= 5) {
-              cat("  - Is small vector, adding values\n")
               tryCatch({
                 obj_info$values <- as.character(obj)
               }, error = function(e) {
@@ -3659,11 +3639,9 @@ capture_context_smart <- function(query = NULL) {
                 na_count = tryCatch(sum(is.na(obj)), error = function(e) "unknown")
               )
             }
-            cat("  - Vector info added\n")
             
           } else if (is.list(obj) && !is.data.frame(obj)) {
             if (length(obj) <= 3) {
-              cat("  - Is small list, adding basic structure\n")
               tryCatch({
                 obj_info$list_structure <- lapply(names(obj), function(name) {
                   item <- obj[[name]]
@@ -3685,14 +3663,11 @@ capture_context_smart <- function(query = NULL) {
                   item_names = names(obj)[1:5]  # Only first 5 names
                 )
               }, error = function(e) {
-                cat("  - Error processing list summary:", e$message, "\n")
                 obj_info$list_summary <- list(total_items = length(obj), item_names = "unknown")
               })
             }
-            cat("  - List info added\n")
             
           } else if (is.function(obj)) {
-            cat("  - Is function, adding basic info\n")
             tryCatch({
               # Get function arguments
               args <- formals(obj)
@@ -3976,131 +3951,44 @@ capture_context_smart_incremental <- function(query = NULL) {
     
     # Simple approach - process all objects each time
     workspace_objects <- tryCatch({
-      cat("DEBUG: Processing all workspace objects\n")
       
       # Get all objects in global environment
       object_names <- ls(envir = globalenv())
-      cat("DEBUG: Found", length(object_names), "objects\n")
       
       # Process each object with basic info
       all_objects <- lapply(object_names, function(obj_name) {
-        cat("DEBUG: About to process object:", obj_name, "\n")
         tryCatch({
-          cat("DEBUG: Getting object:", obj_name, "\n")
           obj <- get(obj_name, envir = globalenv())
-          cat("DEBUG: Successfully got object:", obj_name, "class:", class(obj), "\n")
           
           # Basic object info
-          cat("DEBUG: Creating obj_info for:", obj_name, "\n")
           obj_info <- list(
             name = obj_name,
             class = paste(class(obj), collapse = ", "),
-            length = length(obj),
-            is_function = is.function(obj),
             is_data_frame = is.data.frame(obj),
-            is_vector = is.vector(obj),
-            is_list = is.list(obj),
-            is_matrix = is.matrix(obj),
-            is_array = is.array(obj)
+            is_function = is.function(obj)
           )
-          cat("DEBUG: Created obj_info for:", obj_name, "\n")
           
-          # Add basic details for dataframes only
-          if (obj_info$is_data_frame) {
-            cat("  - Processing dataframe:", obj_name, "\n")
-            obj_info$dimensions <- dim(obj)
-            obj_info$column_names <- names(obj)
-          } else if (obj_info$is_function) {
-            cat("  - Processing function:", obj_name, "\n")
-            tryCatch({
-              obj_info$arguments <- names(formals(obj))
-            }, error = function(e) {
-              obj_info$arguments <- list()
-            })
-          } else {
-            cat("  - Processing other object:", obj_name, "\n")
-          }
-          
-          return(obj_info)
+          obj_info
         }, error = function(e) {
-          cat("ERROR processing object", obj_name, ":", e$message, "\n")
-          return(list(
-            name = obj_name,
-            class = "error",
-            error = e$message
-          ))
+          list(name = obj_name, class = "error")
         })
       })
       
-      # Filter objects if query provided
-      if (!is.null(query) && nchar(query) > 0) {
-        cat("DEBUG: Applying smart filtering for query:", query, "\n")
-        filtered_objects <- smart_filter_objects(query, all_objects)
-        cat("DEBUG: Filtered from", length(all_objects), "to", length(filtered_objects), "objects\n")
-        return(filtered_objects)
-      } else {
-        cat("DEBUG: No query provided, returning all indexed objects\n")
-        return(all_objects)
-      }
-      
+      all_objects
     }, error = function(e) {
-      cat("ERROR getting workspace objects:", e$message, "\n")
-      return(list())
+      list()
     })
     
-    # Get environment information
-    environment_info <- tryCatch({
-      list(
-        r_version = R.version.string,
-        platform = R.version$platform,
-        working_directory = getwd(),
-        loaded_packages = names(sessionInfo()$otherPkgs)
-      )
-    }, error = function(e) {
-      cat("ERROR getting environment info:", e$message, "\n")
-      list(error = e$message)
-    })
-    
-    # Get file information if available
-    file_info <- tryCatch({
-      doc <- rstudioapi::getActiveDocumentContext()
-      if (!is.null(doc)) {
-        list(
-          file_path = doc$path,
-          file_contents = doc$contents,
-          selection = doc$selection,
-          cursor_position = doc$selection[[1]]$range$start
-        )
-      } else {
-        list(file_path = NULL, file_contents = NULL)
-      }
-    }, error = function(e) {
-      cat("ERROR getting file info:", e$message, "\n")
-      list(error = e$message)
-    })
-    
-    # Create context data
-    cat("DEBUG: Creating context_data list...\n")
-    context_data <- list(
-      workspace_objects = workspace_objects,
-      environment_info = environment_info,
-      file_info = file_info
+    # Build simple context string
+    parts <- c(
+      "=== WORKSPACE OBJECTS (BASIC) ===",
+      paste(sapply(workspace_objects, function(x) paste("-", x$name, "(", x$class, ")")), collapse = "\n")
     )
     
-    # Convert to JSON and back to ensure proper structure
-    json_str <- jsonlite::toJSON(context_data, auto_unbox = TRUE)
-    cat("DEBUG: JSON conversion successful, length:", nchar(json_str), "\n")
-    
-    # Convert back to list for consistency
-    context_data <- jsonlite::fromJSON(json_str, simplifyVector = FALSE)
-    
-    cat("DEBUG: Returning context_data\n")
-    context_data
+    paste(parts, collapse = "\n")
     
   }, error = function(e) {
-    cat("ERROR in capture_context_smart_incremental:", e$message, "\n")
-    cat("Falling back to regular capture_context_smart...\n")
-    capture_context_smart(query)
+    ""
   })
 }
 
