@@ -369,7 +369,7 @@ start_websocket_server <- function() {
         },
         "chat_with_ai" = {
           # Use intelligent indexing system
-          cat("Using intelligent indexing system for chat...\n")
+          
           
           # Add user message to conversation history
           add_to_conversation_history("user", request$message)
@@ -1522,7 +1522,7 @@ add_to_conversation_history <- function(role, message) {
     .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 5):length(.GlobalEnv$conversation_history)]
   }
   
-  cat("DEBUG: Added message to conversation history. Total messages:", length(conversation_history), "\n")
+  
 }
 
 #' Get conversation history as formatted string
@@ -2561,17 +2561,13 @@ get_editor_context <- function() {
 # Simple context assembly (no complex environments)
 assemble_simple_context <- function(query) {
   tryCatch({
-    cat("DEBUG: Assembling simple context...\n")
+    
     
     # Get workspace_index from global environment
     workspace_index <- .GlobalEnv$workspace_index
     
     # Debug workspace_index
-    cat("DEBUG: workspace_index type:", class(workspace_index), "\n")
-    cat("DEBUG: workspace_index keys:", names(workspace_index), "\n")
-    cat("DEBUG: workspace_index$objects length:", length(workspace_index$objects), "\n")
-    cat("DEBUG: workspace_index$data_frames length:", length(workspace_index$data_frames), "\n")
-    cat("DEBUG: workspace_index$functions length:", length(workspace_index$functions), "\n")
+    
     
     context_parts <- list()
     
@@ -2589,7 +2585,7 @@ assemble_simple_context <- function(query) {
     # 2. Get workspace objects
     if (length(workspace_index$objects) > 0) {
       object_names <- names(workspace_index$objects)
-      cat("DEBUG: Adding workspace objects section with", length(object_names), "objects\n")
+      
       context_parts <- c(context_parts, list(
         paste("=== WORKSPACE OBJECTS ==="),
         paste("Total objects:", length(object_names)),
@@ -2602,7 +2598,7 @@ assemble_simple_context <- function(query) {
     # 3. Get data frames info
     if (length(workspace_index$data_frames) > 0) {
       df_names <- names(workspace_index$data_frames)
-      cat("DEBUG: Adding data frames section with", length(df_names), "dataframes\n")
+      
       df_info <- sapply(df_names, function(name) {
         info <- workspace_index$data_frames[[name]]
         if (!is.null(info$dimensions)) {
@@ -2622,7 +2618,7 @@ assemble_simple_context <- function(query) {
     # 4. Get functions info
     if (length(workspace_index$functions) > 0) {
       func_names <- names(workspace_index$functions)
-      cat("DEBUG: Adding functions section with", length(func_names), "functions\n")
+      
       context_parts <- c(context_parts, list(
         paste("=== FUNCTIONS ==="),
         paste("Functions:", paste(func_names, collapse = ", "))
@@ -2651,10 +2647,7 @@ assemble_simple_context <- function(query) {
     # Combine all parts
     final_context <- paste(context_parts, collapse = "\n")
     
-    cat("DEBUG: Simple context assembled successfully\n")
-    cat("DEBUG: Final context length:", nchar(final_context), "\n")
-    cat("DEBUG: Final context contains 'WORKSPACE OBJECTS':", grepl("WORKSPACE OBJECTS", final_context), "\n")
-    cat("DEBUG: Final context contains 'DATA FRAMES':", grepl("DATA FRAMES", final_context), "\n")
+    
     
     return(final_context)
     
