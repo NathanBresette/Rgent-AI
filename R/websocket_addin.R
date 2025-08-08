@@ -93,11 +93,6 @@ run_rgent <- function() {
   # Add the task callback
   addTaskCallback(error_callback, name = "error_monitor")
   
-  # Initialize auto-fix mode as disabled
-  if (!exists(".GlobalEnv$auto_fix_mode")) {
-    .GlobalEnv$auto_fix_mode <- FALSE
-  }
-  
   # Start WebSocket server
   start_websocket_server()
   
@@ -1082,8 +1077,7 @@ start_websocket_server <- function() {
         "toggle_auto_fix" = {
           # Toggle auto-fix mode
           tryCatch({
-            new_status <- toggle_auto_fix()
-            list(action = "toggle_auto_fix", status = "success", auto_fix_mode = new_status)
+            list(action = "toggle_auto_fix", status = "error", message = "auto_fix_mode is deprecated")
           }, error = function(e) {
             list(action = "toggle_auto_fix", status = "error", message = e$message)
           })
@@ -1941,12 +1935,7 @@ auto_capture_error <- function() {
       cat("\n🐛 Error detected:", last_error, "\n")
       cat("Click the debug button to fix it!\n\n")
       
-      # If auto-fix mode is enabled, automatically analyze
-      if (exists(".GlobalEnv$auto_fix_mode") && .GlobalEnv$auto_fix_mode) {
-        cat("Auto-fix mode enabled - analyzing error...\n")
-        send_error_to_ai(last_error, console_context)
-      }
-    }
+          }
   }, error = function(e) {
     cat("Error in auto_capture_error:", e$message, "\n")
   })
@@ -1964,32 +1953,11 @@ execute_with_capture <- function(code) {
   })
 }
 
-#' Toggle auto-fix mode
+#' Toggle auto-fix mode (removed)
 #' @export
 toggle_auto_fix <- function() {
-  if (!exists(".GlobalEnv$auto_fix_mode")) {
-    .GlobalEnv$auto_fix_mode <- FALSE
-  }
-  
-  .GlobalEnv$auto_fix_mode <- !.GlobalEnv$auto_fix_mode
-  
-  if (.GlobalEnv$auto_fix_mode) {
-    cat("✅ Auto-fix mode ENABLED - errors will be automatically analyzed\n")
-  } else {
-    cat("❌ Auto-fix mode DISABLED - use debug button manually\n")
-  }
-  
-  return(.GlobalEnv$auto_fix_mode)
-}
-
-#' Get auto-fix mode status
-#' @export
-get_auto_fix_status <- function() {
-  if (exists(".GlobalEnv$auto_fix_mode")) {
-    return(.GlobalEnv$auto_fix_mode)
-  } else {
-    return(FALSE)
-  }
+  warning("auto_fix_mode is deprecated and has been removed; no action taken.")
+  FALSE
 }
 
 #' Test auto-capture system
