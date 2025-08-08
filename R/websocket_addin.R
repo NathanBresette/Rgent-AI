@@ -39,13 +39,13 @@ if (!exists("global_env") || !is.environment(global_env)) {
   global_env$session_index$file_hashes <- new.env(parent = emptyenv())
   global_env$session_index$functions <- new.env(parent = emptyenv())
   global_env$session_index$variables <- new.env(parent = emptyenv())
-  cat("DEBUG: global_env initialized with proper environment structure\n")
+  
 }
 
 # Initialize conversation history
 if (!exists("conversation_history") || !is.list(conversation_history)) {
   .GlobalEnv$conversation_history <- list()
-  cat("DEBUG: conversation_history initialized\n")
+  
 }
 
 # Helper function to get current access code
@@ -2482,11 +2482,10 @@ safe_get_object_info <- function(obj_name) {
 update_workspace_index <- function() {
   # Safely scan workspace and update index
   tryCatch({
-    cat("DEBUG: Updating workspace index...\n")
+    
     
     # Get all workspace objects
     workspace_objects <- ls(envir = globalenv())
-    cat("DEBUG: Found", length(workspace_objects), "workspace objects\n")
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -2496,31 +2495,27 @@ update_workspace_index <- function() {
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
-      cat("DEBUG: Processing object:", obj_name, "\n")
       obj_info <- safe_get_object_info(obj_name)
-      cat("DEBUG: Object info - is_data_frame:", obj_info$is_data_frame, "is_function:", obj_info$is_function, "\n")
       
-      # Store in appropriate category using global environment
+      # Skip NULL or invalid objects
+      if (is.null(obj_info)) next
+      
+      # Add to appropriate category using global environment
       .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
         .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to data_frames\n")
       } else if (obj_info$is_function) {
         .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to functions\n")
       } else {
         .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
-        cat("DEBUG: Added", obj_name, "to variables\n")
       }
     }
     
     .GlobalEnv$workspace_index$last_updated <- Sys.time()
-    cat("DEBUG: Workspace index updated with", length(workspace_objects), "objects\n")
-    cat("DEBUG: Final counts - objects:", length(.GlobalEnv$workspace_index$objects), "data_frames:", length(.GlobalEnv$workspace_index$data_frames), "functions:", length(.GlobalEnv$workspace_index$functions), "variables:", length(.GlobalEnv$workspace_index$variables), "\n")
     
   }, error = function(e) {
-    cat("ERROR: Failed to update workspace index:", e$message, "\n")
+    cat("Error updating workspace index:", e$message, "\n")
   })
 }
 
@@ -3364,7 +3359,7 @@ assemble_intelligent_context_safe <- function(query) {
 # =============================================================================
 
 # Initialize the simple system when package loads
-cat("DEBUG: Initializing simple, safe indexing system\n")
+
 
 # Initialize workspace_index in global environment
 if (!exists("workspace_index", envir = .GlobalEnv)) {
@@ -3375,7 +3370,7 @@ if (!exists("workspace_index", envir = .GlobalEnv)) {
     variables = list(),
     last_updated = NULL
   )
-  cat("DEBUG: workspace_index initialized in global environment\n")
+  
 }
 
 update_workspace_index()
