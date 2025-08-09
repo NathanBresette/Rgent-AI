@@ -1099,21 +1099,21 @@ start_websocket_server <- function() {
               # Send step 1 progress
               progress_msg <- list(
                 action = "chat_with_ai",
-                message = "*Step 1: Analyzing plot structure and data...*"
+                message = "Step 2: Analyzing plot structure and data..."
               )
               ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
               
               # Step 2: Send step 2 progress
               progress_msg <- list(
                 action = "chat_with_ai",
-                message = "*Step 2: Running statistical analysis...*"
+                message = "Step 3: Running statistical analysis..."
               )
               ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
               
               # Step 3: Send step 3 progress
               progress_msg <- list(
                 action = "chat_with_ai",
-                message = "*Step 3: Generating insights and recommendations...*"
+                message = "Step 4: Generating insights and recommendations..."
               )
               ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
               
