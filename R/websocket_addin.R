@@ -3882,6 +3882,11 @@ find_last_plot_command <- function() {
           return(reconstruct_ggplot_command(history_lines, i))
         }
         
+        # 2.5) base R QQ: stitch qqnorm + qqline across adjacent lines
+        if (grepl("qqnorm\\(", line) || grepl("qqline\\(", line)) {
+          return(reconstruct_qq_command(history_lines, i))
+        }
+        
         # 3) Other plot commands
         for (cmd in plot_commands) {
           # Skip ggplot or geom_* patterns (handled above)
@@ -4583,5 +4588,48 @@ analyze_last_plot <- function() {
       success = FALSE,
       message = paste("Analysis failed:", e$message)
     ))
+  })
+}
+
+#' Reconstruct base R QQ plot command possibly spanning multiple lines
+reconstruct_qq_command <- function(history_lines, start_line) {
+  tryCatch({
+    line <- history_lines[start_line]
+    command_lines <- c()
+    
+    # If starting at qqline, look up for qqnorm
+    if (grepl("qqline\\(", line)) {
+      # search backwards for nearest qqnorm line
+      for (i in (start_line - 1):1) {
+        if (grepl("qqnorm\\(", history_lines[i])) {
+          command_lines <- c(history_lines[i], line)
+          break
+        } else if (nzchar(trimws(history_lines[i]))) {
+          # Stop if we hit another non-empty unrelated command
+          next
+        }
+      }
+      if (length(command_lines) == 0) {
+        # Fallback to just the qqline if no qqnorm found
+        command_lines <- c(line)
+      }
+    } else if (grepl("qqnorm\\(", line)) {
+      # Starting at qqnorm: include immediate following qqline if present
+      command_lines <- c(line)
+      if (start_line + 1 <= length(history_lines)) {
+        next_line <- history_lines[start_line + 1]
+        if (grepl("qqline\\(", next_line)) {
+          command_lines <- c(command_lines, next_line)
+        }
+      }
+    } else {
+      # Unknown line, just return as is
+      command_lines <- c(line)
+    }
+    
+    full_command <- paste(command_lines, collapse = " ")
+    return(list(command = full_command, line_number = start_line, found = TRUE))
+  }, error = function(e) {
+    return(list(command = history_lines[start_line], line_number = start_line, found = TRUE))
   })
 }
