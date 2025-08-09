@@ -4161,11 +4161,23 @@ extract_plot_data <- function(command, plot_type) {
         return(data_var)
       }
     } else if (plot_type == "qq_plot") {
-      # Extract data from qqnorm(data) or qqplot(data)
-      match <- regexpr("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
-      if (match > 0) {
-        data_var <- substr(command, match + 8, match + attr(match, "match.length") - 2)
+      # Extract data from qqnorm(data) or qqplot(data) using capture group
+      qq_exec <- regexec("(qqnorm|qqplot)\\(([^,\")]+|[^)]+)\",?", command)
+      qq_match <- regmatches(command, qq_exec)
+      if (length(qq_match) > 0 && length(qq_match[[1]]) >= 3) {
+        data_var <- trimws(qq_match[[1]][3])
         return(data_var)
+      } else {
+        # Fallback simpler pattern
+        match <- regexpr("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
+        if (match > 0) {
+          # Use captured group via regexec for robustness
+          exec2 <- regexec("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
+          m2 <- regmatches(command, exec2)
+          if (length(m2) > 0 && length(m2[[1]]) >= 3) {
+            return(trimws(m2[[1]][3]))
+          }
+        }
       }
     } else if (plot_type == "residual_plot") {
       # Extract data from residuals(model) or fitted(model)
