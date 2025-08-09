@@ -3858,47 +3858,41 @@ find_last_plot_command <- function() {
       # Look for plot commands in reverse order
       plot_commands <- c(
         "hist(", "plot(", "boxplot(", "barplot(", "scatterplot(",
-        "ggplot(", "qplot(", "ggplotly(",
+        "qplot(", "ggplotly(",
         "plotly::", "leaflet::", "dygraph(",
         "density(", "pairs(", "ggpairs(", "GGally::",
         "qqnorm(", "qqplot(", "qqline(", "residuals(", "fitted(",
-        "geom_qq(", "geom_qq_line(", "geom_smooth(",
         "corrplot(", "ggcorrplot(", "heatmap(", "geom_tile(",
         "ts(", "autoplot(", "acf(", "pacf(", "decompose(",
         "prcomp(", "biplot(", "kmeans(", "hclust(",
-        "geom_jitter(", "geom_step(", "stat_ecdf(", "pie(",
-        "geom_bar(", "coord_polar("
+        "stat_ecdf(", "pie(", "coord_polar("
       )
       
-      # First pass: Look for all plot commands (prioritize most recent)
+      # First pass: Prioritize ggplot and geom_* reconstruction
       for (i in length(history_lines):1) {
         line <- history_lines[i]
         
-        # Check for all plot commands in order of priority
-        # First check for specific plot commands (excluding geom_)
+        # 1) ggplot: reconstruct multi-line chain starting from ggplot or geoms
+        if (grepl("ggplot\\(", line)) {
+          return(reconstruct_ggplot_command(history_lines, i))
+        }
+        
+        # 2) geom_*: treat as part of ggplot chain when present
+        if (grepl("geom_", line)) {
+          return(reconstruct_ggplot_command(history_lines, i))
+        }
+        
+        # 3) Other plot commands
         for (cmd in plot_commands) {
+          # Skip ggplot or geom_* patterns (handled above)
+          if (identical(cmd, "ggplot(") || grepl("^geom_", cmd)) next
           if (grepl(cmd, line, fixed = TRUE)) {
-            
             return(list(
               command = line,
               line_number = i,
               found = TRUE
             ))
           }
-        }
-        
-        # Then check for ggplot commands (they need special handling)
-        if (grepl("ggplot\\(", line, fixed = TRUE)) {
-          # Silenced debug: found ggplot line
-          # For ggplot2, we need to reconstruct the multi-line command
-          return(reconstruct_ggplot_command(history_lines, i))
-        }
-        
-        # Finally check for geom_ commands that might be part of ggplot
-        if (grepl("geom_", line, fixed = TRUE)) {
-          # Silenced debug: found geom command
-          # Check if this is part of a ggplot command by looking backwards
-          return(reconstruct_ggplot_command(history_lines, i))
         }
       }
     }
@@ -3922,38 +3916,30 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     if (grepl("ggplot\\(", line)) {
       # We're starting from a ggplot line
       command_lines <- c(line)
-      # Silenced debug: starting from ggplot line
       current_line <- current_line + 1
     } else if (grepl("geom_", line)) {
-      # We're starting from a geom line, need to find the ggplot line
-      # Silenced debug: starting from geom line, looking for ggplot line
-      
-      # Look backwards for the ggplot line
-      ggplot_line <- NULL
+      # Starting from a geom line: find the nearest preceding ggplot line
+      ggplot_index <- NA_integer_
       for (i in (current_line - 1):1) {
         if (grepl("ggplot\\(", history_lines[i])) {
-          ggplot_line <- history_lines[i]
-          # Silenced debug: found ggplot line while backtracking
+          ggplot_index <- i
           break
         }
       }
-      
-      if (is.null(ggplot_line)) {
-        # No ggplot line found, just return the geom line
-        # Silenced debug: no ggplot line found; returning geom line
-        return(list(
-          command = line,
-          line_number = start_line,
-          found = TRUE
-        ))
+      if (is.na(ggplot_index)) {
+        # If no ggplot found above, also scan forward in case history saved mid-chain
+        for (i in (current_line + 1):length(history_lines)) {
+          if (grepl("ggplot\\(", history_lines[i])) {
+            ggplot_index <- i
+            break
+          }
+        }
       }
-      
-      # Start with the ggplot line
-      command_lines <- c(ggplot_line)
-      # Silenced debug: starting with ggplot line
-      
-      # Now collect all geom lines from the ggplot line onwards
-      current_line <- which(history_lines == ggplot_line)[1] + 1
+      if (is.na(ggplot_index)) {
+        return(list(command = line, line_number = start_line, found = TRUE))
+      }
+      command_lines <- c(history_lines[ggplot_index])
+      current_line <- ggplot_index + 1
     } else {
       # Unknown line type - returning as is
       return(list(
@@ -3964,31 +3950,28 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
     }
     
     # Look for continuation lines (lines with + or %>%)
-    current_line <- current_line + 1
-    # Silenced debug: scanning for continuation lines
+    # Do not skip a line before scanning; start from current_line as set above
     while (current_line <= length(history_lines)) {
       line <- history_lines[current_line]
-      # Silenced debug: checking line
       
-      # Check if this line continues the ggplot command
+      # Continue if this line is part of the ggplot chain
       if (grepl("^\\s*\\+", line) || grepl("^\\s*%>%", line) || 
           grepl("geom_", line) || grepl("labs\\(", line) || 
           grepl("theme\\(", line) || grepl("scale_", line) ||
           grepl("facet_", line) || grepl("coord_", line)) {
-        # Silenced debug: found continuation line
         command_lines <- c(command_lines, line)
         current_line <- current_line + 1
-      } else {
-        # Check if the previous line ended with + (indicating continuation)
-        if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
-          # Silenced debug: previous line ended with +
-          command_lines <- c(command_lines, line)
-          current_line <- current_line + 1
-        } else {
-          # Silenced debug: no more continuation lines found
-          break
-        }
+        next
       }
+      
+      # If previous captured line ended with a +, treat the next line as continuation
+      if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
+        command_lines <- c(command_lines, line)
+        current_line <- current_line + 1
+        next
+      }
+      
+      break
     }
     
     # Combine all lines into a single command
@@ -4300,57 +4283,44 @@ extract_plot_data <- function(command, plot_type) {
         
         if (exists("aes_content") && !is.null(aes_content)) {
           
-          # Extract x and y variables from aes(x=..., y=...)
-          # Look for x= and y= patterns
-          x_pattern <- "x\\s*=\\s*([^,]+)"
-          y_pattern <- "y\\s*=\\s*([^,]+)"
+          # Extract x and y variables from aes(...) supporting expressions
+          x_pattern <- "x\\s*=\\s*([^,\\)]+)"
+          y_pattern <- "y\\s*=\\s*([^,\\)]+)"
           
-          # Silenced debug: inspecting aes for x and y
-          x_match <- regexpr(x_pattern, aes_content)
-          y_match <- regexpr(y_pattern, aes_content)
+          # Use regexec to capture group 1 (the value after x= / y=)
+          x_exec <- regexec(x_pattern, aes_content, perl = TRUE)
+          y_exec <- regexec(y_pattern, aes_content, perl = TRUE)
+          x_res <- regmatches(aes_content, x_exec)
+          y_res <- regmatches(aes_content, y_exec)
           
-          if (x_match > 0 && y_match > 0) {
-            # Extract x variable
-            x_start <- x_match + attr(x_match, "match.length")
-            x_end <- x_start + attr(x_match, "match.length") - 1
-            x_var <- substr(aes_content, x_start, x_end)
-            
-            # Extract y variable  
-            y_start <- y_match + attr(y_match, "match.length")
-            y_end <- y_start + attr(y_match, "match.length") - 1
-            y_var <- substr(aes_content, y_start, y_end)
-            
-            # Clean up variable names
-            x_var <- gsub("^\\s+|\\s+$", "", x_var)
-            y_var <- gsub("^\\s+|\\s+$", "", y_var)
-            
-            # Silenced debug: extracted x and y variables
+          x_var <- if (length(x_res) > 0 && length(x_res[[1]]) >= 2) trimws(x_res[[1]][2]) else NULL
+          y_var <- if (length(y_res) > 0 && length(y_res[[1]]) >= 2) trimws(y_res[[1]][2]) else NULL
+          
+          # Fallback: unnamed aesthetics like aes(xvar, yvar)
+          if (is.null(x_var) && is.null(y_var) && !grepl("=", aes_content, fixed = TRUE)) {
+            parts <- strsplit(aes_content, ",")[[1]]
+            parts <- trimws(parts)
+            if (length(parts) >= 1) x_var <- parts[1]
+            if (length(parts) >= 2) y_var <- parts[2]
+          }
+          
+          if (!is.null(x_var) && !is.null(y_var)) {
             return(list(
               data_frame = data_frame,
               x = x_var,
               y = y_var
             ))
-          } else if (x_match > 0) {
-            # Only x variable found
-            # Silenced debug: only x variable found
-            x_start <- x_match + attr(x_match, "match.length")
-            x_end <- x_start + attr(x_match, "match.length") - 1
-            x_var <- substr(aes_content, x_start, x_end)
-            x_var <- gsub("^\\s+|\\s+$", "", x_var)
-            # Silenced debug: x_var value
-            
+          } else if (!is.null(x_var)) {
             return(list(
               data_frame = data_frame,
               x = x_var
             ))
           } else {
             # If we can't extract variables, just return the data frame
-            # Silenced debug: could not extract x,y variables; returning data frame
             return(data_frame)
           }
         } else {
           # If no aes() found anywhere, just return the data frame
-          # Silenced debug: no aes() found; returning data frame
           return(data_frame)
         }
       }

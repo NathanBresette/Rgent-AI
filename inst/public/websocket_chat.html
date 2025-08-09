@@ -213,6 +213,12 @@
         font-weight: bold;
         width: 100%;
       }
+      .code-block-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
       
       .copy-button {
         background-color: #38a169;
@@ -1371,6 +1377,9 @@
               const languageLabel = document.createElement("span");
               languageLabel.textContent = "R Code";
               
+              const actionsDiv = document.createElement("div");
+              actionsDiv.className = "code-block-actions";
+              
               const copyButton = document.createElement("button");
               copyButton.className = "copy-button";
               copyButton.textContent = "Copy";
@@ -1387,8 +1396,9 @@
               };
               
               headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              headerDiv.appendChild(insertButton);
+              actionsDiv.appendChild(copyButton);
+              actionsDiv.appendChild(insertButton);
+              headerDiv.appendChild(actionsDiv);
               codeDiv.appendChild(headerDiv);
               
               // Create code content div - extract just the code
@@ -1828,6 +1838,9 @@
               const languageLabel = document.createElement("span");
               languageLabel.textContent = "R Code";
               
+              const actionsDiv = document.createElement("div");
+              actionsDiv.className = "code-block-actions";
+              
               const copyButton = document.createElement("button");
               copyButton.className = "copy-button";
               copyButton.textContent = "Copy";
@@ -1843,8 +1856,9 @@
               };
               
               headerDiv.appendChild(languageLabel);
-              headerDiv.appendChild(copyButton);
-              headerDiv.appendChild(insertButton);
+              actionsDiv.appendChild(copyButton);
+              actionsDiv.appendChild(insertButton);
+              headerDiv.appendChild(actionsDiv);
               codeDiv.appendChild(headerDiv);
               
               // Create code content div - extract just the code
