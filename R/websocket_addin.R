@@ -4450,23 +4450,23 @@ generate_analysis_commands <- function(plot_type, data_var) {
       commands$summary_stats <- paste0("summary(", data_var, ")")
       commands$structure <- paste0("str(", data_var, ")")
     }
-  } else if (plot_type == "scatter" && is.list(data_var) && !is.null(data_var$data_frame)) {
-    # Handle ggplot2 scatter plots
-    if (!is.null(data_var$x) && !is.null(data_var$y)) {
-      commands$correlation <- paste0("cor(", data_var$data_frame, "$", data_var$x, ", ", data_var$data_frame, "$", data_var$y, ")")
-      commands$regression <- paste0("summary(lm(", data_var$data_frame, "$", data_var$y, " ~ ", data_var$data_frame, "$", data_var$x, "))")
-      commands$summary_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
-    } else {
+    } else if (plot_type == "scatter" && is.list(data_var) && !is.null(data_var$data_frame)) {
+     # Handle ggplot2 scatter plots with expressions
+     if (!is.null(data_var$x) && !is.null(data_var$y)) {
+       commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
+       commands$regression <- paste0("with(", data_var$data_frame, ", summary(lm((", data_var$y, ") ~ (", data_var$x, "), na.action = na.exclude)))")
+       commands$summary_stats <- paste0("with(", data_var$data_frame, ", summary(", data_var$y, "))")
+     } else {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
       commands$structure <- paste0("str(", data_var$data_frame, ")")
     }
-  } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
-    # Handle ggplot2 line plots
-    if (!is.null(data_var$x) && !is.null(data_var$y)) {
-      commands$correlation <- paste0("cor(", data_var$data_frame, "$", data_var$x, ", ", data_var$data_frame, "$", data_var$y, ")")
-      commands$trend_analysis <- paste0("summary(lm(", data_var$data_frame, "$", data_var$y, " ~ ", data_var$data_frame, "$", data_var$x, "))")
-      commands$time_series <- paste0("if(require(ts)) acf(", data_var$data_frame, "$", data_var$y, ") else 'ts package needed'")
-    } else {
+    } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+     # Handle ggplot2 line plots with expressions
+     if (!is.null(data_var$x) && !is.null(data_var$y)) {
+       commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
+       commands$trend_analysis <- paste0("with(", data_var$data_frame, ", summary(lm((", data_var$y, ") ~ (", data_var$x, "), na.action = na.exclude)))")
+       commands$time_series <- paste0("with(", data_var$data_frame, ", if(require(ts)) acf(", data_var$y, ") else 'ts package needed')")
+     } else {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
       commands$structure <- paste0("str(", data_var$data_frame, ")")
     }
