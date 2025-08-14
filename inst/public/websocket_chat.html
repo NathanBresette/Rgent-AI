@@ -294,11 +294,7 @@
       button:hover {
         background-color: var(--rgent-accent);
       }
-      .status {
-        color: var(--text-secondary);
-        font-size: 12px;
-        margin-top: 10px;
-      }
+
       
       /* Usage Tab Styles */
       .usage-container {
@@ -569,7 +565,7 @@
             <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">📊 Analyze Last Plot</button>
           </div>
         </div>
-        <div class="status" id="status">Connecting...</div>
+
       </div>
       
       <!-- Usage Tab -->
@@ -578,58 +574,70 @@
           <div class="section">
             <h3>📊 Usage Statistics</h3>
             
-            <!-- Overall Stats -->
-            <div class="stats-section" id="paid-usage-section">
-              <h4>Overall Usage</h4>
-              
-              <!-- Total Cost - Horizontal Box at Top -->
-              <div class="total-cost-box">
-                <div class="total-cost-header">
-                  <h3>Total Cost</h3>
-                  <small>All time</small>
-                </div>
-                <div class="total-cost-amount" id="total-cost-overall">-</div>
-              </div>
-              
-              <!-- Input and Output Side by Side -->
-              <div class="input-output-container">
+            <!-- Pro Plan Usage (Haiku/Sonnet) -->
+            <div class="stats-section" id="pro-usage-section" style="display: none;">
+              <h4>💎 Pro Plan Usage</h4>
+              <div class="stats">
                 <div class="stat-card">
-                  <h4>Total Input Tokens</h4>
-                  <div id="total-input-tokens">-</div>
-                  <small id="total-input-rate">Rate: $0.0013/1K</small>
+                  <h4>Requests Used</h4>
+                  <div id="pro-requests-used">-</div>
+                  <small>Out of 500 monthly requests</small>
                 </div>
                 <div class="stat-card">
-                  <h4>Total Output Tokens</h4>
-                  <div id="total-output-tokens">-</div>
-                  <small id="total-output-rate">Rate: $0.00533/1K</small>
+                  <h4>Requests Remaining</h4>
+                  <div id="pro-requests-remaining">-</div>
+                  <small>Monthly requests left</small>
+                </div>
+                <div class="stat-card">
+                  <h4>Progress</h4>
+                  <div id="pro-progress-bar">
+                    <div class="progress-fill" id="pro-progress-fill"></div>
+                  </div>
+                  <small>Monthly progress</small>
                 </div>
               </div>
             </div>
 
-            <!-- Today's Stats -->
-            <div class="stats-section" id="paid-today-section">
-              <h4>Today's Usage</h4>
-              
-              <!-- Today's Total Cost - Horizontal Box at Top -->
-              <div class="total-cost-box today">
-                <div class="total-cost-header">
-                  <h3>Today's Total Cost</h3>
-                  <small>Today's usage</small>
+            <!-- Subscription Status -->
+            <div class="stats-section" id="subscription-status-section" style="display: none;">
+              <h4>💳 Subscription Status</h4>
+              <div class="stats">
+                <div class="stat-card">
+                  <h4>Status</h4>
+                  <div id="subscription-status">-</div>
+                  <small>Current subscription status</small>
                 </div>
-                <div class="total-cost-amount" id="today-total-cost">-</div>
+                <div class="stat-card">
+                  <h4>Renews</h4>
+                  <div id="subscription-end-date">-</div>
+                  <small>Next billing date</small>
+                </div>
+                <div class="stat-card">
+                  <h4>Account</h4>
+                  <div id="account-status">-</div>
+                  <small>Account status</small>
+                </div>
               </div>
-              
-              <!-- Today's Input and Output Side by Side -->
-              <div class="input-output-container">
+            </div>
+
+            <!-- Token Tracking (Hidden from users, for admin use) -->
+            <div class="stats-section" id="token-tracking-section" style="display: none;">
+              <h4>🔍 Token Tracking (Admin)</h4>
+              <div class="stats">
                 <div class="stat-card">
-                  <h4>Input Tokens</h4>
-                  <div id="today-input-tokens">-</div>
-                  <small id="today-input-rate">Rate: $0.0013/1K</small>
+                  <h4>Total Input Tokens</h4>
+                  <div id="total-input-tokens">-</div>
+                  <small>For internal tracking</small>
                 </div>
                 <div class="stat-card">
-                  <h4>Output Tokens</h4>
-                  <div id="today-output-tokens">-</div>
-                  <small id="today-output-rate">Rate: $0.00533/1K</small>
+                  <h4>Total Output Tokens</h4>
+                  <div id="total-output-tokens">-</div>
+                  <small>For internal tracking</small>
+                </div>
+                <div class="stat-card">
+                  <h4>Total Cost</h4>
+                  <div id="total-cost-overall">-</div>
+                  <small>For internal tracking</small>
                 </div>
               </div>
             </div>
@@ -880,29 +888,27 @@
             }
             
             // Update overall stats
+            // Update token tracking stats (hidden from users, for admin use)
             document.getElementById('total-input-tokens').textContent = totalInputTokens;
             document.getElementById('total-output-tokens').textContent = totalOutputTokens;
             document.getElementById('total-cost-overall').textContent = `$${totalCostOverall.toFixed(4)}`;
             
-            // Update today's stats
-            document.getElementById('today-input-tokens').textContent = todayInputTokens;
-            document.getElementById('today-output-tokens').textContent = todayOutputTokens;
-            document.getElementById('today-total-cost').textContent = `$${todayTotalCost.toFixed(4)}`;
-            
             // Show/hide sections based on plan type
             const isFreeTrial = planType === 'free_trial';
-            const paidUsageSection = document.getElementById('paid-usage-section');
-            const paidTodaySection = document.getElementById('paid-today-section');
+            const isProPlan = planType === 'pro_haiku' || planType === 'pro_sonnet';
+            const proUsageSection = document.getElementById('pro-usage-section');
+            const subscriptionStatusSection = document.getElementById('subscription-status-section');
+            const tokenTrackingSection = document.getElementById('token-tracking-section');
             const freeTrialSection = document.getElementById('free-trial-section');
             
             if (isFreeTrial) {
-              // Hide paid usage sections, show free trial section
-              paidUsageSection.style.display = 'none';
-              paidTodaySection.style.display = 'none';
+              // Hide pro usage sections, show free trial section
+              proUsageSection.style.display = 'none';
+              tokenTrackingSection.style.display = 'none';
               freeTrialSection.style.display = 'block';
               
               // Update free trial stats
-              const requestsUsed = data.total_requests || 0;
+              const requestsUsed = data.monthly_requests || 0;
               const requestsRemaining = Math.max(0, 25 - requestsUsed);
               const progressPercent = Math.min(100, (requestsUsed / 25) * 100);
               
@@ -910,17 +916,40 @@
               document.getElementById('free-requests-remaining').textContent = requestsRemaining;
               document.getElementById('free-progress-fill').style.width = `${progressPercent}%`;
               document.getElementById('free-progress-fill').textContent = `${Math.round(progressPercent)}%`;
-            } else {
-              // Show paid usage sections, hide free trial section
-              paidUsageSection.style.display = 'block';
-              paidTodaySection.style.display = 'block';
+            } else if (isProPlan) {
+              // Show pro usage section, hide free trial section
+              proUsageSection.style.display = 'block';
               freeTrialSection.style.display = 'none';
               
-              // Update rates with correct format for paid plans
-              document.getElementById('total-input-rate').textContent = `Rate: $${inputRate.toFixed(4)} per 1K`;
-              document.getElementById('total-output-rate').textContent = `Rate: $${outputRate.toFixed(4)} per 1K`;
-              document.getElementById('today-input-rate').textContent = `Rate: $${inputRate.toFixed(4)} per 1K`;
-              document.getElementById('today-output-rate').textContent = `Rate: $${outputRate.toFixed(4)} per 1K`;
+              // Show subscription status section for pro plans
+              subscriptionStatusSection.style.display = 'block';
+              
+              // Update pro plan stats (500 monthly requests)
+              const requestsUsed = data.monthly_requests || 0;
+              const requestsRemaining = Math.max(0, 500 - requestsUsed);
+              const progressPercent = Math.min(100, (requestsUsed / 500) * 100);
+              document.getElementById('pro-requests-used').textContent = requestsUsed;
+              document.getElementById('pro-requests-remaining').textContent = requestsRemaining;
+              document.getElementById('pro-progress-fill').style.width = `${progressPercent}%`;
+              document.getElementById('pro-progress-fill').textContent = `${Math.round(progressPercent)}%`;
+              
+              // Update subscription status
+              const subscriptionStatus = data.subscription_status || 'unknown';
+              const subscriptionEndDate = data.subscription_end_date || '';
+              const accountStatus = data.is_active ? 'Active' : 'Inactive';
+              
+              document.getElementById('subscription-status').textContent = subscriptionStatus.charAt(0).toUpperCase() + subscriptionStatus.slice(1);
+              document.getElementById('subscription-end-date').textContent = subscriptionEndDate ? new Date(subscriptionEndDate).toLocaleDateString() : 'Unknown';
+              document.getElementById('account-status').textContent = accountStatus;
+              
+              // Show token tracking for admin purposes (hidden from users)
+              tokenTrackingSection.style.display = 'none'; // Hidden by default
+            } else {
+              // Unknown plan type - hide all sections
+              proUsageSection.style.display = 'none';
+              subscriptionStatusSection.style.display = 'none';
+              tokenTrackingSection.style.display = 'none';
+              freeTrialSection.style.display = 'none';
             }
             
             // Show success status
@@ -1037,7 +1066,6 @@
              ws.onopen = function() {
                console.log("WebSocket connected on port 8889");
                isConnected = true;
-               document.getElementById("status").textContent = "Connected to RStudio";
                document.getElementById("user-input").disabled = false;
                document.getElementById("send-button").disabled = false;
                document.getElementById("new-conversation-button").disabled = false;
@@ -1054,7 +1082,6 @@
              ws.onclose = function() {
                console.log("WebSocket disconnected");
                isConnected = false;
-               document.getElementById("status").textContent = "Disconnected";
                document.getElementById("user-input").disabled = true;
                document.getElementById("send-button").disabled = true;
                document.getElementById("new-conversation-button").disabled = true;
@@ -1064,14 +1091,12 @@
              
              ws.onerror = function(event) {
                console.log("WebSocket error on port 8889:", event);
-               document.getElementById("status").textContent = "Connection failed";
              };
            };
         
         ws.onopen = function() {
           console.log("WebSocket connected");
           isConnected = true;
-          document.getElementById("status").textContent = "Connected to RStudio";
           document.getElementById("user-input").disabled = false;
           document.getElementById("send-button").disabled = false;
           document.getElementById("new-conversation-button").disabled = false;
@@ -1166,7 +1191,6 @@
         ws.onclose = function() {
           console.log("WebSocket disconnected");
           isConnected = false;
-          document.getElementById("status").textContent = "Disconnected";
           document.getElementById("user-input").disabled = true;
           document.getElementById("send-button").disabled = true;
           document.getElementById("debug-error-button").disabled = true;
@@ -1175,7 +1199,6 @@
         
         ws.onerror = function(error) {
           console.error("WebSocket error:", error);
-          document.getElementById("status").textContent = "Connection error";
           addMessage("Failed to connect to RStudio. Please check if the server is running.", "ai");
         };
       }

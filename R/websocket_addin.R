@@ -3970,13 +3970,13 @@ reconstruct_ggplot_command <- function(history_lines, start_line) {
       }
       
       # If previous captured line ended with a +, treat the next line as continuation
-      if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
-        command_lines <- c(command_lines, line)
-        current_line <- current_line + 1
+        if (length(command_lines) > 0 && grepl("\\+\\s*$", command_lines[length(command_lines)])) {
+          command_lines <- c(command_lines, line)
+          current_line <- current_line + 1
         next
       }
       
-      break
+          break
     }
     
     # Combine all lines into a single command
@@ -4169,8 +4169,8 @@ extract_plot_data <- function(command, plot_type) {
         return(data_var)
       } else {
         # Fallback simpler pattern
-        match <- regexpr("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
-        if (match > 0) {
+      match <- regexpr("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
+      if (match > 0) {
           # Use captured group via regexec for robustness
           exec2 <- regexec("(qqnorm|qqplot)\\(([^,)]+)[,)]", command)
           m2 <- regmatches(command, exec2)
@@ -4467,23 +4467,23 @@ generate_analysis_commands <- function(plot_type, data_var) {
       commands$summary_stats <- paste0("summary(", data_var, ")")
       commands$structure <- paste0("str(", data_var, ")")
     }
-    } else if (plot_type == "scatter" && is.list(data_var) && !is.null(data_var$data_frame)) {
+  } else if (plot_type == "scatter" && is.list(data_var) && !is.null(data_var$data_frame)) {
      # Handle ggplot2 scatter plots with expressions
-     if (!is.null(data_var$x) && !is.null(data_var$y)) {
+    if (!is.null(data_var$x) && !is.null(data_var$y)) {
        commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
        commands$regression <- paste0("with(", data_var$data_frame, ", summary(lm((", data_var$y, ") ~ (", data_var$x, "), na.action = na.exclude)))")
        commands$summary_stats <- paste0("with(", data_var$data_frame, ", summary(", data_var$y, "))")
-     } else {
+    } else {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
       commands$structure <- paste0("str(", data_var$data_frame, ")")
     }
-    } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+  } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
      # Handle ggplot2 line plots with expressions
-     if (!is.null(data_var$x) && !is.null(data_var$y)) {
+    if (!is.null(data_var$x) && !is.null(data_var$y)) {
        commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
        commands$trend_analysis <- paste0("with(", data_var$data_frame, ", summary(lm((", data_var$y, ") ~ (", data_var$x, "), na.action = na.exclude)))")
        commands$time_series <- paste0("with(", data_var$data_frame, ", if(require(ts)) acf(", data_var$y, ") else 'ts package needed')")
-     } else {
+    } else {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
       commands$structure <- paste0("str(", data_var$data_frame, ")")
     }
