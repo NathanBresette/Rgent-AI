@@ -645,7 +645,12 @@
     <div id="access-section" class="access-section">
       <div class="form-group">
         <label for="access-code">Access Code:</label>
-        <input type="password" id="access-code" placeholder="Enter your access code">
+        <div style="position: relative;">
+          <input type="password" id="access-code" placeholder="Enter your access code" style="padding-right: 50px;">
+          <button type="button" id="toggleAccessCode" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #925de8; font-size: 12px; padding: 5px; font-weight: 500; text-decoration: underline;">
+            Show
+          </button>
+        </div>
       </div>
                 <button onclick="validateAccess()" class="access-button">Validate Access</button>
       <div id="access-status"></div>
@@ -1850,6 +1855,22 @@
       document.getElementById("access-code").addEventListener("keypress", function(e) {
         if (e.key === "Enter") {
           validateAccess();
+        }
+      });
+      
+      // Add password toggle functionality for access code
+      document.getElementById('toggleAccessCode').addEventListener('click', function() {
+        const accessCodeInput = document.getElementById('access-code');
+        const toggleButton = this;
+        
+        if (accessCodeInput.type === 'password') {
+          accessCodeInput.type = 'text';
+          toggleButton.textContent = 'Hide';
+          toggleButton.title = 'Hide access code';
+        } else {
+          accessCodeInput.type = 'password';
+          toggleButton.textContent = 'Show';
+          toggleButton.title = 'Show access code';
         }
       });
       
