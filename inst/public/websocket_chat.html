@@ -322,6 +322,40 @@
         gap: 15px;
       }
       
+      /* Plan Type Box - Horizontal Prominent Display */
+      .plan-type-box {
+        background: linear-gradient(135deg, var(--rgent-accent), var(--rgent-accent-dark));
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .plan-type-header {
+        margin-bottom: 10px;
+      }
+      
+      .plan-type-header h3 {
+        margin: 0 0 5px 0;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+      }
+      
+      .plan-type-header small {
+        color: rgba(255,255,255,0.8);
+        font-size: 12px;
+      }
+      
+      .plan-type-display {
+        font-size: 32px;
+        font-weight: bold;
+        color: white;
+      }
+      
       /* Total Cost Box - Horizontal Prominent Display */
       .total-cost-box {
         background: var(--bg-card);
@@ -388,6 +422,28 @@
       .stat-card small {
         color: var(--text-secondary);
         font-size: 12px;
+      }
+      
+      /* Progress Bar */
+      .progress-fill {
+        background: linear-gradient(90deg, var(--rgent-accent), var(--rgent-accent-dark));
+        height: 20px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+        transition: width 0.3s ease;
+      }
+      
+      #monthly-progress-bar, #free-progress-bar {
+        background: var(--bg-secondary);
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
       }
       
       .access-section {
@@ -578,7 +634,16 @@
             <div class="stats-section" id="paid-usage-section">
               <h4>Overall Usage</h4>
               
-              <!-- Total Cost - Horizontal Box at Top -->
+              <!-- Plan Type Display -->
+              <div class="plan-type-box">
+                <div class="plan-type-header">
+                  <h3>Current Plan</h3>
+                  <small>Your subscription</small>
+                </div>
+                <div class="plan-type-display" id="plan-type-display">-</div>
+              </div>
+              
+              <!-- Total Cost - Horizontal Box -->
               <div class="total-cost-box">
                 <div class="total-cost-header">
                   <h3>Total Cost</h3>
@@ -587,18 +652,11 @@
                 <div class="total-cost-amount" id="total-cost-overall">-</div>
               </div>
               
-              <!-- Input and Output Side by Side -->
-              <div class="input-output-container">
-                <div class="stat-card">
-                  <h4>Total Input Tokens</h4>
-                  <div id="total-input-tokens">-</div>
-                  <small id="total-input-rate">Rate: $0.0013/1K</small>
-                </div>
-                <div class="stat-card">
-                  <h4>Total Output Tokens</h4>
-                  <div id="total-output-tokens">-</div>
-                  <small id="total-output-rate">Rate: $0.00533/1K</small>
-                </div>
+              <!-- Total Requests -->
+              <div class="stat-card">
+                <h4>Total Requests</h4>
+                <div id="total-requests">-</div>
+                <small>All time requests</small>
               </div>
             </div>
 
@@ -606,27 +664,48 @@
             <div class="stats-section" id="paid-today-section">
               <h4>Today's Usage</h4>
               
-              <!-- Today's Total Cost - Horizontal Box at Top -->
+              <!-- Today's Requests -->
+              <div class="stat-card">
+                <h4>Today's Requests</h4>
+                <div id="today-requests">-</div>
+                <small>Requests made today</small>
+              </div>
+              
+              <!-- Today's Cost -->
               <div class="total-cost-box today">
                 <div class="total-cost-header">
-                  <h3>Today's Total Cost</h3>
+                  <h3>Today's Cost</h3>
                   <small>Today's usage</small>
                 </div>
                 <div class="total-cost-amount" id="today-total-cost">-</div>
               </div>
+            </div>
+
+            <!-- Monthly Usage -->
+            <div class="stats-section" id="monthly-usage-section">
+              <h4>Monthly Usage</h4>
               
-              <!-- Today's Input and Output Side by Side -->
-              <div class="input-output-container">
-                <div class="stat-card">
-                  <h4>Input Tokens</h4>
-                  <div id="today-input-tokens">-</div>
-                  <small id="today-input-rate">Rate: $0.0013/1K</small>
+              <!-- Monthly Requests -->
+              <div class="stat-card">
+                <h4>Monthly Requests</h4>
+                <div id="monthly-requests">-</div>
+                <small id="monthly-requests-limit">-</small>
+              </div>
+              
+              <!-- Requests Remaining -->
+              <div class="stat-card">
+                <h4>Requests Remaining</h4>
+                <div id="requests-remaining">-</div>
+                <small>This month</small>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="stat-card">
+                <h4>Progress</h4>
+                <div id="monthly-progress-bar">
+                  <div class="progress-fill" id="monthly-progress-fill"></div>
                 </div>
-                <div class="stat-card">
-                  <h4>Output Tokens</h4>
-                  <div id="today-output-tokens">-</div>
-                  <small id="today-output-rate">Rate: $0.00533/1K</small>
-                </div>
+                <small>Monthly usage progress</small>
               </div>
             </div>
 
@@ -842,59 +921,80 @@
           console.log('Stats response:', data);
 
           if (response.ok) {
-            // Overall stats
-            const totalInputTokens = data.total_input_tokens || 0;
-            const totalOutputTokens = data.total_output_tokens || 0;
+            // Get plan type and basic stats
+            const planType = data.plan_type || 'free_trial';
             const totalCostOverall = data.total_cost || 0;
-            
-            // Today's stats
-            const todayInputTokens = data.today_input_tokens || 0;
-            const todayOutputTokens = data.today_output_tokens || 0;
             const todayTotalCost = data.today_cost || 0;
+            const totalRequests = data.total_requests || 0;
+            const todayRequests = data.today_requests || 0;
+            const monthRequests = data.month_requests || 0;
+            const requestsRemaining = data.requests_remaining || 0;
             
-            console.log('Token stats:', { 
-              totalInputTokens, totalOutputTokens, totalCostOverall,
-              todayInputTokens, todayOutputTokens, todayTotalCost 
+            console.log('Usage stats:', { 
+              planType, totalCostOverall, todayTotalCost,
+              totalRequests, todayRequests, monthRequests, requestsRemaining
             });
             
-            // Get plan type from backend and set rates accordingly
-            const planType = data.plan_type || 'free_trial';
-            let inputRate, outputRate;
-            
-            // Set rates based on plan type
-            switch(planType) {
-              case 'pro_sonnet':
-                inputRate = 0.005;
-                outputRate = 0.02;
-                break;
-              case 'pro_haiku':
-              case 'free_trial':
-              default:
-                inputRate = 0.0013;
-                outputRate = 0.00533;
-                break;
+            // Update plan type display
+            const planTypeDisplay = document.getElementById('plan-type-display');
+            if (planTypeDisplay) {
+              const planNames = {
+                'free_trial': '🎁 Free Trial',
+                'pro_haiku': '🚀 Pro Haiku',
+                'pro_sonnet': '🚀 Pro Sonnet'
+              };
+              planTypeDisplay.textContent = planNames[planType] || planType;
             }
             
             // Update overall stats
-            document.getElementById('total-input-tokens').textContent = totalInputTokens;
-            document.getElementById('total-output-tokens').textContent = totalOutputTokens;
+            document.getElementById('total-requests').textContent = totalRequests;
             document.getElementById('total-cost-overall').textContent = `$${totalCostOverall.toFixed(4)}`;
             
             // Update today's stats
-            document.getElementById('today-input-tokens').textContent = todayInputTokens;
-            document.getElementById('today-output-tokens').textContent = todayOutputTokens;
+            document.getElementById('today-requests').textContent = todayRequests;
             document.getElementById('today-total-cost').textContent = `$${todayTotalCost.toFixed(4)}`;
+            
+            // Update monthly usage
+            const monthlyRequestsElement = document.getElementById('monthly-requests');
+            const monthlyRequestsLimitElement = document.getElementById('monthly-requests-limit');
+            const requestsRemainingElement = document.getElementById('requests-remaining');
+            const monthlyProgressBar = document.getElementById('monthly-progress-bar');
+            const monthlyProgressFill = document.getElementById('monthly-progress-fill');
+            
+            if (monthlyRequestsElement && monthlyRequestsLimitElement && requestsRemainingElement && monthlyProgressBar && monthlyProgressFill) {
+              monthlyRequestsElement.textContent = monthRequests;
+              
+              // Set limit based on plan type
+              let monthlyLimit;
+              if (planType === 'free_trial') {
+                monthlyLimit = 25;
+              } else if (planType === 'pro_haiku' || planType === 'pro_sonnet') {
+                monthlyLimit = 500;
+              } else {
+                monthlyLimit = 100; // fallback
+              }
+              
+              monthlyRequestsLimitElement.textContent = `of ${monthlyLimit} requests`;
+              requestsRemainingElement.textContent = requestsRemaining;
+              
+              // Update progress bar
+              const progressPercent = Math.min(100, (monthRequests / monthlyLimit) * 100);
+              monthlyProgressFill.style.width = `${progressPercent}%`;
+              monthlyProgressFill.textContent = `${Math.round(progressPercent)}%`;
+            }
             
             // Show/hide sections based on plan type
             const isFreeTrial = planType === 'free_trial';
             const paidUsageSection = document.getElementById('paid-usage-section');
             const paidTodaySection = document.getElementById('paid-today-section');
+            const monthlyUsageSection = document.getElementById('monthly-usage-section');
             const freeTrialSection = document.getElementById('free-trial-section');
             
             if (isFreeTrial) {
               // Hide paid usage sections, show free trial section
               paidUsageSection.style.display = 'none';
               paidTodaySection.style.display = 'none';
+              monthlyUsageSection.style.display = 'none';
               freeTrialSection.style.display = 'block';
               
               // Update free trial stats
@@ -910,6 +1010,7 @@
               // Show paid usage sections, hide free trial section
               paidUsageSection.style.display = 'block';
               paidTodaySection.style.display = 'block';
+              monthlyUsageSection.style.display = 'block';
               freeTrialSection.style.display = 'none';
               
               // Update rates with correct format for paid plans
