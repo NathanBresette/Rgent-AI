@@ -643,21 +643,7 @@
                 <div class="plan-type-display" id="plan-type-display">-</div>
               </div>
               
-              <!-- Total Cost - Horizontal Box -->
-              <div class="total-cost-box">
-                <div class="total-cost-header">
-                  <h3>Total Cost</h3>
-                  <small>All time</small>
-                </div>
-                <div class="total-cost-amount" id="total-cost-overall">-</div>
-              </div>
-              
-              <!-- Total Requests -->
-              <div class="stat-card">
-                <h4>Total Requests</h4>
-                <div id="total-requests">-</div>
-                <small>All time requests</small>
-              </div>
+
             </div>
 
 
@@ -904,14 +890,11 @@
           if (response.ok) {
             // Get plan type and basic stats
             const planType = data.plan_type || 'free_trial';
-            const totalCostOverall = data.total_cost || 0;
-            const totalRequests = data.total_requests || 0;
             const monthRequests = data.month_requests || 0;
             const requestsRemaining = data.requests_remaining || 0;
             
             console.log('Usage stats:', { 
-              planType, totalCostOverall,
-              totalRequests, monthRequests, requestsRemaining
+              planType, monthRequests, requestsRemaining
             });
             
             // Update plan type display
@@ -925,9 +908,7 @@
               planTypeDisplay.textContent = planNames[planType] || planType;
             }
             
-            // Update overall stats
-            document.getElementById('total-requests').textContent = totalRequests;
-            document.getElementById('total-cost-overall').textContent = `$${totalCostOverall.toFixed(4)}`;
+
             
 
             
