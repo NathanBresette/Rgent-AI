@@ -324,13 +324,13 @@
       
       /* Plan Type Box - Horizontal Prominent Display */
       .plan-type-box {
-        background: linear-gradient(135deg, var(--rgent-accent), var(--rgent-accent-dark));
-        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        border: 2px solid var(--rgent-accent);
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
         text-align: center;
-        color: white;
+        color: var(--text-primary);
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
@@ -342,18 +342,18 @@
         margin: 0 0 5px 0;
         font-size: 18px;
         font-weight: bold;
-        color: white;
+        color: var(--text-primary);
       }
       
       .plan-type-header small {
-        color: rgba(255,255,255,0.8);
+        color: var(--text-secondary);
         font-size: 12px;
       }
       
       .plan-type-display {
         font-size: 32px;
         font-weight: bold;
-        color: white;
+        color: var(--rgent-accent);
       }
       
       /* Total Cost Box - Horizontal Prominent Display */
@@ -660,26 +660,7 @@
               </div>
             </div>
 
-            <!-- Today's Stats -->
-            <div class="stats-section" id="paid-today-section">
-              <h4>Today's Usage</h4>
-              
-              <!-- Today's Requests -->
-              <div class="stat-card">
-                <h4>Today's Requests</h4>
-                <div id="today-requests">-</div>
-                <small>Requests made today</small>
-              </div>
-              
-              <!-- Today's Cost -->
-              <div class="total-cost-box today">
-                <div class="total-cost-header">
-                  <h3>Today's Cost</h3>
-                  <small>Today's usage</small>
-                </div>
-                <div class="total-cost-amount" id="today-total-cost">-</div>
-              </div>
-            </div>
+
 
             <!-- Monthly Usage -->
             <div class="stats-section" id="monthly-usage-section">
@@ -924,15 +905,13 @@
             // Get plan type and basic stats
             const planType = data.plan_type || 'free_trial';
             const totalCostOverall = data.total_cost || 0;
-            const todayTotalCost = data.today_cost || 0;
             const totalRequests = data.total_requests || 0;
-            const todayRequests = data.today_requests || 0;
             const monthRequests = data.month_requests || 0;
             const requestsRemaining = data.requests_remaining || 0;
             
             console.log('Usage stats:', { 
-              planType, totalCostOverall, todayTotalCost,
-              totalRequests, todayRequests, monthRequests, requestsRemaining
+              planType, totalCostOverall,
+              totalRequests, monthRequests, requestsRemaining
             });
             
             // Update plan type display
@@ -950,9 +929,7 @@
             document.getElementById('total-requests').textContent = totalRequests;
             document.getElementById('total-cost-overall').textContent = `$${totalCostOverall.toFixed(4)}`;
             
-            // Update today's stats
-            document.getElementById('today-requests').textContent = todayRequests;
-            document.getElementById('today-total-cost').textContent = `$${todayTotalCost.toFixed(4)}`;
+
             
             // Update monthly usage
             const monthlyRequestsElement = document.getElementById('monthly-requests');
@@ -986,14 +963,14 @@
             // Show/hide sections based on plan type
             const isFreeTrial = planType === 'free_trial';
             const paidUsageSection = document.getElementById('paid-usage-section');
-            const paidTodaySection = document.getElementById('paid-today-section');
+
             const monthlyUsageSection = document.getElementById('monthly-usage-section');
             const freeTrialSection = document.getElementById('free-trial-section');
             
             if (isFreeTrial) {
               // Hide paid usage sections, show free trial section
               paidUsageSection.style.display = 'none';
-              paidTodaySection.style.display = 'none';
+
               monthlyUsageSection.style.display = 'none';
               freeTrialSection.style.display = 'block';
               
@@ -1009,15 +986,13 @@
             } else {
               // Show paid usage sections, hide free trial section
               paidUsageSection.style.display = 'block';
-              paidTodaySection.style.display = 'block';
+
               monthlyUsageSection.style.display = 'block';
               freeTrialSection.style.display = 'none';
               
-              // Update rates with correct format for paid plans
-              document.getElementById('total-input-rate').textContent = `Rate: $${inputRate.toFixed(4)} per 1K`;
-              document.getElementById('total-output-rate').textContent = `Rate: $${outputRate.toFixed(4)} per 1K`;
-              document.getElementById('today-input-rate').textContent = `Rate: $${inputRate.toFixed(4)} per 1K`;
-              document.getElementById('today-output-rate').textContent = `Rate: $${outputRate.toFixed(4)} per 1K`;
+
+
+
             }
             
             // Show success status
