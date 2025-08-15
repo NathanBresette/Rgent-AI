@@ -356,6 +356,64 @@
         color: var(--rgent-accent);
       }
       
+      /* Subscription Info Box */
+      .subscription-info-box {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .subscription-header {
+        margin-bottom: 15px;
+      }
+      
+      .subscription-header h3 {
+        margin: 0 0 5px 0;
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--text-primary);
+      }
+      
+      .subscription-header small {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      
+      .subscription-details {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .subscription-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+      }
+      
+      .subscription-item:last-child {
+        border-bottom: none;
+      }
+      
+      .subscription-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+      
+      .subscription-value {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 14px;
+        text-align: right;
+      }
+      
       /* Total Cost Box - Horizontal Prominent Display */
       .total-cost-box {
         background: var(--bg-card);
@@ -632,7 +690,6 @@
             
             <!-- Overall Stats -->
             <div class="stats-section" id="paid-usage-section">
-              <h4>Overall Usage</h4>
               
               <!-- Plan Type Display -->
               <div class="plan-type-box">
@@ -643,6 +700,24 @@
                 <div class="plan-type-display" id="plan-type-display">-</div>
               </div>
               
+              <!-- Subscription Info -->
+              <div class="subscription-info-box">
+                <div class="subscription-header">
+                  <h3>Subscription Details</h3>
+                  <small>Billing information</small>
+                </div>
+                <div class="subscription-details">
+                  <div class="subscription-item">
+                    <span class="subscription-label">Status:</span>
+                    <span class="subscription-value" id="subscription-status">-</span>
+                  </div>
+                  <div class="subscription-item">
+                    <span class="subscription-label">Next Billing:</span>
+                    <span class="subscription-value" id="subscription-end-date">-</span>
+                  </div>
+
+                </div>
+              </div>
 
             </div>
 
@@ -893,8 +968,13 @@
             const monthRequests = data.month_requests || 0;
             const requestsRemaining = data.requests_remaining || 0;
             
+            // Get subscription information
+            const subscriptionStatus = data.subscription_status || 'inactive';
+            const subscriptionEndDate = data.subscription_end_date || null;
+            const subscriptionId = data.subscription_id || null;
+            
             console.log('Usage stats:', { 
-              planType, monthRequests, requestsRemaining
+              planType, monthRequests, requestsRemaining, subscriptionStatus, subscriptionEndDate, subscriptionId
             });
             
             // Update plan type display
@@ -907,6 +987,32 @@
               };
               planTypeDisplay.textContent = planNames[planType] || planType;
             }
+            
+            // Update subscription information
+            const subscriptionStatusElement = document.getElementById('subscription-status');
+            const subscriptionEndDateElement = document.getElementById('subscription-end-date');
+            const subscriptionIdElement = document.getElementById('subscription-id');
+            
+            if (subscriptionStatusElement) {
+              const statusDisplay = subscriptionStatus === 'active' ? '✅ Active' : '❌ Inactive';
+              subscriptionStatusElement.textContent = statusDisplay;
+            }
+            
+            if (subscriptionEndDateElement) {
+              if (subscriptionEndDate) {
+                const endDate = new Date(subscriptionEndDate);
+                const formattedDate = endDate.toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                });
+                subscriptionEndDateElement.textContent = formattedDate;
+              } else {
+                subscriptionEndDateElement.textContent = 'N/A';
+              }
+            }
+            
+
             
 
             
