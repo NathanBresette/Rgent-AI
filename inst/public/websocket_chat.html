@@ -1069,7 +1069,7 @@
               freeTrialSection.style.display = 'block';
               
               // Update free trial stats
-              const requestsUsed = data.total_requests || 0;
+              const requestsUsed = data.monthly_requests || 0;
               const requestsRemaining = Math.max(0, 25 - requestsUsed);
               const progressPercent = Math.min(100, (requestsUsed / 25) * 100);
               

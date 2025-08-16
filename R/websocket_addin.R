@@ -3892,11 +3892,16 @@ find_last_plot_command <- function() {
           # Skip ggplot or geom_* patterns (handled above)
           if (identical(cmd, "ggplot(") || grepl("^geom_", cmd)) next
           if (grepl(cmd, line, fixed = TRUE)) {
-            return(list(
-              command = line,
-              line_number = i,
-              found = TRUE
-            ))
+            # Check if this is a multi-line plot command that needs reconstruction
+            if (cmd %in% c("plot(", "hist(", "boxplot(", "barplot(")) {
+              return(reconstruct_base_plot_command(history_lines, i, cmd))
+            } else {
+              return(list(
+                command = line,
+                line_number = i,
+                found = TRUE
+              ))
+            }
           }
         }
       }
@@ -4121,29 +4126,35 @@ extract_plot_data <- function(command, plot_type) {
     
     # Simple extraction - look for common patterns
     if (plot_type == "histogram") {
-      # Extract data from hist(data)
-      match <- regexpr("hist\\(([^,)]+)[,)]", command)
-      if (match > 0) {
-        data_var <- substr(command, match + 5, match + attr(match, "match.length") - 2)
+      # Extract data from hist(data) using regexec for better parsing
+      pattern <- "hist\\s*\\(\\s*([^,)]+)"
+      match_result <- regexec(pattern, command)
+      matches <- regmatches(command, match_result)
+      
+      if (length(matches) > 0 && length(matches[[1]]) >= 2) {
+        data_var <- trimws(matches[[1]][2])
         return(data_var)
       }
     } else if (plot_type == "scatter" || plot_type == "line_plot") {
-      # First try to extract x and y from plot(x, y)
-      match <- regexpr("plot\\(([^,]+),\\s*([^,)]+)[,)]", command)
-      if (match > 0) {
-        x_var <- substr(command, match + 5, match + attr(match, "match.length") - 1)
-        # Extract y variable
-        y_match <- regexpr(",\\s*([^,)]+)[,)]", substr(command, match + 5, nchar(command)))
-        if (y_match > 0) {
-          y_var <- substr(command, match + 5 + y_match, match + 5 + y_match + attr(y_match, "match.length") - 2)
-          return(list(x = x_var, y = y_var))
-        }
+      # Use regexec for better capture group handling
+      # Pattern to match plot(x, y, ...) where x and y are the first two arguments
+      pattern <- "plot\\s*\\(\\s*([^,]+)\\s*,\\s*([^,)]+)"
+      match_result <- regexec(pattern, command)
+      matches <- regmatches(command, match_result)
+      
+      if (length(matches) > 0 && length(matches[[1]]) >= 3) {
+        x_var <- trimws(matches[[1]][2])
+        y_var <- trimws(matches[[1]][3])
+        return(list(x = x_var, y = y_var))
       }
       
       # If that fails, try to extract single data from plot(data)
-      match <- regexpr("plot\\(([^,)]+)[,)]", command)
-      if (match > 0) {
-        data_var <- substr(command, match + 5, match + attr(match, "match.length") - 2)
+      pattern_single <- "plot\\s*\\(\\s*([^,)]+)"
+      match_result_single <- regexec(pattern_single, command)
+      matches_single <- regmatches(command, match_result_single)
+      
+      if (length(matches_single) > 0 && length(matches_single[[1]]) >= 2) {
+        data_var <- trimws(matches_single[[1]][2])
         return(data_var)
       }
     } else if (plot_type == "density") {
@@ -4643,5 +4654,90 @@ reconstruct_qq_command <- function(history_lines, start_line) {
     return(list(command = full_command, line_number = start_line, found = TRUE))
   }, error = function(e) {
     return(list(command = history_lines[start_line], line_number = start_line, found = TRUE))
+  })
+}
+
+#' Reconstruct multi-line base R plot command (plot, hist, boxplot, barplot)
+reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
+  tryCatch({
+    # Start with the line that contains the plot command
+    command_lines <- c(history_lines[start_line])
+    current_line <- start_line
+    
+    # Check if this line has a complete command (balanced parentheses)
+    current_command <- paste(command_lines, collapse = " ")
+    
+    # Count parentheses to see if command is complete
+    open_parens <- length(gregexpr("\\(", current_command)[[1]])
+    if (open_parens == 1 && gregexpr("\\(", current_command)[[1]][1] == -1) open_parens <- 0
+    close_parens <- length(gregexpr("\\)", current_command)[[1]])
+    if (close_parens == 1 && gregexpr("\\)", current_command)[[1]][1] == -1) close_parens <- 0
+    
+    # If parentheses are balanced, command is complete on one line
+    if (open_parens == close_parens && open_parens > 0) {
+      return(list(
+        command = current_command,
+        line_number = start_line,
+        found = TRUE
+      ))
+    }
+    
+    # If parentheses are not balanced, continue reading next lines
+    max_lines_to_check <- min(10, length(history_lines) - start_line)
+    
+    for (i in 1:max_lines_to_check) {
+      next_line_idx <- start_line + i
+      if (next_line_idx > length(history_lines)) break
+      
+      next_line <- history_lines[next_line_idx]
+      
+      # Skip empty lines
+      if (nzchar(trimws(next_line))) {
+        command_lines <- c(command_lines, next_line)
+        current_command <- paste(command_lines, collapse = " ")
+        
+        # Recount parentheses
+        open_parens <- length(gregexpr("\\(", current_command)[[1]])
+        if (open_parens == 1 && gregexpr("\\(", current_command)[[1]][1] == -1) open_parens <- 0
+        close_parens <- length(gregexpr("\\)", current_command)[[1]])
+        if (close_parens == 1 && gregexpr("\\)", current_command)[[1]][1] == -1) close_parens <- 0
+        
+        # If balanced, we found the complete command
+        if (open_parens == close_parens && open_parens > 0) {
+          return(list(
+            command = current_command,
+            line_number = start_line,
+            found = TRUE
+          ))
+        }
+        
+        # If we have more closing than opening, something's wrong - stop
+        if (close_parens > open_parens) {
+          break
+        }
+        
+        # If this line starts a new command (contains another function call), stop
+        if (grepl("^[a-zA-Z_][a-zA-Z0-9_.]*\\s*\\(", trimws(next_line)) && 
+            !grepl(paste0("^", plot_cmd), trimws(next_line))) {
+          break
+        }
+      }
+    }
+    
+    # If we get here, return what we have (might be incomplete)
+    final_command <- paste(command_lines, collapse = " ")
+    return(list(
+      command = final_command,
+      line_number = start_line,
+      found = TRUE
+    ))
+    
+  }, error = function(e) {
+    # Fallback to single line
+    return(list(
+      command = history_lines[start_line],
+      line_number = start_line,
+      found = TRUE
+    ))
   })
 }
