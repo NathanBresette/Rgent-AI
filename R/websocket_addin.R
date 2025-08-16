@@ -3858,7 +3858,7 @@ find_last_plot_command <- function() {
       # Look for plot commands in reverse order
       plot_commands <- c(
         "hist(", "plot(", "boxplot(", "barplot(", "scatterplot(",
-        "qplot(", "ggplotly(",
+        "qplot(", "ggplotly(", "plot_ly(",
         "plotly::", "leaflet::", "dygraph(",
         "density(", "pairs(", "ggpairs(", "GGally::",
         "qqnorm(", "qqplot(", "qqline(", "residuals(", "fitted(",
@@ -4106,7 +4106,22 @@ identify_plot_type <- function(command) {
     return("ecdf_plot")
   } else if (grepl("pie\\(", command_lower) || grepl("coord_polar\\(", command_lower)) {
     return("pie_chart")
-  } else if (grepl("plotly", command_lower)) {
+  } else if (grepl("plot_ly\\(", command_lower)) {
+    # Determine plotly plot type based on type parameter
+    if (grepl("type\\s*=\\s*[\"']scatter[\"']", command_lower)) {
+      return("plotly_scatter")
+    } else if (grepl("type\\s*=\\s*[\"']bar[\"']", command_lower)) {
+      return("plotly_bar")
+    } else if (grepl("type\\s*=\\s*[\"']histogram[\"']", command_lower)) {
+      return("plotly_histogram")
+    } else if (grepl("type\\s*=\\s*[\"']box[\"']", command_lower)) {
+      return("plotly_box")
+    } else {
+      return("plotly_scatter")  # Default for plot_ly
+    }
+  } else if (grepl("ggplotly\\(", command_lower)) {
+    return("ggplotly")
+  } else if (grepl("plotly::", command_lower)) {
     return("interactive")
   } else if (grepl("leaflet", command_lower)) {
     return("map")
@@ -4204,6 +4219,71 @@ extract_plot_data <- function(command, plot_type) {
         data_var <- substr(command, match + 9, match + attr(match, "match.length") - 2)
         return(data_var)
       }
+    } else if (grepl("plotly", plot_type)) {
+      # Extract data from plotly commands: plot_ly(data, x=~var1, y=~var2, ...)
+      # Pattern: plot_ly(data, x=~var1, y=~var2) or plot_ly(data, x=var1, y=var2)
+      
+      # First extract the data frame (first parameter)
+      data_frame_pattern <- "plot_ly\\s*\\(\\s*([^,]+)"
+      data_frame_match <- regexec(data_frame_pattern, command)
+      data_frame_matches <- regmatches(command, data_frame_match)
+      
+      data_frame <- NULL
+      if (length(data_frame_matches) > 0 && length(data_frame_matches[[1]]) >= 2) {
+        data_frame <- trimws(data_frame_matches[[1]][2])
+      }
+      
+      # Extract x variable: x = ~var or x = var
+      x_var <- NULL
+      x_pattern <- "x\\s*=\\s*~?([^,)\\s]+)"
+      x_match <- regexec(x_pattern, command)
+      x_matches <- regmatches(command, x_match)
+      if (length(x_matches) > 0 && length(x_matches[[1]]) >= 2) {
+        x_var <- trimws(x_matches[[1]][2])
+      }
+      
+      # Extract y variable: y = ~var or y = var
+      y_var <- NULL
+      y_pattern <- "y\\s*=\\s*~?([^,)\\s]+)"
+      y_match <- regexec(y_pattern, command)
+      y_matches <- regmatches(command, y_match)
+      if (length(y_matches) > 0 && length(y_matches[[1]]) >= 2) {
+        y_var <- trimws(y_matches[[1]][2])
+      }
+      
+      # Extract color variable if present: color = ~var
+      color_var <- NULL
+      color_pattern <- "color\\s*=\\s*~?([^,)\\s]+)"
+      color_match <- regexec(color_pattern, command)
+      color_matches <- regmatches(command, color_match)
+      if (length(color_matches) > 0 && length(color_matches[[1]]) >= 2) {
+        color_var <- trimws(color_matches[[1]][2])
+      }
+      
+      # Return structured data
+      if (!is.null(data_frame)) {
+        result <- list(
+          data_frame = data_frame,
+          x = x_var,
+          y = y_var,
+          color = color_var
+        )
+        return(result)
+      }
+      
+    } else if (plot_type == "ggplotly") {
+      # For ggplotly, extract the ggplot part and parse that
+      ggplot_pattern <- "ggplotly\\s*\\(\\s*(.+)\\s*\\)"
+      ggplot_match <- regexec(ggplot_pattern, command)
+      ggplot_matches <- regmatches(command, ggplot_match)
+      
+      if (length(ggplot_matches) > 0 && length(ggplot_matches[[1]]) >= 2) {
+        ggplot_code <- trimws(ggplot_matches[[1]][2])
+        # Recursively extract from the ggplot part
+        ggplot_type <- identify_plot_type(ggplot_code)
+        return(extract_plot_data(ggplot_code, ggplot_type))
+      }
+      
     } else if (plot_type == "correlation_plot") {
       # Extract data from corrplot(data) or ggcorrplot(data)
       match <- regexpr("(corrplot|ggcorrplot)\\(([^,)]+)[,)]", command)
@@ -4526,6 +4606,70 @@ generate_analysis_commands <- function(plot_type, data_var) {
   } else if (plot_type == "boxplot") {
     commands$basic_stats <- paste0("summary(", data_var, ")")
     commands$outliers <- paste0("boxplot.stats(", data_var, ")$out")
+  } else if (grepl("plotly", plot_type)) {
+    # Handle plotly plots: plot_ly(data, x=~var1, y=~var2, ...)
+    if (is.list(data_var) && !is.null(data_var$data_frame)) {
+      commands$data_summary <- paste0("summary(", data_var$data_frame, ")")
+      commands$data_structure <- paste0("str(", data_var$data_frame, ")")
+      
+      # Add specific analysis based on plot type and variables
+      if (plot_type == "plotly_scatter" && !is.null(data_var$x) && !is.null(data_var$y)) {
+        commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
+        commands$regression <- paste0("with(", data_var$data_frame, ", summary(lm(", data_var$y, " ~ ", data_var$x, ")))")
+        commands$x_summary <- paste0("summary(", data_var$data_frame, "$", data_var$x, ")")
+        commands$y_summary <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+        
+        # Add color grouping analysis if color variable exists
+        if (!is.null(data_var$color)) {
+          commands$group_analysis <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$color, ") %>% summarise(mean_", data_var$y, " = mean(", data_var$y, ", na.rm=TRUE), count = n()) else 'dplyr package needed'")
+          commands$color_distribution <- paste0("table(", data_var$data_frame, "$", data_var$color, ")")
+        }
+        
+      } else if (plot_type == "plotly_histogram" && !is.null(data_var$x)) {
+        commands$basic_stats <- paste0("summary(", data_var$data_frame, "$", data_var$x, ")")
+        commands$distribution <- paste0("hist(", data_var$data_frame, "$", data_var$x, ", plot=FALSE)")
+        commands$normality <- paste0("shapiro.test(", data_var$data_frame, "$", data_var$x, ")")
+        
+        if (!is.null(data_var$color)) {
+          commands$group_comparison <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$color, ") %>% summarise(mean = mean(", data_var$x, ", na.rm=TRUE), sd = sd(", data_var$x, ", na.rm=TRUE)) else 'dplyr package needed'")
+        }
+        
+      } else if (plot_type == "plotly_box" && !is.null(data_var$y)) {
+        commands$basic_stats <- paste0("summary(", data_var$data_frame, "$", data_var$y, ")")
+        commands$outliers <- paste0("boxplot.stats(", data_var$data_frame, "$", data_var$y, ")$out")
+        
+        if (!is.null(data_var$x)) {
+          commands$group_comparison <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$x, ") %>% summarise(median = median(", data_var$y, ", na.rm=TRUE), iqr = IQR(", data_var$y, ", na.rm=TRUE)) else 'dplyr package needed'")
+          commands$anova_test <- paste0("aov(", data_var$y, " ~ ", data_var$x, ", data = ", data_var$data_frame, ")")
+        }
+        
+      } else if (plot_type == "plotly_bar" && !is.null(data_var$x)) {
+        commands$category_counts <- paste0("table(", data_var$data_frame, "$", data_var$x, ")")
+        commands$proportions <- paste0("prop.table(table(", data_var$data_frame, "$", data_var$x, "))")
+        
+        if (!is.null(data_var$y)) {
+          commands$category_summary <- paste0("if(require(dplyr)) ", data_var$data_frame, " %>% group_by(", data_var$x, ") %>% summarise(total = sum(", data_var$y, ", na.rm=TRUE), mean = mean(", data_var$y, ", na.rm=TRUE)) else 'dplyr package needed'")
+        }
+      }
+      
+      # Interactive plot specific analysis
+      commands$interactive_info <- paste0("# Interactive plotly plot with ", 
+                                        ifelse(!is.null(data_var$x), "x-axis", ""), 
+                                        ifelse(!is.null(data_var$y), " and y-axis", ""),
+                                        ifelse(!is.null(data_var$color), " colored by groups", ""))
+    }
+  } else if (plot_type == "ggplotly") {
+    # ggplotly inherits analysis from the underlying ggplot
+    # The variable extraction should have been delegated to the ggplot parser
+    if (is.list(data_var) && !is.null(data_var$data_frame)) {
+      commands$data_summary <- paste0("summary(", data_var$data_frame, ")")
+      commands$interactive_note <- "# This is an interactive version of a ggplot2 plot"
+      
+      # Add basic analysis if we have x/y variables
+      if (!is.null(data_var$x) && !is.null(data_var$y)) {
+        commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
+      }
+    }
   }
   
   return(commands)
