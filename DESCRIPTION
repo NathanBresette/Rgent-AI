@@ -1,11 +1,12 @@
 Package: rstudioai
 Type: Package
-Title: RStudio AI Assistant Add-in
-Version: 0.1.0
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: AI-powered, context-aware data science automation in RStudio.
+Title: RgentAI: AI-Powered Statistical Analysis Assistant for R
+Version: 0.9.121
+Author: Nathan Bresette
+Maintainer: Nathan Bresette <support@rgentai.com>
+Description: An intelligent AI assistant for R programming that provides conversational chat, plot analysis, error debugging, and specialized agents for data cleaning, transformation, statistical analysis, and machine learning workflows.
 License: MIT + file LICENSE
 Depends: R (>= 4.0.0)
 Imports: httr, rstudioapi, jsonlite, clipr, shiny, httpuv
+Suggests: testthat
 RoxygenNote: 7.3.2

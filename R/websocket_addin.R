@@ -1,3 +1,12 @@
+# Required libraries for execution engine
+if (!requireNamespace("base64enc", quietly = TRUE)) {
+  install.packages("base64enc")
+}
+library(base64enc)
+
+# Transformation agent functions are loaded via package namespace
+# Agent functions are loaded via package namespace when the package is loaded
+
 # Debug wrapper functions to track down invalid 'envir' argument error
 safe_ls <- function(envir) {
   
@@ -83,7 +92,6 @@ run_rgent <- function() {
       # Check if this is a new error
       if (current_error != "" && current_error != .GlobalEnv$last_error_message) {
         .GlobalEnv$last_error_message <- current_error
-        cat("🔍 Auto-capture triggered by task callback!\n")
         auto_capture_error()
       }
     }
@@ -184,8 +192,118 @@ start_websocket_server <- function() {
         },
         "get_context" = {
           # Get current R context
-          context <- capture_context()
+          context <- tryCatch({
+            capture_context()
+          }, error = function(e) {
+            cat("ERROR in get_context:", e$message, "\n")
+            list(
+              workspace_objects = list(),
+              active_file = NULL,
+              file_contents = NULL
+            )
+          })
           list(action = "context", data = context)
+        },
+        "get_dataframes" = {
+          # Get available DataFrames for agent configuration
+          dataframes <- get_available_dataframes()
+          list(action = "dataframes", data = dataframes)
+        },
+        "get_dataframe_variables" = {
+          # Get variables from a specific DataFrame
+          dataframe_name <- request$dataframe
+          exclude_target <- request$exclude_target_variable
+          
+          if (is.null(dataframe_name) || !exists(dataframe_name, envir = globalenv())) {
+            list(action = "dataframe_variables", data = list())
+          } else {
+            df <- get(dataframe_name, envir = globalenv())
+            if (is.data.frame(df)) {
+              # Get all column names
+              all_cols <- names(df)
+              
+              # Exclude target variable if specified
+              if (!is.null(exclude_target) && exclude_target != "") {
+                all_cols <- all_cols[all_cols != exclude_target]
+              }
+              
+              variables <- lapply(all_cols, function(col_name) {
+                col_data <- df[[col_name]]
+                list(
+                  name = col_name,
+                  type = if (is.numeric(col_data)) "numeric" else "categorical"
+                )
+              })
+              list(action = "dataframe_variables", data = variables)
+            } else {
+              list(action = "dataframe_variables", data = list())
+            }
+          }
+        },
+        "get_dataframe_info" = {
+          # Get detailed information about a specific DataFrame
+          df_info <- get_dataframe_info(request$dataframe)
+          list(action = "dataframe_info", data = df_info)
+        },
+        "start_cleaning_agent" = {
+          # Start the cleaning agent workflow
+          result <- start_cleaning_agent(request$dataframe, request$na_handling, request$cleaning_options, request$method_options, request$custom_inputs, request$other_operations, request$selected_variables)
+          list(action = "agent_started", data = result)
+        },
+        "next_agent_step" = {
+          # Execute next step in cleaning agent workflow
+          result <- execute_cleaning_agent(request$dataframe, request$na_handling, request$step)
+          list(action = "agent_step", data = result)
+        },
+        "get_next_step_code" = {
+          # Determine if this is a transformation agent or cleaning agent based on request parameters
+          if (!is.null(request$transformation_options)) {
+            # This is a transformation agent request
+            step_code <- get_next_transformation_step_code(request$step_info, request$dataframe, request$method_options, request$custom_inputs)
+          } else {
+            # This is a cleaning agent request
+            step_code <- generate_step_code(request$step_info, request$dataframe, request$na_handling, request$method_options, request$custom_inputs, request$selected_variables)
+          }
+          
+          # Send back the code to execute
+          list(action = "execute_code_response", code = step_code)
+        },
+        "start_transformation_agent" = {
+          # Start the transformation agent workflow
+          result <- start_transformation_agent(request$dataframe, request$transformation_options, request$method_options, request$custom_inputs, request$selected_variables)
+          list(action = "transformation_agent_started", data = result)
+        },
+        "get_next_transformation_step_code" = {
+          # Generate code for the next transformation step
+          step_code <- get_next_transformation_step_code(request$step_info, request$dataframe, request$method_options, request$custom_inputs, request$selected_variables)
+          
+          # Send back the code to execute
+          list(action = "execute_code_response", code = step_code)
+        },
+        "start_statistical_agent" = {
+          # Start the statistical agent workflow
+          result <- start_statistical_analysis(request$dataframe, request$analysis_options, request$variables, request$method_options, request$custom_inputs)
+          list(action = "statistical_agent_started", data = result)
+        },
+        "get_next_statistical_step_code" = {
+          # Execute the statistical step directly (no code generation)
+          df <- get(request$dataframe, envir = .GlobalEnv)
+          step_result <- execute_statistical_step(df, request$step_info, request$variables, request$method_options, request$custom_inputs)
+          
+          # Send back the step results
+          list(action = "statistical_step_result", data = step_result)
+        },
+        "start_modeling_agent" = {
+          # Start the modeling agent workflow
+          result <- start_modeling_agent(request$dataframe, request$target_variable, request$algorithms, request$options, custom_inputs = NULL, selected_variables = request$selected_variables)
+          list(action = "modeling_agent_started", data = result)
+        },
+        "get_next_modeling_step_code" = {
+          # Generate code for the next modeling step
+          step_result <- get_next_modeling_step(request$dataframe, request$step_info, request$target_variable, request$algorithms, request$selected_variables)
+          
+          # Send back the code to execute
+          list(action = "execute_code_response", code = step_result$code)
         },
         "insert_code" = {
           # Insert code directly using rstudioapi
@@ -202,22 +320,26 @@ start_websocket_server <- function() {
           })
         },
         "execute_code" = {
-          # Execute code and capture results
+          # Execute code using proven execution engine approach
           tryCatch({
-            # Capture output
-            output <- capture.output({
-              result <- eval(parse(text = request$code))
-            })
+            # Load execution settings
+            settings <- list(
+              print_to_console = TRUE,
+              log_to_file = FALSE,
+              log_file_path = file.path(path.expand("~"), "rstudioai_logs.R")
+            )
             
-            # Get last error if any
-            last_error <- geterrmessage()
+            # Execute the code using proven methods
+            result <- execute_code_in_session(request$code, settings)
             
+            # Return structured result
             list(
               action = "executed", 
-              status = "success",
-              result = if(exists("result")) result else NULL,
-              output = output,
-              error = if(last_error != "") last_error else NULL
+              status = if(result$success) "success" else "error",
+              result = result$result,
+              output = result$output,
+              error = if(!result$success) result$error else NULL,
+              plot = result$plot
             )
           }, error = function(e) {
             list(
@@ -228,6 +350,15 @@ start_websocket_server <- function() {
               result = NULL
             )
           })
+        },
+        
+        "get_last_error" = {
+          # Get the last error message from R
+          last_error <- geterrmessage()
+          if (last_error == "") {
+            last_error <- "No error"
+          }
+          list(action = "last_error", error = last_error)
         },
         "execute_and_fix" = {
           # Execute code and if it fails, ask AI to fix it
@@ -271,7 +402,16 @@ start_websocket_server <- function() {
             
             if(last_error != "") {
               # Code failed, ask AI to fix it
-              error_context <- capture_context()
+              error_context <- tryCatch({
+                capture_context()
+              }, error = function(e) {
+                cat("ERROR in error context capture:", e$message, "\n")
+                list(
+                  workspace_objects = list(),
+                  active_file = NULL,
+                  file_contents = NULL
+                )
+              })
               error_context$last_error <- last_error
               error_context$failed_code <- request$code
               
@@ -318,7 +458,16 @@ start_websocket_server <- function() {
           }
           }, error = function(e) {
             # Code failed with exception
-            error_context <- capture_context()
+            error_context <- tryCatch({
+              capture_context()
+            }, error = function(e2) {
+              cat("ERROR in error context capture:", e2$message, "\n")
+              list(
+                workspace_objects = list(),
+                active_file = NULL,
+                file_contents = NULL
+              )
+            })
             error_context$last_error <- e$message
             error_context$failed_code <- request$code
             
@@ -681,7 +830,16 @@ start_websocket_server <- function() {
           session_id <- if (!is.null(request$session_id)) request$session_id else paste0("session_", as.numeric(Sys.time()))
           
           # Capture initial context
-          initial_context <- capture_context()
+          initial_context <- tryCatch({
+            capture_context()
+          }, error = function(e) {
+            cat("ERROR in initial context capture:", e$message, "\n")
+            list(
+              workspace_objects = list(),
+              active_file = NULL,
+              file_contents = NULL
+            )
+          })
           
           tryCatch({
             response <- httr::POST(
@@ -716,7 +874,19 @@ start_websocket_server <- function() {
           # Detect changes since last context capture
           cat("Detecting context changes...\n")
           
-          current_context <- capture_context()
+          # Use tryCatch to prevent context capture failures during code execution
+          current_context <- tryCatch({
+            capture_context()
+          }, error = function(e) {
+            cat("ERROR in context capture during detect_changes:", e$message, "\n")
+            # Return a minimal context to prevent complete failure
+            list(
+              workspace_objects = list(),
+              active_file = NULL,
+              file_contents = NULL
+            )
+          })
+          
           last_context <- .GlobalEnv$last_context_state
           
           if (is.null(last_context)) {
@@ -810,10 +980,30 @@ start_websocket_server <- function() {
           if (is.null(session_id)) {
             list(action = "rag_error", message = "No active session")
           } else {
-            # Detect changes first
-            current_context <- capture_context()
+            # Detect changes first with error handling
+            current_context <- tryCatch({
+              capture_context()
+            }, error = function(e) {
+              cat("ERROR in context capture during RAG:", e$message, "\n")
+              # Return a minimal context to prevent complete failure
+              list(
+                workspace_objects = list(),
+                active_file = NULL,
+                file_contents = NULL
+              )
+            })
+            
             last_context <- .GlobalEnv$last_context_state
-            changes <- if (!is.null(last_context)) detect_context_changes(last_context, current_context) else list()
+            changes <- if (!is.null(last_context)) {
+              tryCatch({
+                detect_context_changes(last_context, current_context)
+              }, error = function(e) {
+                cat("ERROR in detect_context_changes:", e$message, "\n")
+                list()  # Return empty changes list
+              })
+            } else {
+              list()
+            }
             
             # Update stored context
             .GlobalEnv$last_context_state <- current_context
@@ -1150,7 +1340,12 @@ start_websocket_server <- function() {
                   prompt = prompt,
                   context_data = list(
                     plot_analysis = analysis,
-                    workspace_objects = capture_context()$workspace_objects
+                    workspace_objects = tryCatch({
+                      capture_context()$workspace_objects
+                    }, error = function(e) {
+                      cat("ERROR in plot analysis context capture:", e$message, "\n")
+                      list()
+                    })
                   )
                 )
                 
@@ -1271,12 +1466,207 @@ start_websocket_server <- function() {
                  message = paste("Plot analysis failed:", e$message))
           })
         },
+        "start_visualization_agent" = {
+          # Start the visualization agent workflow
+          result <- start_visualization_agent(request$dataframe, request$options)
+          list(action = "visualization_agent_started", data = result)
+        },
+        "get_next_visualization_step" = {
+          # Get the next visualization step
+          step_result <- get_next_visualization_step(request$step, request$dataframe, request$variables, request$options)
+          
+          # Send back the step results
+          list(action = "visualization_step_result", data = step_result)
+        },
+        "execute_visualization_step" = {
+          # Generate code for the visualization step (like other agents)
+          step_code <- generate_visualization_step_code(request$step, request$dataframe, request$variables, request$options)
+          
+          # Send back the code to execute through execution engine
+          list(action = "execute_code_response", code = step_code)
+        },
+        "analyze_visualization_plot" = {
+          # Convert data_variables to the format expected by generate_analysis_commands
+          data_var <- if (is.list(request$data_variables)) {
+            # Extract dataframe and variable names
+            dataframe <- request$data_variables$dataframe
+            x_var <- request$data_variables$x
+            y_var <- request$data_variables$y
+            
+            # Create appropriate data variable string based on plot type
+            if (request$plot_type %in% c("histogram", "density", "bar")) {
+              result <- paste0(dataframe, "$", x_var)
+            } else if (request$plot_type %in% c("scatter", "boxplot", "line", "line_plot")) {
+              result <- list(x = paste0(dataframe, "$", x_var), y = paste0(dataframe, "$", y_var))
+            } else {
+              result <- paste0(dataframe, "$", x_var)
+            }
+            
+            result
+          } else {
+            request$data_variables
+          }
+          
+          # Analyze the visualization plot
+          analysis_result <- analyze_visualization_plot(
+            request$plot_command, 
+            request$plot_type, 
+            data_var
+          )
+          
+          if (!analysis_result$success) {
+            list(action = "visualization_plot_analysis", 
+                 success = FALSE, 
+                 message = analysis_result$message)
+          } else {
+            # Send progress messages
+            progress_msg <- list(
+              action = "chat_with_ai",
+              message = "Step 2: Analyzing plot structure and data..."
+            )
+            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+            
+            progress_msg <- list(
+              action = "chat_with_ai",
+              message = "Step 3: Running statistical analysis..."
+            )
+            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+            
+            progress_msg <- list(
+              action = "chat_with_ai",
+              message = "Step 4: Generating insights and recommendations..."
+            )
+            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
+            
+            # Get analysis data
+            analysis <- analysis_result$analysis
+            
+            # Create AI prompt for plot analysis
+            prompt <- paste(
+              "Analyze this visualization plot and provide insights:\n\n",
+              "PLOT COMMAND: ", analysis$plot_command, "\n",
+              "PLOT TYPE: ", analysis$plot_type, "\n",
+              "DATA VARIABLES: ", if(is.list(analysis$data_variables)) {
+                paste(names(analysis$data_variables), "=", unlist(analysis$data_variables), collapse = ", ")
+              } else {
+                analysis$data_variables
+              }, "\n\n",
+              "STATISTICAL ANALYSIS RESULTS:\n",
+              paste(names(analysis$analysis_results), ":", 
+                    sapply(analysis$analysis_results, function(x) paste(x, collapse = "\n")), 
+                    collapse = "\n\n"),
+              "\n\nPlease provide:\n",
+              "1. What the plot shows (distribution, trends, patterns)\n",
+              "2. Key statistical insights\n",
+              "3. Any outliers or unusual patterns\n",
+              "4. Suggestions for improvement\n",
+              "5. Code examples for better visualizations"
+            )
+            
+            # Send to AI for interpretation using streaming endpoint
+            tryCatch({
+              # Prepare request body for streaming
+              request_body <- list(
+                access_code = get_current_access_code(),
+                prompt = prompt,
+                context_data = list(
+                  plot_analysis = analysis,
+                  workspace_objects = tryCatch({
+                    capture_context()$workspace_objects
+                  }, error = function(e) {
+                    cat("ERROR in plot analysis context capture:", e$message, "\n")
+                    list()
+                  })
+                )
+              )
+              
+              response <- httr::POST(
+                "https://rgent.onrender.com/chat/stream",
+                body = request_body,
+                encode = "json",
+                httr::timeout(60),  # 60 second timeout for plot analysis
+                httr::add_headers("Accept" = "text/event-stream")
+              )
+              
+              if (httr::status_code(response) == 200) {
+                # Handle streaming response
+                response_text <- httr::content(response, "text")
+                
+                # Parse Server-Sent Events (SSE) format
+                lines <- strsplit(response_text, "\n")[[1]]
+                full_response <- ""
+                
+                for (line in lines) {
+                  if (grepl("^data: ", line)) {
+                    # Extract JSON data from SSE format
+                    json_data <- substring(line, 7)  # Remove "data: " prefix
+                    if (json_data != "[DONE]") {
+                      tryCatch({
+                        chunk_data <- jsonlite::fromJSON(json_data)
+                        if (!is.null(chunk_data$chunk)) {
+                          # Send chunk to frontend
+                          chunk_msg <- list(
+                            action = "ai_response",
+                            streaming = TRUE,
+                            chunk = chunk_data$chunk
+                          )
+                          ws$send(jsonlite::toJSON(chunk_msg, auto_unbox = TRUE))
+                          full_response <- paste0(full_response, chunk_data$chunk)
+                        }
+                      }, error = function(e) {
+                        cat("Error parsing chunk:", e$message, "\n")
+                      })
+                    }
+                  }
+                }
+                
+                # Send completion message
+                completion_msg <- list(
+                  action = "plot_analysis_streaming_complete"
+                )
+                ws$send(jsonlite::toJSON(completion_msg, auto_unbox = TRUE))
+                
+                list(action = "visualization_plot_analysis", 
+                     success = TRUE, 
+                     message = "Plot analysis completed")
+              } else {
+                list(action = "visualization_plot_analysis", 
+                     success = FALSE, 
+                     message = paste("AI analysis failed with status:", httr::status_code(response)))
+              }
+            }, error = function(e) {
+              list(action = "visualization_plot_analysis", 
+                   success = FALSE, 
+                   message = paste("AI analysis error:", e$message))
+            })
+          }
+        },
+        "stop_agent" = {
+          list(action = "stop_response", status = "success", message = "Agent workflow stopped")
+        },
         list(action = "error", message = "Unknown action")
       )
       
       # Send response back to JavaScript
       tryCatch({
-        response_json <- jsonlite::toJSON(response, auto_unbox = TRUE)
+        # Ensure code content is properly escaped for JSON
+        if (response$action == "agent_step" && !is.null(response$data$code)) {
+          # Don't let jsonlite HTML-encode the R code
+          response$data$code <- response$data$code
+        }
+        
+        response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+        # Check if response is too large (WebSocket has size limits)
+        if (nchar(response_json) > 100000) {  # 100KB limit
+          cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
+          # For large responses, send a simplified version
+          if (response$action == "agent_step" && !is.null(response$data$code)) {
+            response$data$code <- paste0("# Code generated successfully (", nchar(response$data$code), " characters)\n",
+                                       "# Use the 'Insert at Cursor' button to get the full code\n",
+                                       "# Summary: ", substr(response$data$code, 1, 500), "...")
+            response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+          }
+        }
         ws$send(response_json)
       }, error = function(e) {
         cat("ERROR sending response to frontend:", e$message, "\n")
@@ -1791,7 +2181,13 @@ detect_context_changes <- function(old_context, new_context) {
       old_obj <- old_context$workspace_objects[[which(sapply(old_context$workspace_objects, function(obj) obj$name) == obj_name)]]
       new_obj <- new_context$workspace_objects[[which(sapply(new_context$workspace_objects, function(obj) obj$name) == obj_name)]]
       
-      if (old_obj$class != new_obj$class || old_obj$length != new_obj$length) {
+             # Check if objects have the required properties and they're not NA
+       old_class <- if (!is.null(old_obj$class) && !is.na(old_obj$class)) old_obj$class else "unknown"
+       new_class <- if (!is.null(new_obj$class) && !is.na(new_obj$class)) new_obj$class else "unknown"
+       old_length <- if (!is.null(old_obj$length) && !is.na(old_obj$length)) old_obj$length else 0
+       new_length <- if (!is.null(new_obj$length) && !is.na(new_obj$length)) new_obj$length else 0
+       
+       if (old_class != new_class || old_length != new_length) {
         modified_objects <- c(modified_objects, obj_name)
       }
     }
@@ -1947,7 +2343,6 @@ execute_with_capture <- function(code) {
   tryCatch({
     eval(parse(text = code))
   }, error = function(e) {
-    cat("🔍 Auto-capture triggered by execute_with_capture!\n")
     auto_capture_error()
     stop(e$message)  # Re-throw the error
   })
@@ -1979,14 +2374,12 @@ test_auto_capture <- function() {
 #' Manually trigger auto-capture
 #' @export
 trigger_auto_capture <- function() {
-  cat("🔍 Manually triggering auto-capture...\n")
   auto_capture_error()
 }
 
 #' Capture error after it occurs
 #' @export
 capture_last_error <- function() {
-  cat("🔍 Capturing last error using .Last.error...\n")
   
   # Get the last error message - try multiple sources
   last_error <- ""
@@ -3139,7 +3532,16 @@ safe_index_update <- function() {
   }, error = function(e) {
     cat("ERROR: Index update failed:", e$message, "\n")
     # Fallback to simple context capture
-    return(capture_context())
+    return(tryCatch({
+      capture_context()
+    }, error = function(e) {
+      cat("ERROR in fallback context capture:", e$message, "\n")
+      list(
+        workspace_objects = list(),
+        active_file = NULL,
+        file_contents = NULL
+      )
+    }))
   })
 }
 
@@ -3233,25 +3635,31 @@ update_workspace_index()
 #' Smart filtering functions for workspace objects
 #' @export
 smart_filter_objects <- function(query, objects) {
-  # Extract keywords from query
-  keywords <- extract_keywords(query)
-  
-  # Try exact matches first
-  exact_matches <- find_exact_matches(keywords, objects)
-  
-  # If no exact matches, try fuzzy/partial
-  matches <- if (length(exact_matches) == 0) {
-    find_partial_matches(keywords, objects)
-  } else {
-    exact_matches
-  }
-  
-  # If still no matches, return everything (fallback)
-  if (length(matches) == 0) {
+  tryCatch({
+    # Extract keywords from query
+    keywords <- extract_keywords(query)
+    
+    # Try exact matches first
+    exact_matches <- find_exact_matches(keywords, objects)
+    
+    # If no exact matches, try fuzzy/partial
+    matches <- if (length(exact_matches) == 0) {
+      find_partial_matches(keywords, objects)
+    } else {
+      exact_matches
+    }
+    
+    # If still no matches, return everything (fallback)
+    if (length(matches) == 0) {
+      return(objects)
+    }
+    
+    return(matches)
+  }, error = function(e) {
+    cat("ERROR in smart_filter_objects:", e$message, "\n")
+    # Return all objects as fallback
     return(objects)
-  }
-  
-  return(matches)
+  })
 }
 
 #' Extract keywords from user query
@@ -3300,45 +3708,78 @@ extract_keywords <- function(query) {
 
 #' Find exact matches for keywords in object names
 find_exact_matches <- function(keywords, objects) {
-  matches <- list()
-  
-  for (obj in objects) {
-    obj_name <- obj$name
-    obj_name_lower <- tolower(obj_name)
+  tryCatch({
+    matches <- list()
     
-    # Check for exact matches
-    for (keyword in keywords) {
-      if (obj_name_lower == keyword) {
-        matches[[obj_name]] <- obj
-        break
+    if (is.null(objects) || length(objects) == 0) {
+      return(matches)
+    }
+    
+    for (obj in objects) {
+      if (is.null(obj) || is.null(obj$name)) {
+        next
+      }
+      
+      obj_name <- obj$name
+      obj_name_lower <- tolower(obj_name)
+      
+      # Check for exact matches
+      for (keyword in keywords) {
+        if (!is.null(keyword) && obj_name_lower == keyword) {
+          matches[[obj_name]] <- obj
+          break
+        }
       }
     }
-  }
-  
-  return(matches)
+    
+    return(matches)
+  }, error = function(e) {
+    cat("ERROR in find_exact_matches:", e$message, "\n")
+    return(list())
+  })
 }
 
 #' Find partial and fuzzy matches for keywords in object names
 find_partial_matches <- function(keywords, objects) {
-  matches <- list()
-  
-  for (obj in objects) {
+  tryCatch({
+    matches <- list()
+    
+    if (is.null(objects) || length(objects) == 0) {
+      return(matches)
+    }
+    
+    for (obj in objects) {
+      if (is.null(obj) || is.null(obj$name)) {
+        next
+      }
     obj_name <- obj$name
     obj_name_lower <- tolower(obj_name)
     
     # Check for partial matches
     for (keyword in keywords) {
-      # Check if keyword is contained in object name
-      if (grepl(keyword, obj_name_lower, fixed = TRUE)) {
-        matches[[obj_name]] <- obj
-        break
+      if (is.null(keyword) || nchar(keyword) == 0) {
+        next
       }
       
+      # Check if keyword is contained in object name
+      tryCatch({
+        if (grepl(keyword, obj_name_lower, fixed = TRUE)) {
+          matches[[obj_name]] <- obj
+          break
+        }
+      }, error = function(e) {
+        # Skip this keyword if grepl fails
+      })
+      
       # Check if object name is contained in keyword (for abbreviations)
-      if (grepl(obj_name_lower, keyword, fixed = TRUE)) {
-        matches[[obj_name]] <- obj
-        break
-      }
+      tryCatch({
+        if (grepl(obj_name_lower, keyword, fixed = TRUE)) {
+          matches[[obj_name]] <- obj
+          break
+        }
+      }, error = function(e) {
+        # Skip this keyword if grepl fails
+      })
       
       # Handle underscore variations
       # "salesdata" should match "sales_data"
@@ -3361,19 +3802,25 @@ find_partial_matches <- function(keywords, objects) {
     
     # Check for data type matches
     for (keyword in keywords) {
-      if (keyword == "dataframe" && obj$is_data_frame) {
+      if (keyword == "dataframe" && !is.null(obj$is_data_frame) && obj$is_data_frame) {
         matches[[obj_name]] <- obj
         break
       }
-      if (keyword == "plot" && (grepl("plot", obj_name_lower) || grepl("graph", obj_name_lower) || grepl("chart", obj_name_lower))) {
+      if (keyword == "plot") {
+        tryCatch({
+          if (grepl("plot", obj_name_lower) || grepl("graph", obj_name_lower) || grepl("chart", obj_name_lower)) {
+            matches[[obj_name]] <- obj
+            break
+          }
+        }, error = function(e) {
+          # Skip if grepl fails
+        })
+      }
+      if (keyword == "function" && !is.null(obj$is_function) && obj$is_function) {
         matches[[obj_name]] <- obj
         break
       }
-      if (keyword == "function" && obj$is_function) {
-        matches[[obj_name]] <- obj
-        break
-      }
-      if (keyword == "vector" && obj$is_vector) {
+      if (keyword == "vector" && !is.null(obj$is_vector) && obj$is_vector) {
         matches[[obj_name]] <- obj
         break
       }
@@ -3381,6 +3828,10 @@ find_partial_matches <- function(keywords, objects) {
   }
   
   return(matches)
+  }, error = function(e) {
+    cat("ERROR in find_partial_matches:", e$message, "\n")
+    return(list())
+  })
 }
 
 #' Capture current workspace context with smart filtering
@@ -3449,17 +3900,17 @@ capture_context_smart <- function(query = NULL) {
         tryCatch({
           obj <- safe_get(obj_name, global_env)
           
-          # Get detailed object information
+          # Get detailed object information with error handling
           obj_info <- list(
             name = obj_name,
-            class = paste(class(obj), collapse = ", "),
-            length = length(obj),
-            is_function = is.function(obj),
-            is_data_frame = is.data.frame(obj),
-            is_vector = is.vector(obj),
-            is_list = is.list(obj),
-            is_matrix = is.matrix(obj),
-            is_array = is.array(obj)
+            class = tryCatch(paste(class(obj), collapse = ", "), error = function(e) "unknown"),
+            length = tryCatch(length(obj), error = function(e) 0),
+            is_function = tryCatch(is.function(obj), error = function(e) FALSE),
+            is_data_frame = tryCatch(is.data.frame(obj), error = function(e) FALSE),
+            is_vector = tryCatch(is.vector(obj), error = function(e) FALSE),
+            is_list = tryCatch(is.list(obj), error = function(e) FALSE),
+            is_matrix = tryCatch(is.matrix(obj), error = function(e) FALSE),
+            is_array = tryCatch(is.array(obj), error = function(e) FALSE)
           )
           
           # Add object-specific details with intelligent summarization
@@ -3492,7 +3943,6 @@ capture_context_smart <- function(query = NULL) {
                 obj_info$values <- paste("Error: Could not convert to character")
               })
             } else {
-              cat("  - Is large vector, adding basic summary\n")
               obj_info$summary <- list(
                 total_length = length(obj),
                 unique_count = tryCatch(length(unique(obj)), error = function(e) "unknown"),
@@ -4150,7 +4600,7 @@ extract_plot_data <- function(command, plot_type) {
         data_var <- trimws(matches[[1]][2])
         return(data_var)
       }
-    } else if (plot_type == "scatter" || plot_type == "line_plot") {
+    } else if (plot_type == "scatter" || plot_type == "line" || plot_type == "line_plot") {
       # Use regexec for better capture group handling
       # Pattern to match plot(x, y, ...) where x and y are the first two arguments
       pattern <- "plot\\s*\\(\\s*([^,]+)\\s*,\\s*([^,)]+)"
@@ -4356,7 +4806,7 @@ extract_plot_data <- function(command, plot_type) {
       # These are ggplot2 plots, handled by the general ggplot2 extraction
       # They will be caught by the violin/ggplot section below
       return(NULL)
-    } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line_plot" || plot_type == "density") {
+    } else if (plot_type == "violin" || plot_type == "ggplot" || plot_type == "scatter" || plot_type == "line" || plot_type == "line_plot" || plot_type == "density") {
       # Silenced debug: processing ggplot2 plot type
       # For ggplot2 plots, extract the data frame and variables from aes()
       # First extract the data frame
@@ -4455,9 +4905,8 @@ generate_analysis_commands <- function(plot_type, data_var) {
     commands$correlation <- paste0("cor(", data_var$x, ", ", data_var$y, ")")
     commands$regression <- paste0("summary(lm(", data_var$y, " ~ ", data_var$x, "))")
     commands$outliers <- paste0("outlierTest(lm(", data_var$y, " ~ ", data_var$x, "))")
-  } else if (plot_type == "line_plot") {
+  } else if (plot_type == "line" || plot_type == "line_plot") {
     commands$correlation <- paste0("cor(", data_var$x, ", ", data_var$y, ")")
-    commands$trend_analysis <- paste0("summary(lm(", data_var$y, " ~ ", data_var$x, "))")
     commands$time_series <- paste0("if(require(ts)) acf(", data_var$y, ") else 'ts package needed'")
   } else if (plot_type == "density") {
     commands$basic_stats <- paste0("summary(", data_var, ")")
@@ -4486,6 +4935,28 @@ generate_analysis_commands <- function(plot_type, data_var) {
     commands$correlation_matrix <- paste0("cor(", data_var, ")")
     commands$correlation_significance <- paste0("if(require(Hmisc)) rcorr(as.matrix(", data_var, ")) else 'Hmisc package needed'")
     commands$correlation_heatmap <- paste0("if(require(corrplot)) corrplot(cor(", data_var, "), method='color') else 'corrplot package needed'")
+  } else if (plot_type == "correlation") {
+    # For our new correlation plot type
+    commands$correlation_matrix <- paste0("cor(", data_var, ")")
+    commands$correlation_significance <- paste0("if(require(Hmisc)) rcorr(as.matrix(", data_var, ")) else 'Hmisc package needed'")
+    commands$correlation_heatmap <- paste0("if(require(corrplot)) corrplot(cor(", data_var, "), method='color') else 'corrplot package needed'")
+    commands$correlation_summary <- paste0("summary(", data_var, ")")
+  } else if (plot_type == "qqplot") {
+    # For our new Q-Q plot type
+    commands$normality_test <- paste0("shapiro.test(", data_var, ")")
+    commands$summary_stats <- paste0("summary(", data_var, ")")
+    commands$skewness <- paste0("if(require(e1071)) skewness(", data_var, ") else 'e1071 package needed'")
+    commands$kurtosis <- paste0("if(require(e1071)) kurtosis(", data_var, ") else 'e1071 package needed'")
+    commands$quantiles <- paste0("quantile(", data_var, ", probs = c(0.25, 0.5, 0.75))")
+    commands$outliers <- paste0("boxplot.stats(", data_var, ")$out")
+  } else if (plot_type == "residual") {
+    # For our new residual plot type
+    commands$residual_analysis <- paste0("summary(", data_var, ")")
+    commands$normality_test <- paste0("shapiro.test(", data_var, ")")
+    commands$homoscedasticity <- paste0("if(require(lmtest)) bptest(", data_var, ") else 'lmtest package needed'")
+    commands$autocorrelation <- paste0("if(require(lmtest)) dwtest(", data_var, ") else 'lmtest package needed'")
+    commands$residual_summary <- paste0("summary(residuals(", data_var, "))")
+    commands$residual_std <- paste0("sd(residuals(", data_var, "), na.rm=TRUE)")
   } else if (plot_type == "heatmap") {
     commands$data_summary <- paste0("summary(", data_var, ")")
     commands$data_structure <- paste0("str(", data_var, ")")
@@ -4568,11 +5039,10 @@ generate_analysis_commands <- function(plot_type, data_var) {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
       commands$structure <- paste0("str(", data_var$data_frame, ")")
     }
-  } else if (plot_type == "line_plot" && is.list(data_var) && !is.null(data_var$data_frame)) {
+  } else if ((plot_type == "line" || plot_type == "line_plot") && is.list(data_var) && !is.null(data_var$data_frame)) {
      # Handle ggplot2 line plots with expressions
     if (!is.null(data_var$x) && !is.null(data_var$y)) {
        commands$correlation <- paste0("with(", data_var$data_frame, ", cor(", data_var$x, ", ", data_var$y, ", use = \"complete.obs\"))")
-       commands$trend_analysis <- paste0("with(", data_var$data_frame, ", summary(lm((", data_var$y, ") ~ (", data_var$x, "), na.action = na.exclude)))")
        commands$time_series <- paste0("with(", data_var$data_frame, ", if(require(ts)) acf(", data_var$y, ") else 'ts package needed')")
     } else {
       commands$summary_stats <- paste0("summary(", data_var$data_frame, ")")
@@ -4703,11 +5173,23 @@ execute_plot_analysis <- function(commands) {
 #' Main plot analysis function
 analyze_last_plot <- function() {
   tryCatch({
+    # Step 1: Check for stored plot command from visualization agent first
+    plot_info <- NULL
     
+    if (exists("last_plot_command", envir = .GlobalEnv)) {
+      stored_command <- get("last_plot_command", envir = .GlobalEnv)
+      stored_timestamp <- get("last_plot_timestamp", envir = .GlobalEnv)
+      
+      # Check if the stored command is recent (within last 5 minutes)
+      if (difftime(Sys.time(), stored_timestamp, units = "mins") < 5) {
+        plot_info <- list(found = TRUE, command = stored_command, source = "visualization_agent")
+      }
+    }
     
-    # Step 1: Find last plot command
-    
-    plot_info <- find_last_plot_command()
+    # If no stored command, fall back to history search
+    if (is.null(plot_info)) {
+      plot_info <- find_last_plot_command()
+    }
     
     if (!plot_info$found) {
       return(list(
@@ -4754,6 +5236,38 @@ analyze_last_plot <- function() {
     return(list(
       success = FALSE,
       message = paste("Analysis failed:", e$message)
+    ))
+  })
+}
+
+#' Analyze visualization agent plot specifically
+#' This function is designed for visualization agent plots and doesn't interfere with the analyze_last_plot button
+analyze_visualization_plot <- function(plot_command, plot_type, data_variables) {
+  tryCatch({
+    # Generate analysis commands for this specific plot
+    commands <- generate_analysis_commands(plot_type, data_variables)
+    
+    # Execute analysis
+    results <- execute_plot_analysis(commands)
+    
+    # Create analysis summary
+    analysis <- list(
+      plot_command = plot_command,
+      plot_type = plot_type,
+      data_variables = data_variables,
+      analysis_results = results,
+      timestamp = Sys.time()
+    )
+    
+    return(list(
+      success = TRUE,
+      analysis = analysis
+    ))
+    
+  }, error = function(e) {
+    return(list(
+      success = FALSE,
+      message = paste("Visualization plot analysis failed:", e$message)
     ))
   })
 }
