@@ -320,6 +320,9 @@ start_websocket_server <- function() {
           })
         },
         "execute_code" = {
+          # Store the code for error handling
+          .GlobalEnv$currentStepCode <- request$code
+          
           # Execute code using proven execution engine approach
           tryCatch({
             # Load execution settings
@@ -352,14 +355,6 @@ start_websocket_server <- function() {
           })
         },
         
-        "get_last_error" = {
-          # Get the last error message from R
-          last_error <- geterrmessage()
-          if (last_error == "") {
-            last_error <- "No error"
-          }
-          list(action = "last_error", error = last_error)
-        },
         "execute_and_fix" = {
           # Execute code and if it fails, ask AI to fix it
           tryCatch({
@@ -1062,16 +1057,19 @@ start_websocket_server <- function() {
              debug_info <- list(
                action = "debug_info",
                error_message = error_details$error_message,
+               error_code = error_details$error_code,  # Add the code that caused the error
                console_context = error_details$console_context,
                relevant_context = error_details$relevant_context,
                timestamp = error_details$timestamp,
                working_directory = error_details$working_directory,
                r_version = error_details$r_version
              )
+             
             ws$send(jsonlite::toJSON(debug_info, auto_unbox = TRUE))
             
             # Now stream the AI analysis
             tryCatch({
+              
               # Prepare the AI prompt
               prompt <- paste(
                 "Debug this R error:\n\n",
@@ -2241,13 +2239,23 @@ capture_last_error <- function() {
     # Get the console lines above the error
     console_context <- get_console_context()
     
+    # Check if we have stored code from the frontend
+    stored_code <- ""
+    if (exists("currentStepCode", envir = .GlobalEnv) && !is.null(.GlobalEnv$currentStepCode)) {
+      stored_code <- .GlobalEnv$currentStepCode
+    }
+    
+    # Use stored code if available, otherwise use console context
+    error_code <- if (nchar(stored_code) > 0) stored_code else console_context$code
+    
     # Get relevant context from index
-    relevant_context <- get_relevant_context_for_error(console_context$code, last_error)
+    relevant_context <- get_relevant_context_for_error(error_code, last_error)
     
     # Get error details
     error_details <- list(
       has_error = TRUE,
       error_message = last_error,
+      error_code = error_code,  # Use the stored code or console context
       console_context = console_context,
       relevant_context = relevant_context,
       timestamp = as.character(Sys.time()),
@@ -2416,6 +2424,7 @@ capture_last_error <- function() {
   error_details <- list(
     has_error = TRUE,
     error_message = last_error,
+    error_code = console_context$code,  # Add the code that caused the error
     console_context = console_context,
     relevant_context = relevant_context,
     timestamp = as.character(Sys.time()),

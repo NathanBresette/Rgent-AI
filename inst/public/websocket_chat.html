@@ -1568,7 +1568,7 @@
                 <input type="checkbox" id="auto-execute-toggle" checked>
                 <span class="toggle-slider"></span>
               </label>
-              <span class="toggle-label">Agents Auto Execute</span>
+              <span class="toggle-label">Auto Execute</span>
             </div>
           </div>
           <div class="button-row">
@@ -3946,8 +3946,16 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                         break;
                     }
                     
-                    addMessage(`✅ **${agentType} Code Executed Successfully!**\n\nThe data has been ${operationType} according to Claude's recommendations.`, 'ai');
-                    addMessage(`🎯 **Next Steps:**\n- ${nextSteps}\n- Verify the results meet your expectations\n- The ${agentType.toLowerCase()} agent workflow is now complete!`, 'ai');
+                    // Check if this is a normal chat auto-execute (not an agent workflow)
+                    if (window.currentActiveAgentType === null && window.completedAgentType === null) {
+                      // Normal chat auto-execute
+                      addMessage(`✅ **Code Executed Successfully!**`, 'ai');
+                      addMessage(`🎯 **Next Steps:**\n- Check your environment for the results\n- Verify the output meets your expectations\n- Continue with your analysis`, 'ai');
+                    } else {
+                      // Agent workflow auto-execute
+                      addMessage(`✅ **${agentType} Code Executed Successfully!**\n\nThe data has been ${operationType} according to Claude's recommendations.`, 'ai');
+                      addMessage(`🎯 **Next Steps:**\n- ${nextSteps}\n- Verify the results meet your expectations\n- The ${agentType.toLowerCase()} agent workflow is now complete!`, 'ai');
+                    }
                     
                     // Reset cleaning code state
                     cleaningCodeIterationCount = 0;
@@ -7677,7 +7685,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         manualModeDiv.style.border = '1px solid #e9ecef';
         
         const manualModeText = document.createElement('div');
-        manualModeText.innerHTML = '<strong>Agents Auto Execute Off</strong>';
+        manualModeText.innerHTML = '<strong>Auto Execute Off</strong>';
         manualModeText.style.marginBottom = '10px';
         manualModeText.style.color = '#495057';
         
@@ -9934,6 +9942,9 @@ cat("\\nModeling workflow completed successfully!\\n")
         const autoExecute = isAutoExecuteEnabled();
         
         if (autoExecute) {
+          // Store the code for error handling
+          currentStepCode = originalCode;
+          
           // Execute the code automatically
           executeCleaningCodeWithErrorHandling(originalCode);
         } else {
@@ -10074,6 +10085,13 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Set flag to prevent duplicate handling
         cleaningCodeExecuting = true;
+        
+        // Check if this is normal chat auto-execute (not an agent workflow)
+        // If no active agent workflow, clear the agent type flags for normal chat
+        if (!currentAgentWorkflow) {
+          window.currentActiveAgentType = null;
+          window.completedAgentType = null;
+        }
         
         if (ws && ws.readyState === WebSocket.OPEN) {
           // Send the code for execution
