@@ -26,6 +26,11 @@ An intelligent agent system that guides users through complete statistical analy
   - Continuous outcomes → Linear regression
 - Automated feature engineering and model interpretability
 
+### 📈 **Visualization Agent**
+- Smart plot selection based on data types and analysis goals
+- Automated chart generation with proper statistical annotations
+- Interactive visualizations and publication-ready graphics
+
 ## Installation
 
 ```r
@@ -44,7 +49,7 @@ run_rgent()
 # Launch the AI assistant
 run_rgent()
 
-# Select an agent and follow the guided workflow:
+# Select from 5 specialized agents and follow the guided workflow:
 # 1. Choose your dataframe
 # 2. Configure analysis options  
 # 3. Get AI-powered guidance and code generation
@@ -66,6 +71,10 @@ run_rgent()
 # Function documentation  
 ?run_rgent
 ?start_cleaning_agent
+?start_transformation_agent
+?start_statistical_analysis
+?start_modeling_agent
+?start_visualization_agent
 ```
 
 ## Contributing
