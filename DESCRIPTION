@@ -10,3 +10,4 @@ Depends: R (>= 4.0.0)
 Imports: httr, rstudioapi, jsonlite, clipr, shiny, httpuv
 Suggests: testthat
 RoxygenNote: 7.3.2
+Encoding: UTF-8

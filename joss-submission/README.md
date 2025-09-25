@@ -3,7 +3,7 @@
 [![R-CMD-check](https://github.com/NathanBresette/rstudioai/workflows/R-CMD-check/badge.svg)](https://github.com/NathanBresette/rstudioai/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-RgentAI is an intelligent AI assistant for R programming that provides both general-purpose coding support and specialized analytical workflow guidance. The software offers conversational AI chat, automatic plot analysis, error debugging, plus four specialized agents for data cleaning, transformation, statistical analysis, and machine learning—all while maintaining reproducibility and statistical rigor.
+RgentAI is an intelligent AI assistant for R programming that provides both general-purpose coding support and specialized analytical workflow guidance. The software offers conversational AI chat, automatic plot analysis, error debugging, plus five specialized agents for data cleaning, transformation, statistical analysis, modeling, and visualization—all while maintaining reproducibility and statistical rigor.
 
 ## Statement of Need
 
@@ -57,8 +57,8 @@ Statistical analysis in R requires extensive domain knowledge, creating barriers
 # Install devtools if not already installed
 if (!require(devtools)) install.packages("devtools")
 
-# Install RgentAI
-devtools::install_github("NathanBresette/rstudioai")
+# Install RgentAI (choose one repository and keep consistent)
+remotes::install_github("NathanBresette/Rgent-AI")
 
 # Load the package
 library(rstudioai)
