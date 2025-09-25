@@ -9,8 +9,8 @@ This guide provides step-by-step instructions for JOSS reviewers to test RgentAI
 # Install required packages
 if (!require(devtools)) install.packages("devtools")
 
-# Install RgentAI (choose one repository and keep consistent)
-remotes::install_github("NathanBresette/Rgent-AI")
+# Install RgentAI
+devtools::install_github("NathanBresette/rstudioai")
 
 # Load the package
 library(rstudioai)
@@ -19,7 +19,7 @@ library(rstudioai)
 ### 2. Launch the Assistant
 ```r
 # Start the AI assistant
-run_rgent()
+launch_ai_assistant()
 ```
 
 ### 3. Access Codes for Reviewers
@@ -136,26 +136,6 @@ model_data <- data.frame(
 - Feature importance rankings
 - Generated R code for model training
 
-### Visualization Agent
-
-#### Test with iris dataset:
-```r
-data(iris)
-```
-
-#### Expected Workflow:
-1. **Select Visualization Agent**
-2. **Choose dataframe**: `iris`
-3. **Test these features**:
-   - Automatic chart recommendations by variable type
-   - Annotated plots (e.g., means, CIs)
-   - Publication-ready export
-
-#### Expected Outputs:
-- Suggested chart types for numeric/categorical variables
-- Generated ggplot2 code with annotations
-- Interpretation of patterns and outliers
-
 ### Multi-class Classification Test:
 ```r
 # Test with iris (3 classes)
@@ -234,7 +214,7 @@ remotes::install_github("NathanBresette/rstudioai")
 ## Evaluation Checklist
 
 ### Functionality ✓
-- [ ] All five agents launch successfully
+- [ ] All four agents launch successfully
 - [ ] Data analysis workflows complete without errors
 - [ ] AI responses are relevant and helpful
 - [ ] Generated code is executable and correct

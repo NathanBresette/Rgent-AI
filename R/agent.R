@@ -725,7 +725,7 @@ start_cleaning_agent <- function(dataframe, na_handling = "median", cleaning_opt
   
   # Generate R code for the first step
   first_step_code <- generate_step_code(workflow_steps[[1]], dataframe, na_handling, method_options, custom_inputs, selected_variables)
-  cat("Generated first step code:", first_step_code, "\n")
+  cat("🔍 R: Generated first step code:", first_step_code, "\n")
   
   return(list(
     success = TRUE,
