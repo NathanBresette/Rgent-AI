@@ -146,14 +146,9 @@ The package provides substantial functionality without AI enhancement:
 
 ## For JOSS Reviewers
 
-**Reviewer Access Codes**: 
-- Primary: `JOSS_REVIEWER_2024_1`
-- Backup: `JOSS_REVIEWER_2024_2`  
-- Demo: `JOSS_DEMO_2024`
+**Reviewer Access**: Contact the authors for reviewer access codes to test AI features.
 
-**Testing Guide**: See [JOSS_REVIEWER_GUIDE.md](JOSS_REVIEWER_GUIDE.md) for comprehensive testing instructions.
-
-**Expected Testing Time**: 30-45 minutes to evaluate all four agents with provided sample workflows.
+**Testing**: The package provides substantial functionality without AI enhancement, including complete workflow frameworks and statistical method selection. AI features require access codes for full functionality.
 
 ## Documentation
 
@@ -203,7 +198,7 @@ vignette("statistical-workflows", package = "rstudioai")
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+We welcome contributions! Please see the main repository for guidelines on:
 
 - **Reporting bugs** and requesting features
 - **Code contributions** and development setup
