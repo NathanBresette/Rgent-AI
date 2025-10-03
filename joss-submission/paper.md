@@ -20,7 +20,7 @@ affiliations:
    index: 1
  - name: Independent Researcher
    index: 2
-date: 1 September 2025
+date: 5 September 2025
 bibliography: paper.bib
 ---
 
