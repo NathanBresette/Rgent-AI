@@ -1657,22 +1657,40 @@ start_websocket_server <- function() {
         if (response$action == "dataframes") {
           # Ensure data is always a proper array structure
           if (is.null(response$data)) {
-            response$data <- character(0)
-          }
-          # Ensure it's a character vector
-          if (!is.character(response$data)) {
-            response$data <- as.character(response$data)
+            response$data <- list()
+          } else {
+            # Convert character vector to list to ensure it serializes as array (not string)
+            # This prevents auto_unbox from converting single-element vectors to strings
+            # Lists are never unboxed by auto_unbox, only atomic vectors with length 1 are
+            if (is.character(response$data)) {
+              # Store original for debug
+              original_length <- length(response$data)
+              response$data <- as.list(response$data)
+              # Verify conversion worked
+              if (!is.list(response$data)) {
+                cat("ERROR: Failed to convert character vector to list!\n")
+                response$data <- as.list(as.character(response$data))
+              }
+              # Debug logging
+              cat("DEBUG dataframes: Converted character vector (length=", original_length, ") to list (length=", length(response$data), ")\n")
+            } else if (!is.list(response$data)) {
+              response$data <- as.list(as.character(response$data))
+            }
           }
           # Debug logging
           cat("DEBUG dataframes response: type =", typeof(response$data), ", class =", class(response$data), ", length =", length(response$data), "\n")
           if (length(response$data) > 0) {
-            cat("DEBUG dataframes response: first few =", paste(head(response$data, 3), collapse = ", "), "\n")
+            cat("DEBUG dataframes response: values =", paste(sapply(response$data, function(x) if(is.null(x)) "NULL" else as.character(x)), collapse = ", "), "\n")
+            # Test JSON serialization to verify it stays as array
+            test_json <- jsonlite::toJSON(list(test = response$data), auto_unbox = TRUE)
+            cat("DEBUG dataframes test JSON:", test_json, "\n")
+          } else {
+            cat("DEBUG dataframes: Empty array\n")
           }
-          # For dataframes, use auto_unbox = FALSE to ensure array structure
-          response_json <- jsonlite::toJSON(response, auto_unbox = FALSE, escape_double = FALSE)
-        } else {
-          response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
         }
+        
+        # Use auto_unbox = TRUE for all responses (dataframes data is now a list, so it won't be unboxed)
+        response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
         # Check if response is too large (WebSocket has size limits)
         if (nchar(response_json) > 100000) {  # 100KB limit
           cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
