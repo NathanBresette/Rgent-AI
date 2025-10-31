@@ -4758,17 +4758,10 @@ Code only. Minimal chat.`;
       function processMessageContent(messageDiv) {
         let rawContent = messageDiv.innerHTML;
         
-        console.log("🔍 DEBUG processMessageContent: Starting code block detection");
-        console.log("🔍 DEBUG: Raw HTML content length:", rawContent.length);
-        console.log("🔍 DEBUG: Raw HTML content (first 500 chars):", rawContent.substring(0, 500));
-        
         // Decode HTML entities (backticks might be encoded)
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = rawContent;
         let decodedContent = tempDiv.textContent || tempDiv.innerText || rawContent;
-        
-        console.log("🔍 DEBUG: Decoded content length:", decodedContent.length);
-        console.log("🔍 DEBUG: Decoded content (first 500 chars):", decodedContent.substring(0, 500));
         
         // Check both raw and decoded for code blocks
         const rawRegex = /```(?:[rR]|\{[rR]\})[\s\S]*?```/i;
@@ -4777,22 +4770,9 @@ Code only. Minimal chat.`;
         const rawHasCodeBlock = rawRegex.test(rawContent);
         const decodedHasCodeBlock = decodedRegex.test(decodedContent);
         
-        console.log("🔍 DEBUG: Raw content has code block?", rawHasCodeBlock);
-        console.log("🔍 DEBUG: Decoded content has code block?", decodedHasCodeBlock);
-        
-        // Try to find matches to see what we're getting
-        const rawMatch = rawContent.match(rawRegex);
-        const decodedMatch = decodedContent.match(decodedRegex);
-        
-        console.log("🔍 DEBUG: Raw regex match:", rawMatch ? rawMatch[0].substring(0, 100) + "..." : "null");
-        console.log("🔍 DEBUG: Decoded regex match:", decodedMatch ? decodedMatch[0].substring(0, 100) + "..." : "null");
-        
         // Use whichever content has the code blocks
         const content = rawHasCodeBlock ? rawContent : decodedContent;
         const hasMarkdownCodeBlock = rawHasCodeBlock || decodedHasCodeBlock;
-        
-        console.log("🔍 DEBUG: Using content type:", rawHasCodeBlock ? "raw" : "decoded");
-        console.log("🔍 DEBUG: Final hasMarkdownCodeBlock:", hasMarkdownCodeBlock);
         // Only detect HTML code blocks that are actual blocks, not inline code
         const hasHTMLCodeBlock = /<code[^>]*>[\s\S]*?<\/code>/.test(content) && 
                                 !content.includes('<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">');
@@ -4805,38 +4785,22 @@ Code only. Minimal chat.`;
           // This regex matches: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n followed by content and closing ```
           // Match: ``` followed by r/R or {r}/{R}, optionally followed by newline or whitespace, then content, then closing ```
           const splitRegex = /(```(?:[rR]|\{[rR]\})(?:\n|\s)*[\s\S]*?```)/gi;
-          console.log("🔍 DEBUG: Splitting content with regex:", splitRegex);
           let parts = content.split(splitRegex);
-          
-          console.log("🔍 DEBUG: Split resulted in", parts.length, "parts");
-          parts.forEach((part, idx) => {
-            console.log(`🔍 DEBUG: Part ${idx} (first 100 chars):`, part.substring(0, 100));
-          });
           
           // If no markdown blocks found, try HTML code blocks
           if (parts.length === 1) {
-            console.log("🔍 DEBUG: No markdown blocks found, trying HTML code blocks");
             parts = content.split(/(<code[^>]*>[\s\S]*?<\/code>)/g);
-            console.log("🔍 DEBUG: HTML split resulted in", parts.length, "parts");
           }
           
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             
             // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R} formats
-            const startsWithR = part.startsWith("```{r}") || part.startsWith("```{R}");
-            const startsWithRNewline = part.startsWith("```r\n") || part.startsWith("```R\n");
-            const startsWithRPlain = (part.startsWith("```r") && part.endsWith("```")) || (part.startsWith("```R") && part.endsWith("```"));
-            const hasHTMLCode = part.includes("<code") && part.includes("</code>");
-            
-            const isCodeBlock = startsWithR || startsWithRNewline || startsWithRPlain || hasHTMLCode;
-            
-            console.log(`🔍 DEBUG: Part ${i} code block check:`, {
-              startsWithR, startsWithRNewline, startsWithRPlain, hasHTMLCode,
-              isCodeBlock,
-              partStart: part.substring(0, 20),
-              partEnd: part.substring(Math.max(0, part.length - 20))
-            });
+            const isCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
+                                part.startsWith("```r\n") || part.startsWith("```R\n") ||
+                                (part.startsWith("```r") && part.endsWith("```")) ||
+                                (part.startsWith("```R") && part.endsWith("```"))) ||
+                                (part.includes("<code") && part.includes("</code>"));
             
             if (isCodeBlock) {
               // This is a code block - style it
