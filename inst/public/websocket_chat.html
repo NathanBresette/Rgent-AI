@@ -402,9 +402,18 @@
         cursor: pointer; 
         transition: all 0.3s ease;
       }
-      button:hover {
+      /* Exclude specific button classes from general button styling */
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
+      }
+      
+      /* Apply general hover only to buttons without specific classes */
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button) {
+        background-color: var(--rgent-primary); 
+      }
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
+        background-color: var(--rgent-accent) !important;
       }
       
       /* Ensure buttons in tab content are not affected by tab hover */
