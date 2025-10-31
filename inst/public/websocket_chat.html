@@ -4762,8 +4762,8 @@ Code only. Minimal chat.`;
         
         // More precise code block detection - only create blocks for actual code blocks, not inline code
         // Match code blocks with or without newline after language identifier, case-insensitive
-        // Handles: ```r, ```R, ```r\n, ```R\n, ```r space, ```R space
-        const hasMarkdownCodeBlock = /```[rR](?:\n|\s*)[\s\S]*?```/i.test(content);
+        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, ```r space, ```R space
+        const hasMarkdownCodeBlock = /```[rR](?:\{|(?:\n|\s*))[\s\S]*?```/i.test(content) || /```\{[rR]\}[\s\S]*?```/i.test(content);
         
         console.log("DEBUG: hasMarkdownCodeBlock:", hasMarkdownCodeBlock);
         // Only detect HTML code blocks that are actual blocks, not inline code
@@ -4775,8 +4775,8 @@ Code only. Minimal chat.`;
           messageDiv.innerHTML = "";
           
           // Split by markdown code blocks - handles both with and without newline after r/R
-          // This regex matches: ```r, ```R, ```r\n, ```R\n followed by content and closing ```
-          let parts = content.split(/(```[rR](?:\n)?[\s\S]*?```)/gi);
+          // This regex matches: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n followed by content and closing ```
+          let parts = content.split(/(```(?:[rR]|(?:\{[rR]\}))(?:\n|\s*)?[\s\S]*?```)/gi);
           
           // If no markdown blocks found, try HTML code blocks
           if (parts.length === 1) {
@@ -4786,9 +4786,14 @@ Code only. Minimal chat.`;
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             
-            if ((part.startsWith("```r\n") && part.endsWith("```")) || 
-                (part.startsWith("```R\n") && part.endsWith("```")) ||
-                (part.includes("<code") && part.includes("</code>"))) {
+            // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R} formats
+            const isCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
+                                part.startsWith("```r\n") || part.startsWith("```R\n") ||
+                                (part.startsWith("```r") && part.endsWith("```")) ||
+                                (part.startsWith("```R") && part.endsWith("```"))) ||
+                                (part.includes("<code") && part.includes("</code>"));
+            
+            if (isCodeBlock) {
               // This is a code block - style it
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
@@ -4827,7 +4832,10 @@ Code only. Minimal chat.`;
               // Create code content div - extract just the code
               const codeContent = document.createElement("div");
               let cleanCode;
-              if (part.startsWith("```r\n")) {
+              if (part.startsWith("```{r}") || part.startsWith("```{R}")) {
+                // R Markdown format with curly braces - remove ```{r} or ```{R} at start and ``` at end
+                cleanCode = part.replace(/^```\{[rR]\}/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r\n")) {
                 // Markdown format - remove ```r\n at start and ``` at end
                 cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n")) {
@@ -10163,8 +10171,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         console.log('🔍 Extracting R code from message:', message.substring(0, 200) + '...');
         
         // More flexible regex to catch different code block formats
-        // Handles: ```r, ```R, ```r\n, ```R\n with optional whitespace
-        const codeBlockRegex = /```(?:r|R)(?:\n|\s*)([\s\S]*?)```/gi;
+        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n with optional whitespace
+        const codeBlockRegex = /```(?:\{[rR]\}|[rR])(?:\n|\s*)([\s\S]*?)```/gi;
         const codeBlocks = [];
         let match;
         
@@ -10190,8 +10198,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         console.log('🔍 Getting original formatted code');
         
         // Find the first code block and extract it with original formatting
-        // Handles: ```r, ```R, ```r\n, ```R\n with optional whitespace
-        const codeBlockMatch = message.match(/```(?:r|R)(?:\n|\s*)([\s\S]*?)```/i);
+        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n with optional whitespace
+        const codeBlockMatch = message.match(/```(?:\{[rR]\}|[rR])(?:\n|\s*)([\s\S]*?)```/i);
         
         if (codeBlockMatch) {
           let originalCode = codeBlockMatch[1];
