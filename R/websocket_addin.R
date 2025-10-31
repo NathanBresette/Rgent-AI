@@ -57,6 +57,85 @@ if (!exists("conversation_history") || !is.list(conversation_history)) {
   
 }
 
+# Helper function to get the path where access code should be stored
+get_access_code_path <- function() {
+  # Try to use R's standard user config directory (R 4.0+)
+  # Use tryCatch to handle cases where tools::R_user_dir might not be available
+  config_dir <- tryCatch({
+    if (exists("R_user_dir", envir = asNamespace("tools"), mode = "function")) {
+      tools::R_user_dir("rstudioai", "config")
+    } else {
+      stop("R_user_dir not available")
+    }
+  }, error = function(e) {
+    NULL
+  })
+  
+  if (!is.null(config_dir)) {
+    # Ensure directory exists
+    if (!dir.exists(config_dir)) {
+      dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    return(file.path(config_dir, "access_code.txt"))
+  } else {
+    # Fallback for older R versions
+    fallback_dir <- path.expand("~/.rstudioai")
+    if (!dir.exists(fallback_dir)) {
+      dir.create(fallback_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    return(file.path(fallback_dir, "access_code.txt"))
+  }
+}
+
+# Save access code to disk for persistence across sessions
+save_access_code_to_disk <- function(code) {
+  tryCatch({
+    if (is.null(code) || length(code) == 0 || nchar(trimws(code)) == 0) {
+      return(invisible(FALSE))
+    }
+    
+    code_path <- get_access_code_path()
+    
+    # Create directory if it doesn't exist (in case fallback is used)
+    code_dir <- dirname(code_path)
+    if (!dir.exists(code_dir)) {
+      dir.create(code_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    
+    # Write access code to file
+    writeLines(code, code_path)
+    return(invisible(TRUE))
+  }, error = function(e) {
+    # Silently fail - don't interrupt user workflow if saving fails
+    cat("Note: Could not save access code to disk:", e$message, "\n")
+    return(invisible(FALSE))
+  })
+}
+
+# Load access code from disk if it exists
+load_access_code_from_disk <- function() {
+  tryCatch({
+    code_path <- get_access_code_path()
+    
+    if (!file.exists(code_path)) {
+      return(NULL)
+    }
+    
+    # Read the access code from file
+    code <- readLines(code_path, warn = FALSE)
+    
+    # Return NULL if file is empty or code is invalid
+    if (length(code) == 0 || nchar(trimws(code[1])) == 0) {
+      return(NULL)
+    }
+    
+    return(trimws(code[1]))
+  }, error = function(e) {
+    # Silently fail - file might not exist or be unreadable
+    return(NULL)
+  })
+}
+
 # Helper function to get current access code
 get_current_access_code <- function() {
   if(exists("current_access_code", envir = .GlobalEnv)) {
@@ -77,6 +156,12 @@ run_rgent <- function() {
   # Check for required packages
   if (!requireNamespace("httpuv", quietly = TRUE)) {
     stop("httpuv package is required. Install with: install.packages('httpuv')")
+  }
+  
+  # Load access code from disk if available (persistent across sessions)
+  saved_access_code <- load_access_code_from_disk()
+  if (!is.null(saved_access_code)) {
+    .GlobalEnv$current_access_code <- saved_access_code
   }
   
   # Initialize auto-capture system
@@ -186,8 +271,10 @@ start_websocket_server <- function() {
       # Handle different actions
       response <- switch(request$action,
         "set_access_code" = {
-          # Store access code from frontend
+          # Store access code from frontend in globalenv (for current session)
           .GlobalEnv$current_access_code <- request$access_code
+          # Also save to disk for persistence across sessions
+          save_access_code_to_disk(request$access_code)
           list(action = "access_code_set", status = "success")
         },
         "get_context" = {
