@@ -238,19 +238,23 @@ setup_rprofile_auto_start <- function() {
     # Check if auto-start code is already present
     if (file.exists(rprofile_path)) {
       rprofile_content <- readLines(rprofile_path, warn = FALSE)
-      # Check if rstudioai is already being loaded
-      has_rstudioai <- any(grepl("library\\(rstudioai\\)|require\\(rstudioai\\)|rstudioai::", rprofile_content, ignore.case = TRUE))
-      if (has_rstudioai) {
+      # Check if rstudioai library loading is already present
+      # Look for library(rstudioai) or require(rstudioai) with our comment
+      has_rstudioai <- any(grepl("library\\(rstudioai\\)|require\\(rstudioai\\)", rprofile_content, ignore.case = TRUE))
+      has_comment <- any(grepl("Auto-start Rgent when RStudio opens", rprofile_content, fixed = TRUE))
+      if (has_rstudioai && has_comment) {
         return(invisible(TRUE))  # Already set up
       }
+      # If old version exists without the comment, we'll add the new version below
     }
     
     # Create or append to .Rprofile
     auto_start_lines <- c(
       "",
       "# Auto-start Rgent when RStudio opens",
-      "if (requireNamespace(\"rstudioai\", quietly = TRUE)) {",
+      "if (interactive() && requireNamespace(\"rstudioai\", quietly = TRUE)) {",
       "  library(rstudioai)",
+      "  # .onLoad() will automatically start Rgent",
       "}"
     )
     
@@ -5627,8 +5631,23 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
     # Set up .Rprofile for future auto-start (one-time setup)
     setup_rprofile_auto_start()
     
-    # Auto-start Rgent immediately if in RStudio
-    auto_start_rgent()
+    # Auto-start Rgent if in RStudio, with a small delay to ensure RStudio is ready
+    if (interactive() && requireNamespace("rstudioapi", quietly = TRUE)) {
+      # Use a task callback to delay the start slightly
+      start_callback <- function(expr, value, ok, visible) {
+        tryCatch({
+          if (rstudioapi::isAvailable()) {
+            auto_start_rgent()
+          }
+        }, error = function(e) {
+          # Silently fail
+        })
+        # Only run once
+        removeTaskCallback("rgent_auto_start")
+        return(FALSE)
+      }
+      addTaskCallback(start_callback, name = "rgent_auto_start")
+    }
   }, error = function(e) {
     # Silently fail - don't break package loading
     invisible(NULL)
