@@ -2129,10 +2129,10 @@ capture_context <- function() {
           obj_info$column_names <- names(obj)
           obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
           
-          # Only add basic sample data (first 2 rows, first 3 columns)
+          # Only add basic sample data (first 2 rows, first 8 columns)
           if (nrow(obj) > 0) {
             head_data <- head(obj, 2)
-            sample_cols <- min(3, ncol(head_data))
+            sample_cols <- min(8, ncol(head_data))
             obj_info$sample_data <- lapply(1:sample_cols, function(i) {
               list(
                 column = names(head_data)[i],
@@ -4176,10 +4176,10 @@ capture_context_smart <- function(query = NULL) {
             obj_info$column_names <- names(obj)
             obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
             
-            # Only add basic sample data (first 2 rows, first 3 columns)
+            # Only add basic sample data (first 2 rows, first 8 columns)
             if (nrow(obj) > 0) {
               head_data <- head(obj, 2)
-              sample_cols <- min(3, ncol(head_data))
+              sample_cols <- min(8, ncol(head_data))
               obj_info$sample_data <- lapply(1:sample_cols, function(i) {
                 list(
                   column = names(head_data)[i],
