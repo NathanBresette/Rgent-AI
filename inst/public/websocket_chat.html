@@ -3691,6 +3691,18 @@
           const data = JSON.parse(event.data);
           console.log("Received:", data);
           
+          // Handle access_code_loaded message (when R backend has saved access code)
+          if (data.action === 'access_code_loaded' && data.access_code) {
+            console.log('DEBUG: Received access_code_loaded, auto-validating...');
+            console.log('DEBUG: Access code length:', data.access_code.length);
+            // Set the access code in the frontend and auto-validate
+            document.getElementById('access-code').value = data.access_code;
+            accessCode = data.access_code;
+            // Auto-validate the access code
+            validateAccess();
+            return; // Don't process further, validation will handle the UI update
+          }
+          
           // FIXED: Add debugging for transformation agent messages
           if (data.action === 'transformation_agent_started') {
             console.log('🔍 Transformation agent message received:', data);
