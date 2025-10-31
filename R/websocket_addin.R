@@ -5700,29 +5700,88 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
         cat("DEBUG .onLoad: Task callback added\n")
       } else {
         cat("DEBUG .onLoad: RStudio API not available yet (might be starting up), setting up delayed check...\n")
-        # RStudio might not be ready yet - try again after a short delay using task callback
+        # RStudio might not be ready yet - keep trying until it's available
+        # Create an environment to hold the attempt counter that persists across callback invocations
+        callback_env <- new.env()
+        callback_env$attempt_count <- 0
+        max_attempts <- 100  # Try up to 100 times (should be enough for RStudio to start)
+        
         delayed_callback <- function(expr, value, ok, visible) {
-          cat("DEBUG .onLoad delayed callback: Checking RStudio availability...\n")
+          callback_env$attempt_count <- callback_env$attempt_count + 1
+          cat("DEBUG .onLoad delayed callback: Attempt", callback_env$attempt_count, "- Checking RStudio availability...\n")
           tryCatch({
             if (rstudioapi::isAvailable()) {
               cat("DEBUG .onLoad delayed callback: RStudio now available, calling auto_start_rgent()...\n")
               auto_start_rgent()
+              # Success - remove callback
+              tryCatch({
+                removeTaskCallback("rgent_delayed_start")
+              }, error = function(e) {
+                # Ignore if already removed
+              })
+              cat("DEBUG .onLoad delayed callback: Removed callback after successful start\n")
+              return(FALSE)
             } else {
-              cat("DEBUG .onLoad delayed callback: RStudio still not available\n")
+              cat("DEBUG .onLoad delayed callback: RStudio still not available (attempt", callback_env$attempt_count, ")\n")
+              # Keep trying if we haven't exceeded max attempts
+              if (callback_env$attempt_count >= max_attempts) {
+                cat("DEBUG .onLoad delayed callback: Max attempts reached, giving up\n")
+                tryCatch({
+                  removeTaskCallback("rgent_delayed_start")
+                }, error = function(e) {
+                  # Ignore if already removed
+                })
+                return(FALSE)
+              }
+              return(TRUE)  # Keep callback active to try again
             }
           }, error = function(e) {
             cat("DEBUG .onLoad delayed callback: Error:", e$message, "\n")
+            # Keep trying unless we've exceeded max attempts
+            if (callback_env$attempt_count >= max_attempts) {
+              tryCatch({
+                removeTaskCallback("rgent_delayed_start")
+              }, error = function(e) {
+                # Ignore if already removed
+              })
+              return(FALSE)
+            }
+            return(TRUE)  # Keep trying
           })
-          # Only run once
-          tryCatch({
-            removeTaskCallback("rgent_delayed_start")
-          }, error = function(e) {
-            # Ignore if already removed
-          })
-          return(FALSE)
         }
         addTaskCallback(delayed_callback, name = "rgent_delayed_start")
-        cat("DEBUG .onLoad: Delayed callback added (will check when RStudio is ready)\n")
+        cat("DEBUG .onLoad: Delayed callback added (will keep checking until RStudio is ready, max", max_attempts, "attempts)\n")
+        
+        # Also add a simple callback that just executes immediately
+        # This will fire on the next R command, which should happen soon after startup
+        simple_callback <- function(expr, value, ok, visible) {
+          cat("DEBUG .onLoad simple callback: Fired, checking RStudio...\n")
+          tryCatch({
+            if (rstudioapi::isAvailable()) {
+              cat("DEBUG .onLoad simple callback: RStudio available, starting Rgent...\n")
+              auto_start_rgent()
+              # Remove this callback once successful
+              tryCatch({
+                removeTaskCallback("rgent_simple_start")
+              }, error = function(e) {})
+              return(FALSE)
+            }
+          }, error = function(e) {
+            cat("DEBUG .onLoad simple callback: Error:", e$message, "\n")
+          })
+          return(TRUE)  # Keep it active for a few tries
+        }
+        addTaskCallback(simple_callback, name = "rgent_simple_start")
+        cat("DEBUG .onLoad: Simple callback added (will fire on next command)\n")
+        
+        # Trigger a dummy command to fire the callbacks immediately if possible
+        # We'll try to execute a simple expression to trigger callbacks
+        tryCatch({
+          # This won't work during .onLoad, but we can try
+          eval(quote(NULL), envir = .GlobalEnv)
+        }, error = function(e) {
+          # Expected to fail, ignore
+        })
       }
     } else {
       cat("DEBUG .onLoad: rstudioapi package not available\n")
