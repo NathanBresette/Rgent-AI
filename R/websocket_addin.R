@@ -269,12 +269,33 @@ setup_rprofile_auto_start <- function() {
     }
     
     # Create or append to .Rprofile
+    # The .Rprofile code will try to start Rgent after loading and also set up .First() as backup
     auto_start_lines <- c(
       "",
       "# Auto-start Rgent when RStudio opens",
       "if (interactive() && requireNamespace(\"rstudioai\", quietly = TRUE)) {",
       "  library(rstudioai)",
-      "  # .onLoad() will automatically start Rgent",
+      "  # Try to start immediately if RStudio is ready",
+      "  if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
+      "    tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "  }",
+      "  # Also set up .First() as backup (runs after R finishes initializing)",
+      "  # Preserve any existing .First() function",
+      "  if (exists(\".First\", envir = .GlobalEnv, inherits = FALSE)) {",
+      "    .First_original <- .First",
+      "    .First <- function() {",
+      "      .First_original()",
+      "      if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
+      "        tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "      }",
+      "    }",
+      "  } else {",
+      "    .First <- function() {",
+      "      if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
+      "        tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "      }",
+      "    }",
+      "  }",
       "}"
     )
     
