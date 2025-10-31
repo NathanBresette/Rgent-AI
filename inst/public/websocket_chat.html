@@ -58,25 +58,27 @@
         border-color: var(--text-secondary) !important;
       }
       
-      .tab-btn.active:hover {
+      /* Ensure tab button text color never changes on hover - explicitly override any other rules */
+      button.tab-btn.active {
+        background-color: var(--text-primary) !important;
+        color: var(--bg-primary) !important;
+        border-color: var(--text-primary) !important;
+      }
+      button.tab-btn.active:hover {
         background-color: var(--text-secondary) !important;
         color: var(--bg-primary) !important;
         border-color: var(--text-secondary) !important;
       }
       
-      /* Ensure tab button text color never changes on hover - explicitly override any other rules */
-      button.tab-btn.active {
-        color: var(--bg-primary) !important;
-      }
-      button.tab-btn.active:hover {
-        color: var(--bg-primary) !important;
-      }
-      
       button.tab-btn:not(.active) {
+        background-color: var(--bg-card) !important;
         color: var(--text-primary) !important;
+        border: 1px solid var(--border-color);
       }
       button.tab-btn:not(.active):hover {
+        background-color: var(--text-secondary) !important;
         color: var(--text-primary) !important;
+        border-color: var(--text-secondary) !important;
       }
       
       .tab-content {
@@ -412,22 +414,7 @@
         background-color: var(--input-bg);
         color: var(--text-primary);
       }
-      /* General button styling - exclude buttons with specific classes and tab buttons */
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.tab-btn) { 
-        padding: 8px 16px; 
-        background-color: var(--rgent-primary); 
-        color: white !important; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer; 
-        transition: all 0.3s ease;
-      }
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.tab-btn):hover {
-        background-color: var(--rgent-accent) !important;
-        color: white !important;
-      }
-      
-      /* Ensure specific button classes override general button rule (higher specificity) */
+      /* Specific button classes - each button type has its own explicit styling */
       button.debug-button {
         background-color: #dc3545 !important;
       }
@@ -1083,19 +1070,30 @@
       
       .start-agent-btn {
         padding: 12px 20px;
-        background: var(--rgent-primary);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-top: 10px;
+        background: var(--rgent-primary) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 6px !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        margin-top: 10px !important;
       }
       
       .start-agent-btn:hover:not(:disabled) {
-        background: var(--rgent-accent);
+        background: var(--rgent-accent) !important;
+        color: white !important;
+      }
+      
+      /* Ensure start-agent-btn overrides general button rule with higher specificity */
+      button.start-agent-btn {
+        background: var(--rgent-primary) !important;
+        color: white !important;
+      }
+      button.start-agent-btn:hover:not(:disabled) {
+        background: var(--rgent-accent) !important;
+        color: white !important;
       }
       
       .start-agent-btn:disabled {
