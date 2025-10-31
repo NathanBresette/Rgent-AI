@@ -3330,6 +3330,7 @@
       let isConnected = false;
       let isAccessValid = false;
       let accessCode = '';
+      console.log('DEBUG: Initial state - isAccessValid =', isAccessValid, ', accessCode =', accessCode);
       let currentStreamingMessage = null;
       let streamingTimeout = null;
       let currentAgentWorkflow = null;
@@ -3344,12 +3345,17 @@
       
       // Access validation
       async function validateAccess() {
+        console.log('DEBUG validateAccess: Function called');
+        console.log('DEBUG validateAccess: isAccessValid before =', isAccessValid);
         const code = document.getElementById('access-code').value.trim();
+        console.log('DEBUG validateAccess: Code from input, length =', code ? code.length : 0);
         if (!code) {
+          console.log('DEBUG validateAccess: No code provided, showing error');
           showAccessStatus('Please enter an access code', 'error');
           return;
         }
         
+        console.log('DEBUG validateAccess: Starting validation request...');
         showAccessStatus('Validating access...', 'info');
         
         try {
@@ -3362,13 +3368,17 @@
           });
           
           const data = await response.json();
+          console.log('DEBUG validateAccess: Response received, status =', response.ok, ', valid =', data.valid);
           
           if (response.ok && data.valid) {
+            console.log('DEBUG validateAccess: Validation successful, setting isAccessValid = true');
             isAccessValid = true;
             accessCode = code;
+            console.log('DEBUG validateAccess: Hiding access section, showing main interface');
             showAccessStatus('Access validated successfully!', 'success');
             document.getElementById('access-section').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
+            console.log('DEBUG validateAccess: Calling connectWebSocket()');
             connectWebSocket();
             
             // Send access code to R backend once WebSocket is connected
@@ -3383,10 +3393,15 @@
           } else {
             // Show the specific error message from the backend
             const errorMessage = data.detail || 'Invalid access code';
+            console.log('DEBUG validateAccess: Validation failed, error:', errorMessage);
+            console.log('DEBUG validateAccess: isAccessValid remains =', isAccessValid);
             showAccessStatus(errorMessage, 'error');
           }
         } catch (error) {
-          console.error('Validation error:', error);
+          console.error('DEBUG validateAccess: Exception during validation:', error);
+          console.error('DEBUG validateAccess: Error message:', error.message);
+          console.error('DEBUG validateAccess: Error stack:', error.stack);
+          console.log('DEBUG validateAccess: isAccessValid remains =', isAccessValid);
           showAccessStatus('Failed to validate access code', 'error');
         }
       }
@@ -3678,6 +3693,8 @@
         
         ws.onopen = function() {
           console.log("WebSocket connected");
+          console.log('DEBUG ws.onopen: isAccessValid =', isAccessValid);
+          console.log('DEBUG ws.onopen: accessCode =', accessCode ? accessCode.substring(0, 4) + '...' : 'not set');
           isConnected = true;
           document.getElementById("user-input").disabled = false;
           document.getElementById("send-button").disabled = false;
@@ -3693,31 +3710,73 @@
           
           // Handle access_code_loaded message (when R backend has saved access code)
           if (data.action === 'access_code_loaded' && data.access_code) {
-            console.log('DEBUG: Received access_code_loaded, access code length:', data.access_code.length);
-            console.log('DEBUG: isAccessValid =', isAccessValid);
+            console.log('DEBUG access_code_loaded: Received message');
+            console.log('DEBUG access_code_loaded: Access code length:', data.access_code.length);
+            console.log('DEBUG access_code_loaded: Access code value:', data.access_code.substring(0, 4) + '...');
+            console.log('DEBUG access_code_loaded: isAccessValid =', isAccessValid);
+            console.log('DEBUG access_code_loaded: isConnected =', isConnected);
+            console.log('DEBUG access_code_loaded: ws.readyState =', ws ? ws.readyState : 'ws is null');
             
-            // Check if we need to validate (if access is not yet valid)
-            if (!isAccessValid) {
-              console.log('DEBUG: Access not validated yet, auto-validating...');
+            // Check if access section is actually visible (more reliable than isAccessValid flag)
+            const accessSection = document.getElementById('access-section');
+            const mainInterface = document.getElementById('main-interface');
+            
+            console.log('DEBUG access_code_loaded: accessSection element exists:', !!accessSection);
+            console.log('DEBUG access_code_loaded: mainInterface element exists:', !!mainInterface);
+            
+            if (accessSection) {
+              const computedStyle = window.getComputedStyle(accessSection);
+              const inlineStyle = accessSection.style.display;
+              console.log('DEBUG access_code_loaded: accessSection computed display:', computedStyle.display);
+              console.log('DEBUG access_code_loaded: accessSection inline display:', inlineStyle);
+            }
+            
+            if (mainInterface) {
+              const computedStyle = window.getComputedStyle(mainInterface);
+              const inlineStyle = mainInterface.style.display;
+              console.log('DEBUG access_code_loaded: mainInterface computed display:', computedStyle.display);
+              console.log('DEBUG access_code_loaded: mainInterface inline display:', inlineStyle);
+            }
+            
+            const accessSectionVisible = accessSection && 
+              (window.getComputedStyle(accessSection).display !== 'none' || 
+               accessSection.style.display !== 'none');
+            const mainInterfaceVisible = mainInterface && 
+              (window.getComputedStyle(mainInterface).display !== 'none' || 
+               mainInterface.style.display !== 'none');
+            
+            console.log('DEBUG access_code_loaded: accessSection visible:', accessSectionVisible);
+            console.log('DEBUG access_code_loaded: mainInterface visible:', mainInterfaceVisible);
+            
+            // If access section is visible (or main interface is not visible), we need to validate
+            if (accessSectionVisible || !mainInterfaceVisible) {
+              console.log('DEBUG access_code_loaded: DECISION: Auto-validating because access section visible or main interface hidden');
               // Set the access code in the frontend and auto-validate
               const accessCodeInput = document.getElementById('access-code');
               if (accessCodeInput) {
+                console.log('DEBUG access_code_loaded: Setting access code input value');
                 accessCodeInput.value = data.access_code;
+              } else {
+                console.log('ERROR access_code_loaded: access-code input element not found!');
               }
               accessCode = data.access_code;
+              console.log('DEBUG access_code_loaded: Calling validateAccess()...');
               // Auto-validate the access code
               validateAccess();
               return; // Don't process further, validation will handle the UI update
             } else {
-              console.log('DEBUG: Access already validated, just syncing code');
+              console.log('DEBUG access_code_loaded: DECISION: Skipping validation, just syncing (main interface already visible)');
               // Just set the access code variable and sync with backend (already validated)
               accessCode = data.access_code;
               // Send to backend to sync (but don't trigger full validation)
               if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('DEBUG access_code_loaded: Sending set_access_code to backend for sync');
                 ws.send(JSON.stringify({
                   action: 'set_access_code',
                   access_code: data.access_code
                 }));
+              } else {
+                console.log('DEBUG access_code_loaded: WebSocket not ready, cannot send set_access_code');
               }
             }
           }

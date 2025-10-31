@@ -1888,10 +1888,20 @@ start_websocket_server <- function() {
           
           # Check if access code exists and notify frontend
           tryCatch({
+            cat("DEBUG onWSOpen: Checking for access code in globalenv...\n")
+            cat("DEBUG onWSOpen: exists('current_access_code') =", exists("current_access_code", envir = .GlobalEnv), "\n")
+            if (exists("current_access_code", envir = .GlobalEnv)) {
+              cat("DEBUG onWSOpen: current_access_code is NULL =", is.null(.GlobalEnv$current_access_code), "\n")
+              if (!is.null(.GlobalEnv$current_access_code)) {
+                cat("DEBUG onWSOpen: current_access_code length =", nchar(trimws(.GlobalEnv$current_access_code)), "\n")
+              }
+            }
+            
             if (exists("current_access_code", envir = .GlobalEnv) && 
                 !is.null(.GlobalEnv$current_access_code) && 
                 nchar(trimws(.GlobalEnv$current_access_code)) > 0) {
               cat("DEBUG onWSOpen: Access code exists in globalenv, sending to frontend\n")
+              cat("DEBUG onWSOpen: Access code value:", substr(.GlobalEnv$current_access_code, 1, 4), "...\n")
               cat("DEBUG onWSOpen: Access code length:", nchar(.GlobalEnv$current_access_code), "\n")
               # Send access code to frontend so it can auto-validate and hide the access section
               access_code_message <- list(
@@ -1899,12 +1909,15 @@ start_websocket_server <- function() {
                 access_code = .GlobalEnv$current_access_code,
                 auto_validate = TRUE
               )
+              cat("DEBUG onWSOpen: Sending access_code_loaded message to frontend\n")
               ws$send(jsonlite::toJSON(access_code_message, auto_unbox = TRUE))
+              cat("DEBUG onWSOpen: Message sent successfully\n")
             } else {
-              cat("DEBUG onWSOpen: No access code found in globalenv\n")
+              cat("DEBUG onWSOpen: No access code found in globalenv (doesn't exist, is NULL, or empty)\n")
             }
           }, error = function(e) {
             cat("DEBUG onWSOpen: Error checking access code:", e$message, "\n")
+            cat("DEBUG onWSOpen: Error class:", class(e), "\n")
           })
           
           # Set up message handler
