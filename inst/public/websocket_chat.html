@@ -4756,14 +4756,19 @@ Code only. Minimal chat.`;
 
       
       function processMessageContent(messageDiv) {
-        const content = messageDiv.innerHTML;
+        let content = messageDiv.innerHTML;
+        
+        // Decode HTML entities (backticks might be encoded)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        content = tempDiv.textContent || tempDiv.innerText || content;
         
         console.log("DEBUG: Processing content for code blocks:", content.substring(0, 200) + "...");
         
         // More precise code block detection - only create blocks for actual code blocks, not inline code
         // Match code blocks with or without newline after language identifier, case-insensitive
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, ```r space, ```R space
-        const hasMarkdownCodeBlock = /```[rR](?:\{|(?:\n|\s*))[\s\S]*?```/i.test(content) || /```\{[rR]\}[\s\S]*?```/i.test(content);
+        const hasMarkdownCodeBlock = /```(?:[rR]|\{[rR]\})[\s\S]*?```/i.test(content);
         
         console.log("DEBUG: hasMarkdownCodeBlock:", hasMarkdownCodeBlock);
         // Only detect HTML code blocks that are actual blocks, not inline code
@@ -4776,7 +4781,8 @@ Code only. Minimal chat.`;
           
           // Split by markdown code blocks - handles both with and without newline after r/R
           // This regex matches: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n followed by content and closing ```
-          let parts = content.split(/(```(?:[rR]|(?:\{[rR]\}))(?:\n|\s*)?[\s\S]*?```)/gi);
+          // Match: ``` followed by r/R or {r}/{R}, optionally followed by newline or whitespace, then content, then closing ```
+          let parts = content.split(/(```(?:[rR]|\{[rR]\})(?:\n|\s)*[\s\S]*?```)/gi);
           
           // If no markdown blocks found, try HTML code blocks
           if (parts.length === 1) {
