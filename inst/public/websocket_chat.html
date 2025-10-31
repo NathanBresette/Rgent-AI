@@ -53,9 +53,9 @@
       }
       
       .tab-btn:hover {
-        background-color: var(--text-secondary);
-        color: var(--bg-primary);
-        border-color: var(--text-secondary);
+        background-color: var(--text-secondary) !important;
+        color: var(--bg-primary) !important;
+        border-color: var(--text-secondary) !important;
       }
       
       .tab-content {
@@ -390,14 +390,26 @@
       button { 
         padding: 8px 16px; 
         background-color: var(--rgent-primary); 
-        color: white; 
+        color: white !important; 
         border: none; 
         border-radius: 4px; 
         cursor: pointer; 
         transition: all 0.3s ease;
       }
       button:hover {
-        background-color: var(--rgent-accent);
+        background-color: var(--rgent-accent) !important;
+        color: white !important;
+      }
+      
+      /* Ensure buttons in tab content are not affected by tab hover */
+      .tab-content button {
+        background-color: var(--rgent-primary) !important;
+        color: white !important;
+      }
+      
+      .tab-content button:hover {
+        background-color: var(--rgent-accent) !important;
+        color: white !important;
       }
 
       
