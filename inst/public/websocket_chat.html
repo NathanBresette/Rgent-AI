@@ -3693,14 +3693,31 @@
           
           // Handle access_code_loaded message (when R backend has saved access code)
           if (data.action === 'access_code_loaded' && data.access_code) {
-            console.log('DEBUG: Received access_code_loaded, auto-validating...');
-            console.log('DEBUG: Access code length:', data.access_code.length);
-            // Set the access code in the frontend and auto-validate
-            document.getElementById('access-code').value = data.access_code;
-            accessCode = data.access_code;
-            // Auto-validate the access code
-            validateAccess();
-            return; // Don't process further, validation will handle the UI update
+            console.log('DEBUG: Received access_code_loaded, access code length:', data.access_code.length);
+            // Check if access section is visible (user hasn't validated yet)
+            const accessSection = document.getElementById('access-section');
+            const mainInterface = document.getElementById('main-interface');
+            
+            if (accessSection && accessSection.style.display !== 'none') {
+              console.log('DEBUG: Access section is visible, auto-validating...');
+              // Set the access code in the frontend and auto-validate
+              document.getElementById('access-code').value = data.access_code;
+              accessCode = data.access_code;
+              // Auto-validate the access code
+              validateAccess();
+              return; // Don't process further, validation will handle the UI update
+            } else {
+              console.log('DEBUG: Access section already hidden, skipping auto-validation');
+              // Just set the access code variable but don't validate again
+              accessCode = data.access_code;
+              // Send to backend to sync (but don't trigger full validation)
+              if (ws && ws.readyState === WebSocket.OPEN && !isAccessValid) {
+                ws.send(JSON.stringify({
+                  action: 'set_access_code',
+                  access_code: data.access_code
+                }));
+              }
+            }
           }
           
           // FIXED: Add debugging for transformation agent messages

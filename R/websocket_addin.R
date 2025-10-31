@@ -110,10 +110,23 @@ save_access_code_to_disk <- function(code) {
       dir.create(code_dir, recursive = TRUE, showWarnings = FALSE)
     }
     
-    # Write access code to file
+    # Write access code to file (writeLines handles file connection internally)
     writeLines(code, code_path)
     cat("DEBUG save_access_code_to_disk: Successfully saved access code to:", code_path, "\n")
-    cat("DEBUG save_access_code_to_disk: File exists:", file.exists(code_path), "\n")
+    # Verify file was written
+    if (file.exists(code_path)) {
+      file_info <- file.info(code_path)
+      cat("DEBUG save_access_code_to_disk: File exists, size:", file_info$size, "bytes\n")
+      # Verify contents match
+      verify_code <- readLines(code_path, warn = FALSE)
+      if (length(verify_code) > 0 && trimws(verify_code[1]) == trimws(code)) {
+        cat("DEBUG save_access_code_to_disk: File contents verified successfully\n")
+      } else {
+        cat("WARNING save_access_code_to_disk: File contents do not match!\n")
+      }
+    } else {
+      cat("WARNING save_access_code_to_disk: File does not exist after write!\n")
+    }
     return(invisible(TRUE))
   }, error = function(e) {
     cat("ERROR save_access_code_to_disk: Could not save access code to disk:", e$message, "\n")
@@ -126,7 +139,12 @@ load_access_code_from_disk <- function() {
   cat("DEBUG load_access_code_from_disk: Starting\n")
   tryCatch({
     code_path <- get_access_code_path()
+    code_dir <- dirname(code_path)
     cat("DEBUG load_access_code_from_disk: Checking path:", code_path, "\n")
+    cat("DEBUG load_access_code_from_disk: Directory exists:", dir.exists(code_dir), "\n")
+    if (dir.exists(code_dir)) {
+      cat("DEBUG load_access_code_from_disk: Files in directory:", paste(list.files(code_dir), collapse = ", "), "\n")
+    }
     cat("DEBUG load_access_code_from_disk: File exists:", file.exists(code_path), "\n")
     
     if (!file.exists(code_path)) {
@@ -299,12 +317,19 @@ start_websocket_server <- function() {
       response <- switch(request$action,
         "set_access_code" = {
           cat("DEBUG set_access_code handler: Received access code, length =", if(is.null(request$access_code)) "NULL" else nchar(request$access_code), "\n")
-          # Store access code from frontend in globalenv (for current session)
-          .GlobalEnv$current_access_code <- request$access_code
-          cat("DEBUG set_access_code handler: Stored in globalenv, exists:", exists("current_access_code", envir = .GlobalEnv), "\n")
-          # Also save to disk for persistence across sessions
-          save_result <- save_access_code_to_disk(request$access_code)
-          cat("DEBUG set_access_code handler: Save to disk result:", if(is.null(save_result)) "NULL" else save_result, "\n")
+          
+          # Check if access code is different from what's already stored
+          current_code <- if(exists("current_access_code", envir = .GlobalEnv)) .GlobalEnv$current_access_code else NULL
+          if (!is.null(current_code) && current_code == request$access_code) {
+            cat("DEBUG set_access_code handler: Access code unchanged, skipping save\n")
+          } else {
+            # Store access code from frontend in globalenv (for current session)
+            .GlobalEnv$current_access_code <- request$access_code
+            cat("DEBUG set_access_code handler: Stored in globalenv, exists:", exists("current_access_code", envir = .GlobalEnv), "\n")
+            # Also save to disk for persistence across sessions
+            save_result <- save_access_code_to_disk(request$access_code)
+            cat("DEBUG set_access_code handler: Save to disk result:", if(is.null(save_result)) "NULL" else save_result, "\n")
+          }
           list(action = "access_code_set", status = "success")
         },
         "get_context" = {
