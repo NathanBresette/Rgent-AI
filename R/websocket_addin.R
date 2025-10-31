@@ -218,14 +218,15 @@ auto_start_rgent <- function() {
     
     cat("DEBUG auto_start_rgent: RStudio API is available\n")
     
-    # Check if WebSocket server is already running
-    if (exists("websocket_server", envir = .GlobalEnv) && !is.null(.GlobalEnv$websocket_server)) {
-      cat("DEBUG auto_start_rgent: WebSocket server already running\n")
-      return(invisible(FALSE))
-    }
+    # Note: We don't check if websocket_server variable exists because:
+    # 1. The variable might exist in .RData but server isn't actually running
+    # 2. run_rgent() -> start_websocket_server() already handles stopping any existing server
+    # 3. It's safe to call run_rgent() even if server appears to exist
     
     cat("DEBUG auto_start_rgent: All conditions met, starting Rgent...\n")
+    cat("DEBUG auto_start_rgent: (start_websocket_server() will stop any existing stale server)\n")
     # All conditions met, start Rgent
+    # Note: start_websocket_server() stops any existing server before starting new one
     run_rgent()
     cat("DEBUG auto_start_rgent: Rgent started successfully\n")
     return(invisible(TRUE))
