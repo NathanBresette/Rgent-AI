@@ -76,97 +76,59 @@ get_access_code_path <- function() {
     if (!dir.exists(config_dir)) {
       dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
     }
-    code_path <- file.path(config_dir, "access_code.txt")
-    cat("DEBUG: Using R config directory for access code:", code_path, "\n")
-    return(code_path)
+    return(file.path(config_dir, "access_code.txt"))
   } else {
     # Fallback for older R versions
     fallback_dir <- path.expand("~/.rstudioai")
     if (!dir.exists(fallback_dir)) {
       dir.create(fallback_dir, recursive = TRUE, showWarnings = FALSE)
     }
-    code_path <- file.path(fallback_dir, "access_code.txt")
-    cat("DEBUG: Using fallback directory for access code:", code_path, "\n")
-    return(code_path)
+    return(file.path(fallback_dir, "access_code.txt"))
   }
 }
 
 # Save access code to disk for persistence across sessions
 save_access_code_to_disk <- function(code) {
-  cat("DEBUG save_access_code_to_disk: Starting, code length =", if(is.null(code)) "NULL" else nchar(code), "\n")
   tryCatch({
     if (is.null(code) || length(code) == 0 || nchar(trimws(code)) == 0) {
-      cat("DEBUG save_access_code_to_disk: Code is empty, not saving\n")
       return(invisible(FALSE))
     }
     
     code_path <- get_access_code_path()
-    cat("DEBUG save_access_code_to_disk: Saving to path:", code_path, "\n")
     
     # Create directory if it doesn't exist (in case fallback is used)
     code_dir <- dirname(code_path)
     if (!dir.exists(code_dir)) {
-      cat("DEBUG save_access_code_to_disk: Creating directory:", code_dir, "\n")
       dir.create(code_dir, recursive = TRUE, showWarnings = FALSE)
     }
     
     # Write access code to file (writeLines handles file connection internally)
     writeLines(code, code_path)
-    cat("DEBUG save_access_code_to_disk: Successfully saved access code to:", code_path, "\n")
-    # Verify file was written
-    if (file.exists(code_path)) {
-      file_info <- file.info(code_path)
-      cat("DEBUG save_access_code_to_disk: File exists, size:", file_info$size, "bytes\n")
-      # Verify contents match
-      verify_code <- readLines(code_path, warn = FALSE)
-      if (length(verify_code) > 0 && trimws(verify_code[1]) == trimws(code)) {
-        cat("DEBUG save_access_code_to_disk: File contents verified successfully\n")
-      } else {
-        cat("WARNING save_access_code_to_disk: File contents do not match!\n")
-      }
-    } else {
-      cat("WARNING save_access_code_to_disk: File does not exist after write!\n")
-    }
     return(invisible(TRUE))
   }, error = function(e) {
-    cat("ERROR save_access_code_to_disk: Could not save access code to disk:", e$message, "\n")
     return(invisible(FALSE))
   })
 }
 
 # Load access code from disk if it exists
 load_access_code_from_disk <- function() {
-  cat("DEBUG load_access_code_from_disk: Starting\n")
   tryCatch({
     code_path <- get_access_code_path()
-    code_dir <- dirname(code_path)
-    cat("DEBUG load_access_code_from_disk: Checking path:", code_path, "\n")
-    cat("DEBUG load_access_code_from_disk: Directory exists:", dir.exists(code_dir), "\n")
-    if (dir.exists(code_dir)) {
-      cat("DEBUG load_access_code_from_disk: Files in directory:", paste(list.files(code_dir), collapse = ", "), "\n")
-    }
-    cat("DEBUG load_access_code_from_disk: File exists:", file.exists(code_path), "\n")
     
     if (!file.exists(code_path)) {
-      cat("DEBUG load_access_code_from_disk: File does not exist, returning NULL\n")
       return(NULL)
     }
     
     # Read the access code from file
     code <- readLines(code_path, warn = FALSE)
-    cat("DEBUG load_access_code_from_disk: Read", length(code), "line(s) from file\n")
     
     # Return NULL if file is empty or code is invalid
     if (length(code) == 0 || nchar(trimws(code[1])) == 0) {
-      cat("DEBUG load_access_code_from_disk: File is empty or invalid, returning NULL\n")
       return(NULL)
     }
     
-    loaded_code <- trimws(code[1])
-    cat("DEBUG load_access_code_from_disk: Successfully loaded access code (length =", nchar(loaded_code), ")\n")
-    return(loaded_code)
+    return(trimws(code[1]))
   }, error = function(e) {
-    cat("ERROR load_access_code_from_disk: Failed to load:", e$message, "\n")
     return(NULL)
   })
 }
@@ -194,19 +156,9 @@ run_rgent <- function() {
   }
   
   # Load access code from disk if available (persistent across sessions)
-  cat("DEBUG run_rgent: Checking for saved access code...\n")
   saved_access_code <- load_access_code_from_disk()
   if (!is.null(saved_access_code)) {
     .GlobalEnv$current_access_code <- saved_access_code
-    cat("DEBUG run_rgent: Loaded access code from disk and set in globalenv\n")
-    cat("DEBUG run_rgent: Access code in globalenv exists:", exists("current_access_code", envir = .GlobalEnv), "\n")
-    cat("DEBUG run_rgent: Access code length:", nchar(.GlobalEnv$current_access_code), "\n")
-  } else {
-    cat("DEBUG run_rgent: No saved access code found on disk\n")
-    cat("DEBUG run_rgent: Access code in globalenv exists:", exists("current_access_code", envir = .GlobalEnv), "\n")
-    if (exists("current_access_code", envir = .GlobalEnv)) {
-      cat("DEBUG run_rgent: Using existing globalenv access code (length =", nchar(.GlobalEnv$current_access_code), ")\n")
-    }
   }
   
   # Initialize auto-capture system
@@ -316,19 +268,13 @@ start_websocket_server <- function() {
       # Handle different actions
       response <- switch(request$action,
         "set_access_code" = {
-          cat("DEBUG set_access_code handler: Received access code, length =", if(is.null(request$access_code)) "NULL" else nchar(request$access_code), "\n")
-          
           # Check if access code is different from what's already stored
           current_code <- if(exists("current_access_code", envir = .GlobalEnv)) .GlobalEnv$current_access_code else NULL
-          if (!is.null(current_code) && current_code == request$access_code) {
-            cat("DEBUG set_access_code handler: Access code unchanged, skipping save\n")
-          } else {
+          if (is.null(current_code) || current_code != request$access_code) {
             # Store access code from frontend in globalenv (for current session)
             .GlobalEnv$current_access_code <- request$access_code
-            cat("DEBUG set_access_code handler: Stored in globalenv, exists:", exists("current_access_code", envir = .GlobalEnv), "\n")
             # Also save to disk for persistence across sessions
-            save_result <- save_access_code_to_disk(request$access_code)
-            cat("DEBUG set_access_code handler: Save to disk result:", if(is.null(save_result)) "NULL" else save_result, "\n")
+            save_access_code_to_disk(request$access_code)
           }
           list(action = "access_code_set", status = "success")
         },
@@ -1868,8 +1814,6 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
-          cat("DEBUG onWSOpen: WebSocket connection opened\n")
-          
           # Send theme information immediately upon connection
           tryCatch({
             theme_info <- get_rstudio_theme()
@@ -1888,36 +1832,19 @@ start_websocket_server <- function() {
           
           # Check if access code exists and notify frontend
           tryCatch({
-            cat("DEBUG onWSOpen: Checking for access code in globalenv...\n")
-            cat("DEBUG onWSOpen: exists('current_access_code') =", exists("current_access_code", envir = .GlobalEnv), "\n")
-            if (exists("current_access_code", envir = .GlobalEnv)) {
-              cat("DEBUG onWSOpen: current_access_code is NULL =", is.null(.GlobalEnv$current_access_code), "\n")
-              if (!is.null(.GlobalEnv$current_access_code)) {
-                cat("DEBUG onWSOpen: current_access_code length =", nchar(trimws(.GlobalEnv$current_access_code)), "\n")
-              }
-            }
-            
             if (exists("current_access_code", envir = .GlobalEnv) && 
                 !is.null(.GlobalEnv$current_access_code) && 
                 nchar(trimws(.GlobalEnv$current_access_code)) > 0) {
-              cat("DEBUG onWSOpen: Access code exists in globalenv, sending to frontend\n")
-              cat("DEBUG onWSOpen: Access code value:", substr(.GlobalEnv$current_access_code, 1, 4), "...\n")
-              cat("DEBUG onWSOpen: Access code length:", nchar(.GlobalEnv$current_access_code), "\n")
               # Send access code to frontend so it can auto-validate and hide the access section
               access_code_message <- list(
                 action = "access_code_loaded",
                 access_code = .GlobalEnv$current_access_code,
                 auto_validate = TRUE
               )
-              cat("DEBUG onWSOpen: Sending access_code_loaded message to frontend\n")
               ws$send(jsonlite::toJSON(access_code_message, auto_unbox = TRUE))
-              cat("DEBUG onWSOpen: Message sent successfully\n")
-            } else {
-              cat("DEBUG onWSOpen: No access code found in globalenv (doesn't exist, is NULL, or empty)\n")
             }
           }, error = function(e) {
-            cat("DEBUG onWSOpen: Error checking access code:", e$message, "\n")
-            cat("DEBUG onWSOpen: Error class:", class(e), "\n")
+            # Silently handle errors
           })
           
           # Set up message handler
@@ -1939,7 +1866,6 @@ start_websocket_server <- function() {
           8889,
           list(
             onWSOpen = function(ws) {
-              cat("DEBUG onWSOpen (port 8889): WebSocket connection opened\n")
               tryCatch({
                 theme_info <- get_rstudio_theme()
                 theme_message <- list(
@@ -1953,7 +1879,6 @@ start_websocket_server <- function() {
                 if (exists("current_access_code", envir = .GlobalEnv) && 
                     !is.null(.GlobalEnv$current_access_code) && 
                     nchar(trimws(.GlobalEnv$current_access_code)) > 0) {
-                  cat("DEBUG onWSOpen (port 8889): Access code exists, sending to frontend\n")
                   access_code_message <- list(
                     action = "access_code_loaded",
                     access_code = .GlobalEnv$current_access_code,
