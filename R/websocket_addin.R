@@ -1653,7 +1653,26 @@ start_websocket_server <- function() {
           response$data$code <- response$data$code
         }
         
-        response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+        # Special handling for dataframes action to ensure data serializes as JSON array
+        if (response$action == "dataframes") {
+          # Ensure data is always a proper array structure
+          if (is.null(response$data)) {
+            response$data <- character(0)
+          }
+          # Ensure it's a character vector
+          if (!is.character(response$data)) {
+            response$data <- as.character(response$data)
+          }
+          # Debug logging
+          cat("DEBUG dataframes response: type =", typeof(response$data), ", class =", class(response$data), ", length =", length(response$data), "\n")
+          if (length(response$data) > 0) {
+            cat("DEBUG dataframes response: first few =", paste(head(response$data, 3), collapse = ", "), "\n")
+          }
+          # For dataframes, use auto_unbox = FALSE to ensure array structure
+          response_json <- jsonlite::toJSON(response, auto_unbox = FALSE, escape_double = FALSE)
+        } else {
+          response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+        }
         # Check if response is too large (WebSocket has size limits)
         if (nchar(response_json) > 100000) {  # 100KB limit
           cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
