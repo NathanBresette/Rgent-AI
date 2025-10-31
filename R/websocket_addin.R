@@ -270,19 +270,24 @@ setup_rprofile_auto_start <- function() {
     }
     
     # Create or append to .Rprofile
-    # The .Rprofile code will try to start Rgent after loading and also set up .First() as backup
+    # Use .First() to run after R initialization, plus set up a callback that fires on any command
     auto_start_lines <- c(
       "",
       "# Auto-start Rgent when RStudio opens",
       "if (interactive() && requireNamespace(\"rstudioai\", quietly = TRUE)) {",
       "  library(rstudioai)",
-      "  # Try to start immediately if RStudio is ready",
-      "  if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
-      "    tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "  # Set up persistent callback that will fire on next command execution",
+      "  .rgent_startup_callback <- function(expr, value, ok, visible) {",
+      "    if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
+      "      tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "      tryCatch(removeTaskCallback(\".rgent_startup\"), error = function(e) NULL)",
+      "      return(FALSE)",
+      "    }",
+      "    return(TRUE)",
       "  }",
-      "  # Also set up .First() as backup (runs after R finishes initializing)",
-      "  # Preserve any existing .First() function",
-      "  if (exists(\".First\", envir = .GlobalEnv, inherits = FALSE)) {",
+      "  addTaskCallback(.rgent_startup_callback, name = \".rgent_startup\")",
+      "  # Also set up .First() to run after R initialization (preserves any existing .First)",
+      "  if (exists(\".First\", envir = .GlobalEnv, inherits = FALSE) && is.function(.First)) {",
       "    .First_original <- .First",
       "    .First <- function() {",
       "      .First_original()",
@@ -296,6 +301,10 @@ setup_rprofile_auto_start <- function() {
       "        tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
       "      }",
       "    }",
+      "  }",
+      "  # Try immediately if RStudio is already ready",
+      "  if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
+      "    tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
       "  }",
       "}"
     )
