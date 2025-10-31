@@ -202,23 +202,35 @@ launch_websocket_chat <- run_rgent
 #' @return Invisibly returns TRUE if started, FALSE otherwise
 #' @export
 auto_start_rgent <- function() {
+  cat("DEBUG auto_start_rgent: Function called\n")
   tryCatch({
     # Check if RStudio API is available
-    if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
+    cat("DEBUG auto_start_rgent: Checking RStudio API...\n")
+    if (!requireNamespace("rstudioapi", quietly = TRUE)) {
+      cat("DEBUG auto_start_rgent: rstudioapi package not available\n")
       return(invisible(FALSE))
     }
+    
+    if (!rstudioapi::isAvailable()) {
+      cat("DEBUG auto_start_rgent: RStudio API not available\n")
+      return(invisible(FALSE))
+    }
+    
+    cat("DEBUG auto_start_rgent: RStudio API is available\n")
     
     # Check if WebSocket server is already running
     if (exists("websocket_server", envir = .GlobalEnv) && !is.null(.GlobalEnv$websocket_server)) {
-      # Server already running, don't start again
+      cat("DEBUG auto_start_rgent: WebSocket server already running\n")
       return(invisible(FALSE))
     }
     
+    cat("DEBUG auto_start_rgent: All conditions met, starting Rgent...\n")
     # All conditions met, start Rgent
     run_rgent()
+    cat("DEBUG auto_start_rgent: Rgent started successfully\n")
     return(invisible(TRUE))
   }, error = function(e) {
-    # Silently fail - don't break package loading
+    cat("DEBUG auto_start_rgent: Error occurred:", e$message, "\n")
     return(invisible(FALSE))
   })
 }
@@ -231,21 +243,29 @@ auto_start_rgent <- function() {
 #' @return Invisibly returns TRUE if setup was successful or already exists, FALSE otherwise
 #' @export
 setup_rprofile_auto_start <- function() {
+  cat("DEBUG setup_rprofile_auto_start: Function called\n")
   tryCatch({
     # Get path to user's .Rprofile
     rprofile_path <- path.expand("~/.Rprofile")
+    cat("DEBUG setup_rprofile_auto_start: Checking .Rprofile at:", rprofile_path, "\n")
     
     # Check if auto-start code is already present
     if (file.exists(rprofile_path)) {
+      cat("DEBUG setup_rprofile_auto_start: .Rprofile exists\n")
       rprofile_content <- readLines(rprofile_path, warn = FALSE)
+      cat("DEBUG setup_rprofile_auto_start: .Rprofile has", length(rprofile_content), "lines\n")
       # Check if rstudioai library loading is already present
       # Look for library(rstudioai) or require(rstudioai) with our comment
       has_rstudioai <- any(grepl("library\\(rstudioai\\)|require\\(rstudioai\\)", rprofile_content, ignore.case = TRUE))
       has_comment <- any(grepl("Auto-start Rgent when RStudio opens", rprofile_content, fixed = TRUE))
+      cat("DEBUG setup_rprofile_auto_start: has_rstudioai =", has_rstudioai, ", has_comment =", has_comment, "\n")
       if (has_rstudioai && has_comment) {
+        cat("DEBUG setup_rprofile_auto_start: Already set up, skipping\n")
         return(invisible(TRUE))  # Already set up
       }
       # If old version exists without the comment, we'll add the new version below
+    } else {
+      cat("DEBUG setup_rprofile_auto_start: .Rprofile does not exist, will create\n")
     }
     
     # Create or append to .Rprofile
@@ -259,18 +279,21 @@ setup_rprofile_auto_start <- function() {
     )
     
     if (file.exists(rprofile_path)) {
+      cat("DEBUG setup_rprofile_auto_start: Appending to existing .Rprofile\n")
       # Read existing content and append
       existing_lines <- readLines(rprofile_path, warn = FALSE)
       all_lines <- c(existing_lines, auto_start_lines)
       writeLines(all_lines, con = rprofile_path)
     } else {
+      cat("DEBUG setup_rprofile_auto_start: Creating new .Rprofile\n")
       # Create new file
       writeLines(auto_start_lines, con = rprofile_path)
     }
     
+    cat("DEBUG setup_rprofile_auto_start: Successfully set up .Rprofile\n")
     return(invisible(TRUE))
   }, error = function(e) {
-    # Silently fail - don't break package loading
+    cat("DEBUG setup_rprofile_auto_start: Error occurred:", e$message, "\n")
     return(invisible(FALSE))
   })
 }
@@ -5627,29 +5650,53 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 
 #' Package onLoad hook - automatically sets up and starts Rgent
 .onLoad <- function(libname, pkgname) {
+  cat("DEBUG .onLoad: Package loading, libname =", libname, ", pkgname =", pkgname, "\n")
+  cat("DEBUG .onLoad: interactive() =", interactive(), "\n")
   tryCatch({
     # Set up .Rprofile for future auto-start (one-time setup)
+    cat("DEBUG .onLoad: Calling setup_rprofile_auto_start()...\n")
     setup_rprofile_auto_start()
     
     # Auto-start Rgent if in RStudio, with a small delay to ensure RStudio is ready
-    if (interactive() && requireNamespace("rstudioapi", quietly = TRUE)) {
-      # Use a task callback to delay the start slightly
-      start_callback <- function(expr, value, ok, visible) {
-        tryCatch({
-          if (rstudioapi::isAvailable()) {
-            auto_start_rgent()
+    if (interactive()) {
+      cat("DEBUG .onLoad: Session is interactive, checking for rstudioapi...\n")
+      if (requireNamespace("rstudioapi", quietly = TRUE)) {
+        cat("DEBUG .onLoad: rstudioapi available, checking if RStudio is available...\n")
+        if (rstudioapi::isAvailable()) {
+          cat("DEBUG .onLoad: RStudio is available, setting up task callback for auto-start...\n")
+          # Use a task callback to delay the start slightly
+          start_callback <- function(expr, value, ok, visible) {
+            cat("DEBUG .onLoad task callback: Executing, checking RStudio availability...\n")
+            tryCatch({
+              if (rstudioapi::isAvailable()) {
+                cat("DEBUG .onLoad task callback: RStudio available, calling auto_start_rgent()...\n")
+                auto_start_rgent()
+              } else {
+                cat("DEBUG .onLoad task callback: RStudio not available\n")
+              }
+            }, error = function(e) {
+              cat("DEBUG .onLoad task callback: Error:", e$message, "\n")
+            })
+            # Only run once
+            removeTaskCallback("rgent_auto_start")
+            cat("DEBUG .onLoad task callback: Removed callback, returning FALSE\n")
+            return(FALSE)
           }
-        }, error = function(e) {
-          # Silently fail
-        })
-        # Only run once
-        removeTaskCallback("rgent_auto_start")
-        return(FALSE)
+          addTaskCallback(start_callback, name = "rgent_auto_start")
+          cat("DEBUG .onLoad: Task callback added\n")
+        } else {
+          cat("DEBUG .onLoad: RStudio API not available\n")
+        }
+      } else {
+        cat("DEBUG .onLoad: rstudioapi package not available\n")
       }
-      addTaskCallback(start_callback, name = "rgent_auto_start")
+    } else {
+      cat("DEBUG .onLoad: Session is not interactive, skipping auto-start\n")
     }
   }, error = function(e) {
-    # Silently fail - don't break package loading
+    cat("DEBUG .onLoad: Error occurred:", e$message, "\n")
+    cat("DEBUG .onLoad: Error stack trace:", toString(e), "\n")
     invisible(NULL)
   })
+  cat("DEBUG .onLoad: Finished\n")
 }
