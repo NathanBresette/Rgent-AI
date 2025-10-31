@@ -3811,6 +3811,13 @@
               accessCodeInput.value = data.access_code;
             }
             accessCode = data.access_code;
+            
+            // Show message that access code was found from past session
+            const accessSection = document.getElementById('access-section');
+            if (accessSection && window.getComputedStyle(accessSection).display !== 'none') {
+              showAccessStatus('✓ Access code found from past session. Click "Validate Access" to continue or enter a new code.', 'info');
+            }
+            
             // If already validated, sync with backend but don't re-validate
             if (isAccessValid && ws && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({
