@@ -194,6 +194,83 @@ run_rgent <- function() {
 #' @export
 launch_websocket_chat <- run_rgent
 
+#' Auto-start Rgent if conditions are met
+#' 
+#' Checks if RStudio is available and WebSocket server isn't already running,
+#' then starts Rgent automatically.
+#' 
+#' @return Invisibly returns TRUE if started, FALSE otherwise
+#' @export
+auto_start_rgent <- function() {
+  tryCatch({
+    # Check if RStudio API is available
+    if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
+      return(invisible(FALSE))
+    }
+    
+    # Check if WebSocket server is already running
+    if (exists("websocket_server", envir = .GlobalEnv) && !is.null(.GlobalEnv$websocket_server)) {
+      # Server already running, don't start again
+      return(invisible(FALSE))
+    }
+    
+    # All conditions met, start Rgent
+    run_rgent()
+    return(invisible(TRUE))
+  }, error = function(e) {
+    # Silently fail - don't break package loading
+    return(invisible(FALSE))
+  })
+}
+
+#' Set up .Rprofile for automatic Rgent startup
+#' 
+#' Adds library(rstudioai) to the user's .Rprofile so Rgent auto-starts
+#' when RStudio opens. Only adds if not already present.
+#' 
+#' @return Invisibly returns TRUE if setup was successful or already exists, FALSE otherwise
+#' @export
+setup_rprofile_auto_start <- function() {
+  tryCatch({
+    # Get path to user's .Rprofile
+    rprofile_path <- path.expand("~/.Rprofile")
+    
+    # Check if auto-start code is already present
+    if (file.exists(rprofile_path)) {
+      rprofile_content <- readLines(rprofile_path, warn = FALSE)
+      # Check if rstudioai is already being loaded
+      has_rstudioai <- any(grepl("library\\(rstudioai\\)|require\\(rstudioai\\)|rstudioai::", rprofile_content, ignore.case = TRUE))
+      if (has_rstudioai) {
+        return(invisible(TRUE))  # Already set up
+      }
+    }
+    
+    # Create or append to .Rprofile
+    auto_start_lines <- c(
+      "",
+      "# Auto-start Rgent when RStudio opens",
+      "if (requireNamespace(\"rstudioai\", quietly = TRUE)) {",
+      "  library(rstudioai)",
+      "}"
+    )
+    
+    if (file.exists(rprofile_path)) {
+      # Read existing content and append
+      existing_lines <- readLines(rprofile_path, warn = FALSE)
+      all_lines <- c(existing_lines, auto_start_lines)
+      writeLines(all_lines, con = rprofile_path)
+    } else {
+      # Create new file
+      writeLines(auto_start_lines, con = rprofile_path)
+    }
+    
+    return(invisible(TRUE))
+  }, error = function(e) {
+    # Silently fail - don't break package loading
+    return(invisible(FALSE))
+  })
+}
+
 #' Get RStudio theme information
 #' @return List containing theme information
 #' @export
@@ -5541,5 +5618,19 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       line_number = start_line,
       found = TRUE
     ))
+  })
+}
+
+#' Package onLoad hook - automatically sets up and starts Rgent
+.onLoad <- function(libname, pkgname) {
+  tryCatch({
+    # Set up .Rprofile for future auto-start (one-time setup)
+    setup_rprofile_auto_start()
+    
+    # Auto-start Rgent immediately if in RStudio
+    auto_start_rgent()
+  }, error = function(e) {
+    # Silently fail - don't break package loading
+    invisible(NULL)
   })
 }
