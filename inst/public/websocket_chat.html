@@ -64,6 +64,21 @@
         border-color: var(--text-secondary) !important;
       }
       
+      /* Ensure tab button text color never changes on hover - explicitly override any other rules */
+      button.tab-btn.active {
+        color: var(--bg-primary) !important;
+      }
+      button.tab-btn.active:hover {
+        color: var(--bg-primary) !important;
+      }
+      
+      button.tab-btn:not(.active) {
+        color: var(--text-primary) !important;
+      }
+      button.tab-btn:not(.active):hover {
+        color: var(--text-primary) !important;
+      }
+      
       .tab-content {
         display: none;
       }
