@@ -255,16 +255,18 @@ setup_rprofile_auto_start <- function() {
       cat("DEBUG setup_rprofile_auto_start: .Rprofile exists\n")
       rprofile_content <- readLines(rprofile_path, warn = FALSE)
       cat("DEBUG setup_rprofile_auto_start: .Rprofile has", length(rprofile_content), "lines\n")
-      # Check if rstudioai library loading is already present
-      # Look for library(rstudioai) or require(rstudioai) with our comment
+      # Check if enhanced version is already present
       has_rstudioai <- any(grepl("library\\(rstudioai\\)|require\\(rstudioai\\)", rprofile_content, ignore.case = TRUE))
       has_comment <- any(grepl("Auto-start Rgent when RStudio opens", rprofile_content, fixed = TRUE))
-      cat("DEBUG setup_rprofile_auto_start: has_rstudioai =", has_rstudioai, ", has_comment =", has_comment, "\n")
-      if (has_rstudioai && has_comment) {
-        cat("DEBUG setup_rprofile_auto_start: Already set up, skipping\n")
-        return(invisible(TRUE))  # Already set up
+      has_first <- any(grepl("\\.First", rprofile_content, ignore.case = TRUE))
+      has_callbacks <- any(grepl("addTaskCallback.*rgent|rgent_startup", rprofile_content))
+      cat("DEBUG setup_rprofile_auto_start: has_rstudioai =", has_rstudioai, ", has_comment =", has_comment, ", has_first =", has_first, ", has_callbacks =", has_callbacks, "\n")
+      # If it has our comment AND has .First() or callbacks, consider it the new version
+      if (has_comment && has_rstudioai && (has_first || has_callbacks)) {
+        cat("DEBUG setup_rprofile_auto_start: Already set up with enhanced version, skipping\n")
+        return(invisible(TRUE))  # Already set up with enhanced version
       }
-      # If old version exists without the comment, we'll add the new version below
+      # If old version exists, we'll replace/add the new version below
     } else {
       cat("DEBUG setup_rprofile_auto_start: .Rprofile does not exist, will create\n")
     }
@@ -286,19 +288,30 @@ setup_rprofile_auto_start <- function() {
       "    return(TRUE)",
       "  }",
       "  addTaskCallback(.rgent_startup_callback, name = \".rgent_startup\")",
-      "  # Also set up .First() to run after R initialization (preserves any existing .First)",
+      "  # Set up .First() to run after R initialization (preserves any existing .First)",
       "  if (exists(\".First\", envir = .GlobalEnv, inherits = FALSE) && is.function(.First)) {",
       "    .First_original <- .First",
       "    .First <- function() {",
       "      .First_original()",
+      "      # .First() runs after R initialization - check if RStudio is ready now",
       "      if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
       "        tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "      } else {",
+      "        # RStudio not ready yet - trigger callback by executing a dummy command",
+      "        tryCatch({",
+      "          invisible(1 + 1)",
+      "        }, error = function(e) NULL)",
       "      }",
       "    }",
       "  } else {",
       "    .First <- function() {",
       "      if (requireNamespace(\"rstudioapi\", quietly = TRUE) && rstudioapi::isAvailable()) {",
       "        tryCatch(rstudioai::auto_start_rgent(), error = function(e) NULL)",
+      "      } else {",
+      "        # RStudio not ready yet - trigger callback by executing a dummy command",
+      "        tryCatch({",
+      "          invisible(1 + 1)",
+      "        }, error = function(e) NULL)",
       "      }",
       "    }",
       "  }",
