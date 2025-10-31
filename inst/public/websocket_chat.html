@@ -138,6 +138,10 @@
         border-radius: 4px !important;
         cursor: pointer !important;
       }
+      .debug-button:hover {
+        background-color: #c82333 !important;
+        color: white !important;
+      }
       
       .analyze-button {
         background-color: #805ad5 !important;
@@ -393,7 +397,8 @@
         background-color: var(--input-bg);
         color: var(--text-primary);
       }
-      button { 
+      /* General button styling - exclude buttons with specific classes */
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button) { 
         padding: 8px 16px; 
         background-color: var(--rgent-primary); 
         color: white !important; 
@@ -402,18 +407,32 @@
         cursor: pointer; 
         transition: all 0.3s ease;
       }
-      /* Exclude specific button classes from general button styling */
       button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
       }
       
-      /* Apply general hover only to buttons without specific classes */
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button) {
-        background-color: var(--rgent-primary); 
+      /* Ensure specific button classes override general button rule (higher specificity) */
+      button.debug-button {
+        background-color: #dc3545 !important;
       }
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
-        background-color: var(--rgent-accent) !important;
+      button.send-button {
+        background-color: #27ae60 !important;
+      }
+      button.analyze-button {
+        background-color: #805ad5 !important;
+      }
+      button.access-button {
+        background-color: #8e44ad !important;
+      }
+      button.copy-button {
+        background-color: #38a169 !important;
+      }
+      button.insert-button {
+        background-color: #28a745 !important;
+      }
+      button.execute-cleaning-button {
+        background-color: #27ae60 !important;
       }
       
       /* Ensure buttons in tab content are not affected by tab hover */
