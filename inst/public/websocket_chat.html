@@ -397,8 +397,8 @@
         background-color: var(--input-bg);
         color: var(--text-primary);
       }
-      /* General button styling - exclude buttons with specific classes */
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button) { 
+      /* General button styling - exclude buttons with specific classes and tab buttons */
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.tab-btn) { 
         padding: 8px 16px; 
         background-color: var(--rgent-primary); 
         color: white !important; 
@@ -407,7 +407,7 @@
         cursor: pointer; 
         transition: all 0.3s ease;
       }
-      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
+      button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.tab-btn):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
       }
