@@ -3378,18 +3378,51 @@
             showAccessStatus('Access validated successfully!', 'success');
             document.getElementById('access-section').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
-            console.log('DEBUG validateAccess: Calling connectWebSocket()');
-            connectWebSocket();
+            
+            // WebSocket should already be connected (from page load), but connect if not
+            if (!isConnected && (!ws || ws.readyState !== WebSocket.OPEN)) {
+              console.log('DEBUG validateAccess: WebSocket not connected, calling connectWebSocket()');
+              connectWebSocket();
+            } else {
+              console.log('DEBUG validateAccess: WebSocket already connected, not reconnecting');
+            }
+            
+            // Enable UI elements now that access is validated
+            if (document.getElementById("user-input")) {
+              document.getElementById("user-input").disabled = false;
+            }
+            if (document.getElementById("send-button")) {
+              document.getElementById("send-button").disabled = false;
+            }
+            if (document.getElementById("new-conversation-button")) {
+              document.getElementById("new-conversation-button").disabled = false;
+            }
+            if (document.getElementById("debug-error-button")) {
+              document.getElementById("debug-error-button").disabled = false;
+            }
+            if (document.getElementById("analyze-plot-button")) {
+              document.getElementById("analyze-plot-button").disabled = false;
+            }
+            
+            // Add connection message if WebSocket is connected
+            if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+              addMessage("Connected! Ask me anything about your R code.", "ai");
+            }
             
             // Send access code to R backend once WebSocket is connected
-            setTimeout(() => {
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  action: 'set_access_code',
-                  access_code: code
-                }));
-              }
-            }, 1000);
+            // Note: We don't need to do this here because if WebSocket was already open,
+            // the R backend would have sent access_code_loaded which we handle separately
+            // Only send if WebSocket wasn't already connected
+            if (!isConnected) {
+              // WebSocket will be connected via connectWebSocket(), and R backend will send access_code_loaded
+              // So we don't need to send set_access_code here
+            } else if (ws && ws.readyState === WebSocket.OPEN) {
+              // WebSocket was already connected, send access code now
+              ws.send(JSON.stringify({
+                action: 'set_access_code',
+                access_code: code
+              }));
+            }
           } else {
             // Show the specific error message from the backend
             const errorMessage = data.detail || 'Invalid access code';
@@ -3636,6 +3669,12 @@
       
                // Connect to WebSocket
          function connectWebSocket() {
+           // Prevent duplicate connections
+           if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+             console.log('DEBUG connectWebSocket: WebSocket already connecting/connected, skipping');
+             return;
+           }
+           
            // Try port 8888 first, then 8889 if that fails
            let wsUrl;
            
@@ -3649,7 +3688,7 @@
              wsUrl = `ws://${host}:8888`;
            }
            
-           console.log("Connecting to WebSocket:", wsUrl);
+           console.log("DEBUG connectWebSocket: Connecting to WebSocket:", wsUrl);
            ws = new WebSocket(wsUrl);
            
            ws.onerror = function(event) {
@@ -3696,12 +3735,19 @@
           console.log('DEBUG ws.onopen: isAccessValid =', isAccessValid);
           console.log('DEBUG ws.onopen: accessCode =', accessCode ? accessCode.substring(0, 4) + '...' : 'not set');
           isConnected = true;
-          document.getElementById("user-input").disabled = false;
-          document.getElementById("send-button").disabled = false;
-          document.getElementById("new-conversation-button").disabled = false;
-          document.getElementById("debug-error-button").disabled = false;
-          document.getElementById("analyze-plot-button").disabled = false;
-          addMessage("Connected! Ask me anything about your R code.", "ai");
+          
+          // Only enable UI elements and show message if access is already validated
+          // (If not validated, wait for access_code_loaded to auto-validate)
+          if (isAccessValid) {
+            document.getElementById("user-input").disabled = false;
+            document.getElementById("send-button").disabled = false;
+            document.getElementById("new-conversation-button").disabled = false;
+            document.getElementById("debug-error-button").disabled = false;
+            document.getElementById("analyze-plot-button").disabled = false;
+            addMessage("Connected! Ask me anything about your R code.", "ai");
+          } else {
+            console.log('DEBUG ws.onopen: Access not validated yet, waiting for access_code_loaded message');
+          }
         };
         
         ws.onmessage = function(event) {
@@ -3748,9 +3794,10 @@
             console.log('DEBUG access_code_loaded: accessSection visible:', accessSectionVisible);
             console.log('DEBUG access_code_loaded: mainInterface visible:', mainInterfaceVisible);
             
-            // If access section is visible (or main interface is not visible), we need to validate
-            if (accessSectionVisible || !mainInterfaceVisible) {
-              console.log('DEBUG access_code_loaded: DECISION: Auto-validating because access section visible or main interface hidden');
+            // Primary check: If access hasn't been validated yet, always auto-validate
+            // This handles the case where access_code_loaded arrives before user interaction
+            if (!isAccessValid) {
+              console.log('DEBUG access_code_loaded: DECISION: Auto-validating because isAccessValid is false');
               // Set the access code in the frontend and auto-validate
               const accessCodeInput = document.getElementById('access-code');
               if (accessCodeInput) {
@@ -3764,8 +3811,18 @@
               // Auto-validate the access code
               validateAccess();
               return; // Don't process further, validation will handle the UI update
+            } else if (accessSectionVisible || !mainInterfaceVisible) {
+              // Secondary check: If access section is visible but isAccessValid is somehow true, still validate
+              console.log('DEBUG access_code_loaded: DECISION: Auto-validating because access section visible (even though isAccessValid is true)');
+              const accessCodeInput = document.getElementById('access-code');
+              if (accessCodeInput) {
+                accessCodeInput.value = data.access_code;
+              }
+              accessCode = data.access_code;
+              validateAccess();
+              return;
             } else {
-              console.log('DEBUG access_code_loaded: DECISION: Skipping validation, just syncing (main interface already visible)');
+              console.log('DEBUG access_code_loaded: DECISION: Skipping validation, just syncing (access already validated and UI updated)');
               // Just set the access code variable and sync with backend (already validated)
               accessCode = data.access_code;
               // Send to backend to sync (but don't trigger full validation)
@@ -5192,6 +5249,12 @@ Code only. Minimal chat.`;
       
       // Call early theme detection when page loads
       document.addEventListener('DOMContentLoaded', detectInitialTheme);
+      
+      // Connect to WebSocket immediately on page load to receive access_code_loaded before user interaction
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DEBUG: DOMContentLoaded - Connecting to WebSocket immediately to receive saved access code');
+        connectWebSocket();
+      });
       
       // Analyze Last Plot functionality
       function analyzeLastPlot() {
