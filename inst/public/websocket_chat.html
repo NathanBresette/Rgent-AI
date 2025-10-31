@@ -52,7 +52,13 @@
         border-color: var(--text-primary) !important;
       }
       
-      .tab-btn:hover {
+      .tab-btn:hover:not(.active) {
+        background-color: var(--text-secondary) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--text-secondary) !important;
+      }
+      
+      .tab-btn.active:hover {
         background-color: var(--text-secondary) !important;
         color: var(--bg-primary) !important;
         border-color: var(--text-secondary) !important;
