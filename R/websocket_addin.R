@@ -193,7 +193,8 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     }
     
     # Try to get latest version from GitHub
-    latest_version <- tryCatch({
+    latest_version <- NULL
+    tryCatch({
       # Try multiple possible paths for DESCRIPTION file
       possible_paths <- c(
         "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
@@ -205,28 +206,27 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       for (desc_url in possible_paths) {
         tryCatch({
           response <- httr::GET(desc_url, timeout = 5)
-          status <- tryCatch(httr::status_code(response), error = function(e) 0)
-          if (status == 200) {
+          status <- tryCatch(httr::status_code(response), error = function(e) 0L)
+          if (identical(status, 200L)) {
             desc_content <- tryCatch({
-              # Try with encoding first
               httr::content(response, as = "text")
             }, error = function(e1) {
-              # If that fails, try reading raw and converting
               tryCatch({
                 raw_content <- httr::content(response, as = "raw")
                 rawToChar(raw_content)
               }, error = function(e2) {
-                return(NULL)
+                return(character(0))
               })
             })
             
-            if (!is.null(desc_content) && is.character(desc_content) && length(desc_content) == 1 && nchar(desc_content[1]) > 0) {
-              desc_lines <- strsplit(desc_content[1], "\n", fixed = TRUE)[[1]]
+            if (is.character(desc_content) && length(desc_content) == 1L && nchar(desc_content) > 0L) {
+              desc_lines <- strsplit(desc_content, "\n", fixed = TRUE)[[1L]]
               version_line <- grep("^Version:", desc_lines, value = TRUE)
-              if (length(version_line) > 0 && is.character(version_line)) {
-                version <- trimws(gsub("Version:", "", version_line[1], fixed = TRUE))
-                if (is.character(version) && length(version) == 1 && nchar(version[1]) > 0) {
-                  return(version[1])
+              if (length(version_line) > 0L && is.character(version_line)) {
+                version <- trimws(gsub("Version:", "", version_line[1L], fixed = TRUE))
+                if (is.character(version) && length(version) == 1L && nchar(version) > 0L) {
+                  latest_version <- version
+                  break  # Found version, exit loop
                 }
               }
             }
@@ -235,15 +235,14 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
           # Try next path - silently continue
         })
       }
-      return(NULL)
     }, error = function(e) {
+      # Error getting version - latest_version stays NULL
       if (!isTRUE(quiet)) {
-        cat("⚠️  Could not check for updates:", conditionMessage(e), "\n")
+        cat("⚠️  Error fetching version from GitHub:", conditionMessage(e), "\n")
       }
-      return(NULL)
     })
     
-    if (is.null(latest_version)) {
+    if (is.null(latest_version) || !is.character(latest_version) || length(latest_version) != 1L) {
       if (!isTRUE(quiet)) {
         cat("ℹ️  Could not determine latest version. Continuing with current version.\n")
       }
@@ -254,8 +253,28 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       cat("Latest version:", latest_version, "\n")
     }
     
-    # Compare versions
-    if (compareVersion(installed_version, latest_version) >= 0) {
+    # Compare versions - ensure both are character strings
+    if (!is.character(installed_version) || length(installed_version) != 1L) {
+      if (!isTRUE(quiet)) {
+        cat("⚠️  Invalid installed version format. Skipping update check.\n")
+      }
+      return(invisible(FALSE))
+    }
+    
+    version_comparison <- tryCatch({
+      compareVersion(installed_version, latest_version)
+    }, error = function(e) {
+      if (!isTRUE(quiet)) {
+        cat("⚠️  Error comparing versions:", conditionMessage(e), "\n")
+      }
+      return(NA_integer_)
+    })
+    
+    if (is.na(version_comparison)) {
+      return(invisible(FALSE))
+    }
+    
+    if (version_comparison >= 0) {
       if (!isTRUE(quiet)) {
         cat("✅ You're running the latest version!\n")
       }
