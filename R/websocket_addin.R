@@ -197,7 +197,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     tryCatch({
       # Check DESCRIPTION file at root of repository on main branch
       possible_paths <- c(
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION"
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
       )
       
       for (desc_url in possible_paths) {
@@ -5874,7 +5874,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       }
       # Check DESCRIPTION file at root of repository on main branch
       possible_paths <- c(
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION"
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
       )
       
       latest_version <- NULL
