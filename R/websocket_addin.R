@@ -195,13 +195,9 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     # Try to get latest version from GitHub
     latest_version <- NULL
     tryCatch({
-      # Try multiple possible paths for DESCRIPTION file
-      # Check clean_package/DESCRIPTION first since that's the actual package file
+      # Check DESCRIPTION file at root of repository on main branch
       possible_paths <- c(
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION"
       )
       
       for (desc_url in possible_paths) {
@@ -5876,13 +5872,9 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       if (!isTRUE(quiet)) {
         cat("Checking for updates...\n")
       }
-      # Try multiple possible paths for DESCRIPTION file
-      # Check clean_package/DESCRIPTION first since that's the actual package file
+      # Check DESCRIPTION file at root of repository on main branch
       possible_paths <- c(
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION"
       )
       
       latest_version <- NULL
