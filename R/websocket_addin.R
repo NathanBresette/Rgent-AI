@@ -173,15 +173,31 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     
     # Try to get latest version from GitHub
     latest_version <- tryCatch({
-      # Try to read DESCRIPTION directly from GitHub
-      desc_url <- "https://raw.githubusercontent.com/NathanBresette/rstudioai/main/clean_package/DESCRIPTION"
-      desc_content <- httr::content(httr::GET(desc_url), as = "text")
-      version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
-      if (length(version_line) > 0) {
-        gsub("Version: ", "", trimws(version_line))
-      } else {
-        NULL
+      # Try multiple possible paths for DESCRIPTION file
+      possible_paths <- c(
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION"
+      )
+      
+      for (desc_url in possible_paths) {
+        tryCatch({
+          desc_content <- httr::content(httr::GET(desc_url, timeout = 3), as = "text")
+          if (!is.null(desc_content) && nchar(desc_content) > 0) {
+            version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
+            if (length(version_line) > 0) {
+              version <- gsub("Version: ", "", trimws(version_line))
+              if (nchar(version) > 0) {
+                return(version)
+              }
+            }
+          }
+        }, error = function(e) {
+          # Try next path
+        })
       }
+      return(NULL)
     }, error = function(e) {
       if (!quiet) {
         cat("⚠️  Could not check for updates (network issue?)\n")
@@ -220,9 +236,9 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       
       # Install update
       if (requireNamespace("remotes", quietly = TRUE)) {
-        remotes::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = quiet)
+        remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = quiet)
       } else {
-        devtools::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = quiet)
+        devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = quiet)
       }
       
       if (!quiet) {
@@ -232,7 +248,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     } else {
       if (!quiet) {
         cat("💡 To update, run: check_and_update_package(auto_update = TRUE)\n")
-        cat("   Or install manually: devtools::install_github('NathanBresette/rstudioai', force = TRUE)\n")
+        cat("   Or install manually: devtools::install_github('NathanBresette/Rgent-AI', force = TRUE)\n")
       }
       return(invisible(FALSE))
     }
@@ -5796,20 +5812,41 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       
       # Check if remotes or devtools is available
       if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
-        # Try to get latest version from GitHub (with short timeout)
-        desc_url <- "https://raw.githubusercontent.com/NathanBresette/rstudioai/main/clean_package/DESCRIPTION"
-        desc_content <- httr::content(httr::GET(desc_url, timeout = 2), as = "text")
-        version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
-        if (length(version_line) > 0) {
-          latest_version <- gsub("Version: ", "", trimws(version_line))
+        # Try multiple possible paths for DESCRIPTION file
+        possible_paths <- c(
+          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
+          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION",
+          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
+          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION"
+        )
+        
+        latest_version <- NULL
+        for (desc_url in possible_paths) {
+          tryCatch({
+            desc_content <- httr::content(httr::GET(desc_url, timeout = 2), as = "text")
+            if (!is.null(desc_content) && nchar(desc_content) > 0) {
+              version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
+              if (length(version_line) > 0) {
+                latest_version <- gsub("Version: ", "", trimws(version_line))
+                if (nchar(latest_version) > 0) {
+                  break  # Found valid version, exit loop
+                }
+              }
+            }
+          }, error = function(e) {
+            # Try next path
+          })
+        }
+        
+        if (!is.null(latest_version)) {
           # Compare versions
           if (compareVersion(installed_version, latest_version) < 0) {
             # Update available - install it
             cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
             if (requireNamespace("remotes", quietly = TRUE)) {
-              remotes::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = TRUE)
+              remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = TRUE)
             } else {
-              devtools::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = TRUE)
+              devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = TRUE)
             }
             cat("✅ Update installed! Please restart RStudio to use the new version.\n")
           }
