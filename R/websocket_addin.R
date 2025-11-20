@@ -5863,64 +5863,87 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
   })
 }
 
-#' Package onLoad hook - automatically sets up and starts Rgent
-.onLoad <- function(libname, pkgname) {
+#' Internal function to check for package updates
+#' This is called from both .onLoad and .onAttach
+.check_for_updates_on_load <- function(quiet = FALSE) {
   tryCatch({
-    # Check for updates and auto-install if available (quick check on library load)
-    tryCatch({
-      # Quick version check - don't block if it fails
-      installed_version <- as.character(packageVersion("rstudioai"))
-      
-      # Check if remotes or devtools is available
-      if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
+    # Quick version check - don't block if it fails
+    installed_version <- as.character(packageVersion("rstudioai"))
+    
+    # Check if remotes or devtools is available
+    if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
+      if (!isTRUE(quiet)) {
         cat("Checking for updates...\n")
-        # Try multiple possible paths for DESCRIPTION file
-        possible_paths <- c(
-          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
-          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION",
-          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
-          "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION"
-        )
-        
-        latest_version <- NULL
-        for (desc_url in possible_paths) {
-          tryCatch({
-            desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
-            if (!is.null(desc_content) && nchar(desc_content) > 0) {
-              version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
-              if (length(version_line) > 0) {
-                latest_version <- gsub("Version: ", "", trimws(version_line))
-                if (nchar(latest_version) > 0) {
-                  break  # Found valid version, exit loop
-                }
+      }
+      # Try multiple possible paths for DESCRIPTION file
+      possible_paths <- c(
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/clean_package/DESCRIPTION",
+        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/clean_package/DESCRIPTION"
+      )
+      
+      latest_version <- NULL
+      for (desc_url in possible_paths) {
+        tryCatch({
+          desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
+          if (!is.null(desc_content) && nchar(desc_content) > 0) {
+            version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
+            if (length(version_line) > 0) {
+              latest_version <- gsub("Version: ", "", trimws(version_line))
+              if (nchar(latest_version) > 0) {
+                break  # Found valid version, exit loop
               }
             }
-          }, error = function(e) {
-            # Try next path
-          })
-        }
-        
-        if (!is.null(latest_version)) {
-          # Compare versions
-          if (compareVersion(installed_version, latest_version) < 0) {
-            # Update available - install it
+          }
+        }, error = function(e) {
+          # Try next path
+        })
+      }
+      
+      if (!is.null(latest_version)) {
+        # Compare versions
+        if (compareVersion(installed_version, latest_version) < 0) {
+          # Update available - install it
+          if (!isTRUE(quiet)) {
             cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
-            if (requireNamespace("remotes", quietly = TRUE)) {
-              remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-            } else {
-              devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-            }
-            cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+          }
+          if (requireNamespace("remotes", quietly = TRUE)) {
+            remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
           } else {
-            cat("✅ You're running the latest version (", installed_version, ").\n", sep = "")
+            devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
+          }
+          if (!isTRUE(quiet)) {
+            cat("✅ Update installed! Please restart RStudio to use the new version.\n")
           }
         } else {
+          if (!isTRUE(quiet)) {
+            cat("✅ You're running the latest version (", installed_version, ").\n", sep = "")
+          }
+        }
+      } else {
+        if (!isTRUE(quiet)) {
           cat("⚠️  Could not check for updates (network issue?). Continuing...\n")
         }
       }
-    }, error = function(e) {
-      # Silently ignore update check errors during package load
-    })
+    }
+  }, error = function(e) {
+    # Silently ignore update check errors during package load
+    if (!isTRUE(quiet)) {
+      tryCatch({
+        cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
+      }, error = function(e2) {
+        # Ignore display errors
+      })
+    }
+  })
+}
+
+#' Package onLoad hook - automatically sets up and starts Rgent
+.onLoad <- function(libname, pkgname) {
+  tryCatch({
+    # Check for updates on session start (quiet mode to avoid double messages)
+    .check_for_updates_on_load(quiet = TRUE)
     
     # Set up .Rprofile for future auto-start (one-time setup)
     setup_rprofile_auto_start()
@@ -6039,6 +6062,17 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       }
     }
   }, error = function(e) {
+    invisible(NULL)
+  })
+}
+
+#' Package onAttach hook - runs every time library(rstudioai) is called
+.onAttach <- function(libname, pkgname) {
+  tryCatch({
+    # Check for updates every time the library is explicitly loaded
+    .check_for_updates_on_load(quiet = FALSE)
+  }, error = function(e) {
+    # Silently ignore errors during attach
     invisible(NULL)
   })
 }
