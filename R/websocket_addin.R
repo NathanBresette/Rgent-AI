@@ -262,7 +262,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     }
     
     version_comparison <- tryCatch({
-      compareVersion(installed_version, latest_version)
+      utils::compareVersion(installed_version, latest_version)
     }, error = function(e) {
       if (!isTRUE(quiet)) {
         cat("⚠️  Error comparing versions:", conditionMessage(e), "\n")
@@ -5868,7 +5868,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 .check_for_updates_on_load <- function(quiet = FALSE) {
   tryCatch({
     # Quick version check - don't block if it fails
-    installed_version <- as.character(packageVersion("rstudioai"))
+    installed_version <- as.character(utils::packageVersion("rstudioai"))
     
     # Check if remotes or devtools is available
     if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
@@ -5903,7 +5903,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       
       if (!is.null(latest_version)) {
         # Compare versions
-        if (compareVersion(installed_version, latest_version) < 0) {
+        if (utils::compareVersion(installed_version, latest_version) < 0) {
           # Update available - install it
           if (!isTRUE(quiet)) {
             cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
