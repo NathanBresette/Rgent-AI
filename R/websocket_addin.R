@@ -183,7 +183,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       
       for (desc_url in possible_paths) {
         tryCatch({
-          desc_content <- httr::content(httr::GET(desc_url, timeout = 3), as = "text")
+            desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
           if (!is.null(desc_content) && nchar(desc_content) > 0) {
             version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
             if (length(version_line) > 0) {
@@ -200,7 +200,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       return(NULL)
     }, error = function(e) {
       if (!quiet) {
-        cat("⚠️  Could not check for updates (network issue?)\n")
+        cat("⚠️  Could not check for updates:", conditionMessage(e), "\n")
       }
       return(NULL)
     })
@@ -286,8 +286,9 @@ run_rgent <- function() {
       # Mark as checked for this session
       assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
     }, error = function(e) {
-      # Silently ignore update check errors - don't block usage
-      cat("⚠️  Could not check for updates. Continuing...\n")
+      # Show error but don't block usage
+      cat("⚠️  Could not check for updates:", conditionMessage(e), "\n")
+      cat("   Continuing with current version...\n")
     })
   }
   
@@ -5824,7 +5825,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
         latest_version <- NULL
         for (desc_url in possible_paths) {
           tryCatch({
-            desc_content <- httr::content(httr::GET(desc_url, timeout = 2), as = "text")
+            desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
             if (!is.null(desc_content) && nchar(desc_content) > 0) {
               version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
               if (length(version_line) > 0) {
