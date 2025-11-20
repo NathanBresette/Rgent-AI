@@ -8,5 +8,5 @@ Description: An intelligent AI assistant for R programming that provides convers
 License: MIT + file LICENSE
 Depends: R (>= 4.0.0)
 Imports: httr, rstudioapi, jsonlite, clipr, shiny, httpuv
-Suggests: testthat
+Suggests: testthat, remotes
 RoxygenNote: 7.3.2

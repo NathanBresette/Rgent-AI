@@ -142,9 +142,139 @@ get_current_access_code <- function() {
   }
 }
 
+#' Check for and optionally install package updates
+#' 
+#' Checks if a newer version is available on GitHub and optionally updates.
+#' 
+#' @param auto_update Logical. If TRUE, automatically installs updates without prompting.
+#' @param quiet Logical. If TRUE, suppresses output messages.
+#' @return Invisibly returns TRUE if update was performed, FALSE otherwise
+#' @export
+check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
+  tryCatch({
+    # Get current installed version
+    installed_version <- as.character(packageVersion("rstudioai"))
+    
+    if (!quiet) {
+      cat("Checking for updates...\n")
+      cat("Current version:", installed_version, "\n")
+    }
+    
+    # Check if remotes or devtools is available
+    if (!requireNamespace("remotes", quietly = TRUE)) {
+      if (!requireNamespace("devtools", quietly = TRUE)) {
+        if (!quiet) {
+          cat("⚠️  remotes or devtools package required for auto-updates.\n")
+          cat("   Install with: install.packages(c('remotes', 'devtools'))\n")
+        }
+        return(invisible(FALSE))
+      }
+    }
+    
+    # Try to get latest version from GitHub
+    latest_version <- tryCatch({
+      # Try to read DESCRIPTION directly from GitHub
+      desc_url <- "https://raw.githubusercontent.com/NathanBresette/rstudioai/main/clean_package/DESCRIPTION"
+      desc_content <- httr::content(httr::GET(desc_url), as = "text")
+      version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
+      if (length(version_line) > 0) {
+        gsub("Version: ", "", trimws(version_line))
+      } else {
+        NULL
+      }
+    }, error = function(e) {
+      if (!quiet) {
+        cat("⚠️  Could not check for updates (network issue?)\n")
+      }
+      return(NULL)
+    })
+    
+    if (is.null(latest_version)) {
+      if (!quiet) {
+        cat("ℹ️  Could not determine latest version. Continuing with current version.\n")
+      }
+      return(invisible(FALSE))
+    }
+    
+    if (!quiet) {
+      cat("Latest version:", latest_version, "\n")
+    }
+    
+    # Compare versions
+    if (compareVersion(installed_version, latest_version) >= 0) {
+      if (!quiet) {
+        cat("✅ You're running the latest version!\n")
+      }
+      return(invisible(FALSE))
+    }
+    
+    # Update available
+    if (!quiet) {
+      cat("🔄 Update available! (", installed_version, " -> ", latest_version, ")\n", sep = "")
+    }
+    
+    if (auto_update) {
+      if (!quiet) {
+        cat("Installing update...\n")
+      }
+      
+      # Install update
+      if (requireNamespace("remotes", quietly = TRUE)) {
+        remotes::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = quiet)
+      } else {
+        devtools::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = quiet)
+      }
+      
+      if (!quiet) {
+        cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+      }
+      return(invisible(TRUE))
+    } else {
+      if (!quiet) {
+        cat("💡 To update, run: check_and_update_package(auto_update = TRUE)\n")
+        cat("   Or install manually: devtools::install_github('NathanBresette/rstudioai', force = TRUE)\n")
+      }
+      return(invisible(FALSE))
+    }
+    
+  }, error = function(e) {
+    if (!quiet) {
+      cat("⚠️  Error checking for updates:", e$message, "\n")
+    }
+    return(invisible(FALSE))
+  })
+}
+
 #' Launch Rgent
 #' @export
 run_rgent <- function() {
+  # Check for updates and auto-install if available (once per session)
+  if (!exists(".rgent_update_checked", envir = .GlobalEnv)) {
+    tryCatch({
+      cat("Checking for updates...\n")
+      # Use the check_and_update_package function with auto_update
+      update_performed <- check_and_update_package(auto_update = TRUE, quiet = FALSE)
+      
+      if (update_performed) {
+        cat("\n")
+        cat("═══════════════════════════════════════════════════════════\n")
+        cat("✅ RgentAI has been updated!\n")
+        cat("═══════════════════════════════════════════════════════════\n")
+        cat("Please restart RStudio to use the new version.\n")
+        cat("You can continue using the current session, but new features\n")
+        cat("will be available after restarting.\n")
+        cat("═══════════════════════════════════════════════════════════\n")
+        cat("\n")
+      }
+      
+      # Mark as checked for this session
+      assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
+    }, error = function(e) {
+      # Silently ignore update check errors - don't block usage
+      cat("⚠️  Could not check for updates. Continuing...\n")
+    })
+  }
+  
   # Check if RStudio API is available
   if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
     stop("RStudio API is not available. Please run this in RStudio.")
@@ -5659,6 +5789,36 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 #' Package onLoad hook - automatically sets up and starts Rgent
 .onLoad <- function(libname, pkgname) {
   tryCatch({
+    # Check for updates and auto-install if available (quick check on library load)
+    tryCatch({
+      # Quick version check - don't block if it fails
+      installed_version <- as.character(packageVersion("rstudioai"))
+      
+      # Check if remotes or devtools is available
+      if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
+        # Try to get latest version from GitHub (with short timeout)
+        desc_url <- "https://raw.githubusercontent.com/NathanBresette/rstudioai/main/clean_package/DESCRIPTION"
+        desc_content <- httr::content(httr::GET(desc_url, timeout = 2), as = "text")
+        version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
+        if (length(version_line) > 0) {
+          latest_version <- gsub("Version: ", "", trimws(version_line))
+          # Compare versions
+          if (compareVersion(installed_version, latest_version) < 0) {
+            # Update available - install it
+            cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
+            if (requireNamespace("remotes", quietly = TRUE)) {
+              remotes::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = TRUE)
+            } else {
+              devtools::install_github("NathanBresette/rstudioai", force = TRUE, upgrade = "always", quiet = TRUE)
+            }
+            cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+          }
+        }
+      }
+    }, error = function(e) {
+      # Silently ignore update check errors during package load
+    })
+    
     # Set up .Rprofile for future auto-start (one-time setup)
     setup_rprofile_auto_start()
     
