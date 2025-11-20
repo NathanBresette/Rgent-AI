@@ -236,9 +236,17 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       
       # Install update
       if (requireNamespace("remotes", quietly = TRUE)) {
-        remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = quiet)
+        if (quiet) {
+          remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
+        } else {
+          remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
+        }
       } else {
-        devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = quiet)
+        if (quiet) {
+          devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
+        } else {
+          devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
+        }
       }
       
       if (!quiet) {
@@ -5846,9 +5854,9 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
             # Update available - install it
             cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
             if (requireNamespace("remotes", quietly = TRUE)) {
-              remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = TRUE)
+              remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
             } else {
-              devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = TRUE)
+              devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always")
             }
             cat("✅ Update installed! Please restart RStudio to use the new version.\n")
           } else {
