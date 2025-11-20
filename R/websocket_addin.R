@@ -151,13 +151,30 @@ get_current_access_code <- function() {
 #' @return Invisibly returns TRUE if update was performed, FALSE otherwise
 #' @export
 check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
-  # Ensure parameters are logical
-  auto_update <- as.logical(auto_update)[1]
-  quiet <- as.logical(quiet)[1]
+  # Ensure parameters are logical with proper error handling
+  tryCatch({
+    auto_update <- as.logical(auto_update[1])
+    quiet <- as.logical(quiet[1])
+  }, error = function(e) {
+    auto_update <- FALSE
+    quiet <- FALSE
+  })
+  
+  # Validate logical values
+  if (!is.logical(auto_update) || length(auto_update) != 1 || is.na(auto_update)) {
+    auto_update <- FALSE
+  }
+  if (!is.logical(quiet) || length(quiet) != 1 || is.na(quiet)) {
+    quiet <- FALSE
+  }
   
   tryCatch({
     # Get current installed version
-    installed_version <- as.character(packageVersion("rstudioai"))
+    installed_version <- tryCatch({
+      as.character(packageVersion("rstudioai"))
+    }, error = function(e) {
+      return("unknown")
+    })
     
     if (!isTRUE(quiet)) {
       cat("Checking for updates...\n")
@@ -188,13 +205,29 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       for (desc_url in possible_paths) {
         tryCatch({
           response <- httr::GET(desc_url, timeout = 5)
-          desc_content <- httr::content(response, as = "text", encoding = "UTF-8")
-          if (!is.null(desc_content) && is.character(desc_content) && nchar(desc_content) > 0) {
-            version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
-            if (length(version_line) > 0) {
-              version <- gsub("Version: ", "", trimws(version_line))
-              if (nchar(version) > 0) {
-                return(version)
+          status <- tryCatch(httr::status_code(response), error = function(e) 0)
+          if (status == 200) {
+            desc_content <- tryCatch({
+              # Try with encoding first
+              httr::content(response, as = "text")
+            }, error = function(e1) {
+              # If that fails, try reading raw and converting
+              tryCatch({
+                raw_content <- httr::content(response, as = "raw")
+                rawToChar(raw_content)
+              }, error = function(e2) {
+                return(NULL)
+              })
+            })
+            
+            if (!is.null(desc_content) && is.character(desc_content) && length(desc_content) == 1 && nchar(desc_content[1]) > 0) {
+              desc_lines <- strsplit(desc_content[1], "\n", fixed = TRUE)[[1]]
+              version_line <- grep("^Version:", desc_lines, value = TRUE)
+              if (length(version_line) > 0 && is.character(version_line)) {
+                version <- trimws(gsub("Version:", "", version_line[1], fixed = TRUE))
+                if (is.character(version) && length(version) == 1 && nchar(version[1]) > 0) {
+                  return(version[1])
+                }
               }
             }
           }
