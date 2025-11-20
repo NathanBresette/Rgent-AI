@@ -183,8 +183,9 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       
       for (desc_url in possible_paths) {
         tryCatch({
-            desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
-          if (!is.null(desc_content) && nchar(desc_content) > 0) {
+          response <- httr::GET(desc_url, timeout = 5)
+          desc_content <- httr::content(response, as = "text", encoding = "UTF-8")
+          if (!is.null(desc_content) && is.character(desc_content) && nchar(desc_content) > 0) {
             version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
             if (length(version_line) > 0) {
               version <- gsub("Version: ", "", trimws(version_line))
@@ -194,7 +195,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
             }
           }
         }, error = function(e) {
-          # Try next path
+          # Try next path - silently continue
         })
       }
       return(NULL)
@@ -263,7 +264,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     
   }, error = function(e) {
     if (!quiet) {
-      cat("⚠️  Error checking for updates:", e$message, "\n")
+      cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
     }
     return(invisible(FALSE))
   })
