@@ -5812,6 +5812,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       
       # Check if remotes or devtools is available
       if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
+        cat("Checking for updates...\n")
         # Try multiple possible paths for DESCRIPTION file
         possible_paths <- c(
           "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/main/DESCRIPTION",
@@ -5849,7 +5850,11 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
               devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "always", quiet = TRUE)
             }
             cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+          } else {
+            cat("✅ You're running the latest version (", installed_version, ").\n", sep = "")
           }
+        } else {
+          cat("⚠️  Could not check for updates (network issue?). Continuing...\n")
         }
       }
     }, error = function(e) {
