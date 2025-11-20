@@ -195,7 +195,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     # Try to get latest version from GitHub
     latest_version <- NULL
     tryCatch({
-      # Check DESCRIPTION file at root of repository on main branch
+      # Check DESCRIPTION file at root of repository on master branch
       possible_paths <- c(
         "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
       )
@@ -5872,7 +5872,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       if (!isTRUE(quiet)) {
         cat("Checking for updates...\n")
       }
-      # Check DESCRIPTION file at root of repository on main branch
+      # Check DESCRIPTION file at root of repository on master branch
       possible_paths <- c(
         "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
       )

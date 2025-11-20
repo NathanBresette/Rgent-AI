@@ -1,7 +1,7 @@
 Package: rstudioai
 Type: Package
 Title: RgentAI: AI-Powered Statistical Analysis Assistant for R
-Version: 2.0.5
+Version: 2.0.6
 Author: Nathan Bresette
 Maintainer: Nathan Bresette <support@rgentai.com>
 Description: An intelligent AI assistant for R programming that provides conversational chat, plot analysis, error debugging, and specialized agents for data cleaning, transformation, statistical analysis, and machine learning workflows.
