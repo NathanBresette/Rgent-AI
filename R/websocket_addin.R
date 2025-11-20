@@ -5897,6 +5897,9 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       
       if (!is.null(latest_version)) {
         # Compare versions
+        if (!isTRUE(quiet)) {
+          cat("Current version:", installed_version, "| Latest version:", latest_version, "\n")
+        }
         if (utils::compareVersion(installed_version, latest_version) < 0) {
           # Update available - install it
           if (!isTRUE(quiet)) {
