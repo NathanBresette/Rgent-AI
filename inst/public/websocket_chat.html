@@ -3894,17 +3894,15 @@
                 }
               } else {
                 // Handle regular response
-                // Remove thinking placeholder if present and clear its animation interval
-                const placeholder = document.getElementById("ai-thinking");
-                if (placeholder) {
-                  // Clear the animation interval if it exists
-                  if (placeholder.dataset.intervalId) {
-                    clearInterval(parseInt(placeholder.dataset.intervalId));
-                  }
-                  if (placeholder.parentNode) {
-                    placeholder.parentNode.removeChild(placeholder);
-                  }
-                }
+                // Remove all animated placeholders
+                removeAnimatedPlaceholder("ai-thinking");
+                removeAnimatedPlaceholder("ai-debugging");
+                removeAnimatedPlaceholder("ai-generating-code");
+                removeAnimatedPlaceholder("ai-analyzing-statistical");
+                removeAnimatedPlaceholder("ai-analyzing-transformation");
+                removeAnimatedPlaceholder("ai-analyzing-cleaning");
+                removeAnimatedPlaceholder("ai-analyzing-modeling");
+                removeAnimatedPlaceholder("ai-analyzing-results");
                 
                 addMessage(data.message, "ai");
                 
@@ -4218,6 +4216,16 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               // Skip the verbose progress updates - just show the AI fix directly
               break;
             case "debug_ai_response":
+              // Remove all animated placeholders
+              removeAnimatedPlaceholder("ai-debugging");
+              removeAnimatedPlaceholder("ai-thinking");
+              removeAnimatedPlaceholder("ai-generating-code");
+              removeAnimatedPlaceholder("ai-analyzing-statistical");
+              removeAnimatedPlaceholder("ai-analyzing-transformation");
+              removeAnimatedPlaceholder("ai-analyzing-cleaning");
+              removeAnimatedPlaceholder("ai-analyzing-modeling");
+              removeAnimatedPlaceholder("ai-analyzing-results");
+              
               if (data.streaming) {
                 addStreamingChunk(data.chunk);
               } else {
@@ -4229,7 +4237,14 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             case "chat_with_ai":
               // Handle messages sent to the chat interface
               if (data.message) {
-                addMessage(data.message, "ai");
+                // If this is the debugging start message, remove the placeholder and don't show the static message
+                // (we already have the animated placeholder)
+                if (data.message.includes("🔍 Debugging error")) {
+                  removeAnimatedPlaceholder("ai-debugging");
+                  // Don't add the static message - the animated placeholder was already shown
+                } else {
+                  addMessage(data.message, "ai");
+                }
               }
               break;
             case "plot_analysis":
@@ -4475,10 +4490,52 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         };
       }
       
+      // Reusable function to create animated placeholder messages
+      function createAnimatedPlaceholder(id, text) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "message ai-message";
+        placeholder.id = id;
+        const textSpan = document.createElement("span");
+        textSpan.textContent = text;
+        const dotsSpan = document.createElement("span");
+        dotsSpan.className = "thinking-dots";
+        placeholder.appendChild(textSpan);
+        placeholder.appendChild(dotsSpan);
+        document.getElementById("chat-container").appendChild(placeholder);
+        
+        // Animate the dots
+        let dotCount = 0;
+        const interval = setInterval(() => {
+          dotCount = (dotCount + 1) % 4; // Cycle 0, 1, 2, 3
+          dotsSpan.textContent = '.'.repeat(dotCount);
+        }, 500); // Update every 500ms
+        
+        // Store interval ID so we can clear it when response arrives
+        placeholder.dataset.intervalId = interval;
+        return placeholder;
+      }
+      
+      // Helper function to remove animated placeholder
+      function removeAnimatedPlaceholder(id) {
+        const placeholder = document.getElementById(id);
+        if (placeholder) {
+          if (placeholder.dataset.intervalId) {
+            clearInterval(parseInt(placeholder.dataset.intervalId));
+          }
+          if (placeholder.parentNode) {
+            placeholder.parentNode.removeChild(placeholder);
+          }
+        }
+      }
+      
       function debugLastError() {
         if (!isConnected) return;
         
         console.log("Requesting last error...");
+        
+        // Insert debugging placeholder with animated dots
+        createAnimatedPlaceholder("ai-debugging", "🔍 Debugging error");
+        
         const message = {
           action: "get_last_error"
         };
@@ -4628,17 +4685,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       function addStreamingChunk(chunk) {
         if (!currentStreamingMessage) {
-          // Remove thinking placeholder if present and clear its animation interval
-          const placeholder = document.getElementById("ai-thinking");
-          if (placeholder) {
-            // Clear the animation interval if it exists
-            if (placeholder.dataset.intervalId) {
-              clearInterval(parseInt(placeholder.dataset.intervalId));
-            }
-            if (placeholder.parentNode) {
-              placeholder.parentNode.removeChild(placeholder);
-            }
-          }
+          // Remove all animated placeholders when streaming starts
+          removeAnimatedPlaceholder("ai-thinking");
+          removeAnimatedPlaceholder("ai-debugging");
+          removeAnimatedPlaceholder("ai-generating-code");
+          removeAnimatedPlaceholder("ai-analyzing-statistical");
+          removeAnimatedPlaceholder("ai-analyzing-transformation");
+          removeAnimatedPlaceholder("ai-analyzing-cleaning");
+          removeAnimatedPlaceholder("ai-analyzing-modeling");
+          removeAnimatedPlaceholder("ai-analyzing-results");
           
           // Start new streaming message
           currentStreamingMessage = document.createElement("div");
@@ -4768,7 +4823,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           
           // Add informative message to let user know code generation is starting
           const agentTypeDisplay = request.agentType.charAt(0).toUpperCase() + request.agentType.slice(1);
-          addMessage(`🔄 **Generating ${agentTypeDisplay} Code...** Now requesting executable R code based on the analysis above.`, 'ai');
+          createAnimatedPlaceholder("ai-generating-code", `🔄 **Generating ${agentTypeDisplay} Code** Now requesting executable R code based on the analysis above`);
           
           // Add a small delay to let user read the message before sending the code request
           const delayTimeout = setTimeout(() => {
@@ -9735,7 +9790,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
       function sendStatisticalSummaryToClaude() {
         if (!currentAgentWorkflow) return;
         
-        addMessage(`📊 **Analyzing Results...** Sending statistical findings to Claude for comprehensive summary.`, 'ai');
+        createAnimatedPlaceholder("ai-analyzing-statistical", "📊 **Analyzing Results** Sending statistical findings to Claude for comprehensive summary");
         
         // Format results for Claude
         const summaryText = `Analyze these statistical analysis results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
@@ -9776,7 +9831,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
       function sendTransformationSummaryToClaude() {
         if (!currentAgentWorkflow) return;
         
-        addMessage(`🔄 **Analyzing Results...** Sending transformation findings to Claude for comprehensive summary.`, 'ai');
+        createAnimatedPlaceholder("ai-analyzing-transformation", "🔄 **Analyzing Results** Sending transformation findings to Claude for comprehensive summary");
         
         // Format results for Claude
         const summaryText = `Analyze these data transformation results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
@@ -9817,7 +9872,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
       function sendCleaningSummaryToClaude() {
         if (!currentAgentWorkflow) return;
         
-        addMessage(`🧹 **Analyzing Results...** Sending data cleaning findings to Claude for comprehensive summary.`, 'ai');
+        createAnimatedPlaceholder("ai-analyzing-cleaning", "🧹 **Analyzing Results** Sending data cleaning findings to Claude for comprehensive summary");
         
         // Format results for Claude
         const summaryText = `Analyze these data cleaning results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
@@ -9858,7 +9913,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
       function sendModelingSummaryToClaude() {
         if (!currentAgentWorkflow) return;
         
-        addMessage(`🤖 **Analyzing Results...** Sending modeling findings to Claude for comprehensive summary.`, 'ai');
+        createAnimatedPlaceholder("ai-analyzing-modeling", "🤖 **Analyzing Results** Sending modeling findings to Claude for comprehensive summary");
         
         // Format results for Claude
         const summaryText = `Analyze these modeling results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
@@ -10113,7 +10168,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
           operationType = 'modeling';
         }
         
-        addMessage(`📊 **Analyzing Results...** Sending findings to Claude for comprehensive summary.`, 'ai');
+        createAnimatedPlaceholder("ai-analyzing-results", "📊 **Analyzing Results** Sending findings to Claude for comprehensive summary");
         
         // Format results for Claude - Summary first
         const summaryText = `Analyze these ${operationType} results for the "${currentAgentWorkflow?.dataframe}" dataset and provide a BRIEF summary:
