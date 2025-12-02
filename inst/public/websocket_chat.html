@@ -10298,8 +10298,8 @@ cat("\\nModeling workflow completed successfully!\\n")
           let cleanedCode = codeContent
             .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
             .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
-            .replace(/^[rR]\s*\n?/, '') // Remove r or R at start
-            .replace(/^\s*[rR]\s*\n?/, ''); // Remove r or R with whitespace
+            .replace(/^[rR]\s+/, '') // Remove r or R followed by whitespace (not part of function name)
+            .replace(/^\s*[rR]\s+/, ''); // Remove r or R with surrounding whitespace
           
           // Decode any remaining HTML entities in the code content
           cleanedCode = cleanedCode
@@ -10360,8 +10360,8 @@ cat("\\nModeling workflow completed successfully!\\n")
           originalCode = originalCode
             .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
             .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
-            .replace(/^[rR]\s*\n?/, '') // Remove r or R at start
-            .replace(/^\s*[rR]\s*\n?/, ''); // Remove r or R with whitespace
+            .replace(/^[rR]\s+/, '') // Remove r or R followed by whitespace (not part of function name)
+            .replace(/^\s*[rR]\s+/, ''); // Remove r or R with surrounding whitespace
           
           // Decode HTML entities back to actual characters
           originalCode = originalCode
