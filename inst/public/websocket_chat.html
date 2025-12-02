@@ -10662,57 +10662,64 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/&nbsp;/g, ' ');
         }
         
-        // Find the first code block and extract it with original formatting
+        // Find ALL code blocks and extract them with original formatting
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
         // ONLY matches COMPLETE blocks with both opening and closing ```
-        const codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
+        const codeBlockRegex = /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/gi;
+        const allMatches = [...decodedMessage.matchAll(codeBlockRegex)];
         
-        if (codeBlockMatch) {
-          let originalCode = codeBlockMatch[1];
-          console.log('🔍 Original code block found, length:', originalCode.length);
+        if (allMatches.length > 0) {
+          console.log(`🔍 Found ${allMatches.length} code block(s)`);
           
-          // Remove any language identifier that might be at the start (like {r}, r, etc.)
-          originalCode = originalCode
-            .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
-            .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
-            .replace(/^[rR]\s+/, '') // Remove r or R followed by whitespace (not part of function name)
-            .replace(/^\s*[rR]\s+/, ''); // Remove r or R with surrounding whitespace
+          const allCodeBlocks = allMatches.map((codeBlockMatch, index) => {
+            let originalCode = codeBlockMatch[1];
+            console.log(`🔍 Processing code block ${index + 1}, length:`, originalCode.length);
+            
+            // Remove any language identifier that might be at the start (like {r}, r, etc.)
+            originalCode = originalCode
+              .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
+              .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
+              .replace(/^[rR]\s+/, '') // Remove r or R followed by whitespace (not part of function name)
+              .replace(/^\s*[rR]\s+/, ''); // Remove r or R with surrounding whitespace
+            
+            // Decode HTML entities back to actual characters
+            originalCode = originalCode
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'");
+            
+            // Ensure proper line breaks are preserved
+            // Replace any HTML line break entities with actual newlines
+            originalCode = originalCode
+              .replace(/<br\s*\/?>/gi, '\n')
+              .replace(/<\/p>/gi, '\n')
+              .replace(/<p[^>]*>/gi, '');
+            
+            // AGGRESSIVELY preserve line breaks - this is critical for R syntax
+            // Only remove leading/trailing spaces/tabs from each line, NOT newlines
+            originalCode = originalCode
+              .replace(/^[ \t]+|[ \t]+$/gm, '') // Remove leading/trailing spaces/tabs only (preserve \n)
+              .replace(/\n{6,}/g, '\n\n\n\n\n'); // Only replace 6+ consecutive newlines
+            
+            // FINAL CHECK: Ensure we have proper line breaks between statements
+            // Look for patterns like "}variable" or ")variable" and add line breaks
+            originalCode = originalCode
+              .replace(/([})\]])([a-zA-Z_])/g, '$1\n$2') // Add line break after } ) ] before variable
+              .replace(/([a-zA-Z_])#/g, '$1\n#') // Add line break before comments
+              .replace(/([a-zA-Z_])library/g, '$1\nlibrary'); // Add line break before library calls
+            
+            console.log(`🔍 Code block ${index + 1} processed, length:`, originalCode.length);
+            return originalCode;
+          });
           
-          // Decode HTML entities back to actual characters
-          originalCode = originalCode
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'");
+          // Combine all code blocks with proper separation
+          const combinedCode = allCodeBlocks.join('\n\n');
+          console.log('🔍 Combined all code blocks, total length:', combinedCode.length);
+          console.log('🔍 Sample of combined code:', combinedCode.substring(0, 300));
           
-          // Ensure proper line breaks are preserved
-          // Replace any HTML line break entities with actual newlines
-          originalCode = originalCode
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<\/p>/gi, '\n')
-            .replace(/<p[^>]*>/gi, '');
-          
-          // AGGRESSIVELY preserve line breaks - this is critical for R syntax
-          // Only remove leading/trailing spaces/tabs from each line, NOT newlines
-          originalCode = originalCode
-            .replace(/^[ \t]+|[ \t]+$/gm, '') // Remove leading/trailing spaces/tabs only (preserve \n)
-            .replace(/\n{6,}/g, '\n\n\n\n\n'); // Only replace 6+ consecutive newlines
-          
-          console.log('🔍 Decoded HTML entities and cleaned formatting, new length:', originalCode.length);
-          console.log('🔍 Sample of processed code:', originalCode.substring(0, 200));
-          
-          // FINAL CHECK: Ensure we have proper line breaks between statements
-          // Look for patterns like "}variable" or ")variable" and add line breaks
-          originalCode = originalCode
-            .replace(/([})\]])([a-zA-Z_])/g, '$1\n$2') // Add line break after } ) ] before variable
-            .replace(/([a-zA-Z_])#/g, '$1\n#') // Add line break before comments
-            .replace(/([a-zA-Z_])library/g, '$1\nlibrary'); // Add line break before library calls
-          
-          console.log('🔍 Final processed code length:', originalCode.length);
-          console.log('🔍 Final sample of processed code:', originalCode.substring(0, 300));
-          
-          return originalCode;
+          return combinedCode;
         } else {
           console.log('🔍 No code block found, returning empty string');
           return '';
