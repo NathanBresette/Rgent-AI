@@ -7934,7 +7934,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         manualModeText.style.color = '#495057';
         
         const executeButton = document.createElement('button');
-        executeButton.textContent = 'Execute Cleaning Code';
+        executeButton.textContent = 'Execute Code';
         executeButton.className = 'execute-cleaning-button';
         executeButton.onclick = () => {
           executeCleaningCodeWithErrorHandling(code);
@@ -10235,7 +10235,7 @@ cat("\\nModeling workflow completed successfully!\\n")
               buttonContainer.style.textAlign = 'center';
               
               const executeButton = document.createElement('button');
-              executeButton.textContent = 'Execute Cleaning Code';
+              executeButton.textContent = 'Execute Code';
               executeButton.className = 'execute-cleaning-button';
               executeButton.onclick = () => {
                 executeCleaningCodeWithErrorHandling(originalCode);
