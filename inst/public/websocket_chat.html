@@ -147,6 +147,13 @@
         font-size: 0.9em;
       }
       
+      /* Animated thinking dots */
+      .thinking-dots {
+        display: inline-block;
+        width: 1.2em;
+        text-align: left;
+      }
+      
       .debug-button {
         background-color: #dc3545 !important;
         color: white !important;
@@ -3887,6 +3894,18 @@
                 }
               } else {
                 // Handle regular response
+                // Remove thinking placeholder if present and clear its animation interval
+                const placeholder = document.getElementById("ai-thinking");
+                if (placeholder) {
+                  // Clear the animation interval if it exists
+                  if (placeholder.dataset.intervalId) {
+                    clearInterval(parseInt(placeholder.dataset.intervalId));
+                  }
+                  if (placeholder.parentNode) {
+                    placeholder.parentNode.removeChild(placeholder);
+                  }
+                }
+                
                 addMessage(data.message, "ai");
                 
                 // Transform stop button back to send button for non-streaming responses
@@ -4478,12 +4497,27 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         addMessage(message, "user");
         input.value = "";
         
-        // Insert AI placeholder while thinking
+        // Insert AI placeholder while thinking with animated dots
         const thinking = document.createElement("div");
         thinking.className = "message ai-message";
         thinking.id = "ai-thinking";
-        thinking.textContent = "Thinking...";
+        const thinkingText = document.createElement("span");
+        thinkingText.textContent = "Thinking";
+        const thinkingDots = document.createElement("span");
+        thinkingDots.className = "thinking-dots";
+        thinking.appendChild(thinkingText);
+        thinking.appendChild(thinkingDots);
         document.getElementById("chat-container").appendChild(thinking);
+        
+        // Animate the dots
+        let dotCount = 0;
+        const thinkingInterval = setInterval(() => {
+          dotCount = (dotCount + 1) % 4; // Cycle 0, 1, 2, 3
+          thinkingDots.textContent = '.'.repeat(dotCount);
+        }, 500); // Update every 500ms
+        
+        // Store interval ID so we can clear it when response arrives
+        thinking.dataset.intervalId = thinkingInterval;
         
         // Set AI responding flag when sending message
         isAIResponding = true;
@@ -4594,9 +4628,17 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       function addStreamingChunk(chunk) {
         if (!currentStreamingMessage) {
-          // Remove thinking placeholder if present
+          // Remove thinking placeholder if present and clear its animation interval
           const placeholder = document.getElementById("ai-thinking");
-          if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+          if (placeholder) {
+            // Clear the animation interval if it exists
+            if (placeholder.dataset.intervalId) {
+              clearInterval(parseInt(placeholder.dataset.intervalId));
+            }
+            if (placeholder.parentNode) {
+              placeholder.parentNode.removeChild(placeholder);
+            }
+          }
           
           // Start new streaming message
           currentStreamingMessage = document.createElement("div");
