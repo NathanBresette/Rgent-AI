@@ -4881,12 +4881,6 @@ Code only. Minimal chat.`;
               } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
                 // Markdown format - remove ```R\n or ```R  at start and ``` at end
                 cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
-              } else if (part.startsWith("```r") && part.endsWith("```")) {
-                // Markdown format without newline after r
-                cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
-              } else if (part.startsWith("```R") && part.endsWith("```")) {
-                // Markdown format without newline after R
-                cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
                 // Also handle cases with language identifiers like ```python, ```javascript, etc.
@@ -5423,12 +5417,6 @@ Code only. Minimal chat.`;
               } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
                 // Markdown format - remove ```R\n or ```R  at start and ``` at end
                 cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
-              } else if (part.startsWith("```r") && part.endsWith("```")) {
-                // Markdown format without newline after r
-                cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
-              } else if (part.startsWith("```R") && part.endsWith("```")) {
-                // Markdown format without newline after R
-                cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
                 // Only remove language identifier if followed by whitespace/newline (not part of code)
