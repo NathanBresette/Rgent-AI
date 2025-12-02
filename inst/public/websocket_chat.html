@@ -3768,13 +3768,43 @@
              };
              
              ws.onclose = function() {
-               console.log("WebSocket disconnected");
+               console.log("WebSocket disconnected on port 8889");
                isConnected = false;
                document.getElementById("user-input").disabled = true;
                document.getElementById("send-button").disabled = true;
                document.getElementById("new-conversation-button").disabled = true;
                document.getElementById("debug-error-button").disabled = true;
                document.getElementById("analyze-plot-button").disabled = true;
+               
+               // Clean up agent workflow state
+               if (currentAgentWorkflow) {
+                 console.log('🧹 Cleaning up agent workflow due to disconnect');
+                 currentAgentWorkflow = null;
+                 agentResults = [];
+                 agentCodes = [];
+                 currentStepCode = null;
+               }
+               
+               // Clear pending requests and timeouts
+               if (window.pendingAgentCodeRequest) {
+                 console.log('🧹 Clearing pending agent code request');
+                 window.pendingAgentCodeRequest = null;
+               }
+               
+               pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+               pendingTimeouts = [];
+               
+               // Reset agent type flags
+               window.currentActiveAgentType = null;
+               window.completedAgentType = null;
+               
+               // Reset iteration counters
+               cleaningCodeIterationCount = 0;
+               cleaningCodeExecuting = false;
+               
+               // Reset AI responding flag and transform button back
+               isAIResponding = false;
+               transformToSendButton();
              };
              
              ws.onerror = function(event) {
@@ -4386,6 +4416,37 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           document.getElementById("user-input").disabled = true;
           document.getElementById("send-button").disabled = true;
           document.getElementById("debug-error-button").disabled = true;
+          
+          // Clean up agent workflow state
+          if (currentAgentWorkflow) {
+            console.log('🧹 Cleaning up agent workflow due to disconnect');
+            currentAgentWorkflow = null;
+            agentResults = [];
+            agentCodes = [];
+            currentStepCode = null;
+          }
+          
+          // Clear pending requests and timeouts
+          if (window.pendingAgentCodeRequest) {
+            console.log('🧹 Clearing pending agent code request');
+            window.pendingAgentCodeRequest = null;
+          }
+          
+          pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+          pendingTimeouts = [];
+          
+          // Reset agent type flags
+          window.currentActiveAgentType = null;
+          window.completedAgentType = null;
+          
+          // Reset iteration counters
+          cleaningCodeIterationCount = 0;
+          cleaningCodeExecuting = false;
+          
+          // Reset AI responding flag and transform button back
+          isAIResponding = false;
+          transformToSendButton();
+          
           addMessage("Connection lost. Please restart the addin.", "ai");
         };
         
@@ -4475,6 +4536,18 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
         pendingTimeouts = [];
         
+        // Clear pending agent code requests to prevent race condition
+        if (window.pendingAgentCodeRequest) {
+          console.log('🛑 Clearing pending agent code request');
+          window.pendingAgentCodeRequest = null;
+        }
+        
+        // Clear streaming timeout
+        if (streamingTimeout) {
+          clearTimeout(streamingTimeout);
+          streamingTimeout = null;
+        }
+        
         // Set stop flag before clearing workflow
         if (currentAgentWorkflow) {
           currentAgentWorkflow.stopped = true;
@@ -4492,6 +4565,18 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           agentCodes = [];
           currentStepCode = null;
         }
+        
+        // Reset agent type flags
+        window.currentActiveAgentType = null;
+        window.completedAgentType = null;
+        window.isAgentFinalCode = false;
+        
+        // Reset custom analysis flags
+        window.customStatisticalAnalysisInProgress = false;
+        window.customTransformationInProgress = false;
+        
+        // Reset streaming state
+        currentStreamingMessage = null;
         
         // Reset cleaning code state
         cleaningCodeExecuting = false;
@@ -4644,7 +4729,12 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           addMessage(`🔄 **Generating ${agentTypeDisplay} Code...** Now requesting executable R code based on the analysis above.`, 'ai');
           
           // Add a small delay to let user read the message before sending the code request
-          setTimeout(() => {
+          const delayTimeout = setTimeout(() => {
+            // Check again if request is still pending (user might have stopped/cleared it)
+            if (!window.pendingAgentCodeRequest) {
+              console.log('🛑 Pending code request was cancelled, skipping');
+              return;
+            }
             let codeText = `Data ${request.operationType} steps output:
 ${request.agentResults.map(result => `
 ${result.description}:
@@ -4804,6 +4894,9 @@ Include comments explaining each step. Code only. Minimal chat.`;
             
             // Don't reset the button yet - wait for the second response to complete
           }, 1500); // Wait 1.5 seconds for user to read the message
+          
+          // Store timeout so it can be cleared if needed
+          pendingTimeouts.push(delayTimeout);
           
           return;
         }
@@ -5199,6 +5292,46 @@ Include comments explaining each step. Code only. Minimal chat.`;
           alert("Not connected to RStudio");
           return;
         }
+        
+        // Clean up any active agent workflows
+        if (currentAgentWorkflow) {
+          console.log('🧹 Cleaning up active agent workflow for new conversation');
+          currentAgentWorkflow = null;
+          agentResults = [];
+          agentCodes = [];
+          currentStepCode = null;
+        }
+        
+        // Clear pending requests and timeouts
+        if (window.pendingAgentCodeRequest) {
+          console.log('🧹 Clearing pending agent code request');
+          window.pendingAgentCodeRequest = null;
+        }
+        
+        pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+        pendingTimeouts = [];
+        
+        // Reset agent type flags
+        window.currentActiveAgentType = null;
+        window.completedAgentType = null;
+        window.isAgentFinalCode = false;
+        window.customStatisticalAnalysisInProgress = false;
+        window.customTransformationInProgress = false;
+        
+        // Reset streaming state
+        currentStreamingMessage = null;
+        if (streamingTimeout) {
+          clearTimeout(streamingTimeout);
+          streamingTimeout = null;
+        }
+        
+        // Reset iteration counters
+        cleaningCodeIterationCount = 0;
+        cleaningCodeExecuting = false;
+        
+        // Reset AI responding flag and ensure button is in correct state
+        isAIResponding = false;
+        transformToSendButton();
         
         // Clear the chat container
         const container = document.getElementById("chat-container");
@@ -9043,8 +9176,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           agentResults = [];
           agentCodes = [];
           
-          // FIXED: Don't transform button here - let the workflow handle it
-          // transformToAgentStopButton();
+          // Transform send button to stop button when agent starts (consistent with other agents)
+          transformToAgentStopButton();
           
           // Execute the first step
           if (result.current_step && result.current_step.code) {
@@ -10225,6 +10358,12 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Handle agent step response
       function handleAgentStep(result) {
+        // Clear the step timeout since we received a response
+        if (currentAgentStepTimeout) {
+          clearTimeout(currentAgentStepTimeout);
+          currentAgentStepTimeout = null;
+        }
+        
         if (result.success) {
           if (result.completed) {
             // Detect agent type for completion message
@@ -10255,13 +10394,25 @@ cat("\\nModeling workflow completed successfully!\\n")
           // Agent workflow steps are ALWAYS auto-executed (predefined code)
           // The auto-execute toggle only applies to final Claude-generated code
           console.log('🔍 Executing agent workflow step code');
+          
+          // Set a timeout to detect if we never receive a response (90 seconds)
+          currentAgentStepTimeout = setTimeout(() => {
+            if (currentAgentWorkflow) {
+              console.error('⏱️ Agent step timed out after 90 seconds');
+              addMessage(`⏱️ **Timeout Warning:** Agent step took longer than expected. The workflow may have stalled.\n\nYou can:\n- Wait for the step to complete\n- Stop the agent workflow and try again\n- Check the R console for errors`, 'ai');
+              currentAgentStepTimeout = null;
+            }
+          }, 90000); // 90 second timeout
+          
+          pendingTimeouts.push(currentAgentStepTimeout);
+          
           ws.send(JSON.stringify({
             action: 'execute_code',
             code: code
           }));
           
           // After a brief delay, request next step based on agent type
-          setTimeout(() => {
+          const nextStepTimeout = setTimeout(() => {
             if (currentAgentWorkflow?.problemType) {
               // Modeling agent - use the step-by-step execution flow
               executeNextAgentStep();
@@ -10275,12 +10426,15 @@ cat("\\nModeling workflow completed successfully!\\n")
               }));
             }
           }, 1000);
+          
+          pendingTimeouts.push(nextStepTimeout);
         }
       }
       
       // Helper functions for agent state
       let currentAgentDataFrame = null;
       let currentAgentNAHandling = null;
+      let currentAgentStepTimeout = null; // Track the current step timeout
       
       function getCurrentDataFrame() { return currentAgentDataFrame; }
       function getCurrentNAHandling() { return currentAgentNAHandling; }
@@ -10329,6 +10483,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         if (codeBlocks.length === 0) {
           addMessage('❌ **No R code found** in Claude\'s response. Please ask for executable R code.', 'ai');
+          cleaningCodeExecuting = false;
+          cleaningCodeIterationCount = 0;
           return;
         }
         
@@ -10336,9 +10492,27 @@ cat("\\nModeling workflow completed successfully!\\n")
         const originalCode = getOriginalFormattedCode(message);
         console.log('🔍 Original formatted code:', originalCode.substring(0, 200) + '...');
         
+        // Validate that we got actual code
+        if (!originalCode || originalCode.trim().length === 0) {
+          console.error('❌ Code extraction failed: originalCode is empty');
+          addMessage('❌ **Code Extraction Error:** Unable to extract code from the response. The code block may be malformed.', 'ai');
+          cleaningCodeExecuting = false;
+          cleaningCodeIterationCount = 0;
+          return;
+        }
+        
         // Combine extracted code blocks for display
         const combinedCode = codeBlocks.join('\n\n');
         console.log('🔍 Combined code to execute:', combinedCode);
+        
+        // Double-check combined code is not empty
+        if (!combinedCode || combinedCode.trim().length === 0) {
+          console.error('❌ Code extraction failed: combinedCode is empty');
+          addMessage('❌ **Code Extraction Error:** Extracted code is empty. Please try asking Claude to provide the code again.', 'ai');
+          cleaningCodeExecuting = false;
+          cleaningCodeIterationCount = 0;
+          return;
+        }
         
         // Check if auto-execute is enabled
         const autoExecute = isAutoExecuteEnabled();
