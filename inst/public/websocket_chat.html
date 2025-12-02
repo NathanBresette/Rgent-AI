@@ -4721,16 +4721,68 @@ Provide R code to:
 4. Save the transformed dataset with a clear name (e.g., ${request.currentAgentWorkflow?.dataframe}_transformed)
 
 Include comments explaining each transformation step. Code only. Minimal chat.`;
+          } else if (request.agentType === 'cleaning') {
+            // Data cleaning agent specific instructions
+            const selectedOps = [];
+            const cleaningOptions = request.currentAgentWorkflow?.cleaningOptions || {};
+            const methodOptions = request.currentAgentWorkflow?.methodOptions || {};
+            
+            if (cleaningOptions.dataTypes) selectedOps.push('Data Types');
+            if (cleaningOptions.missingValues) {
+              const method = methodOptions.missingValues || 'dont';
+              selectedOps.push(`Missing Values (${method})`);
+            }
+            if (cleaningOptions.duplicates) selectedOps.push('Duplicates');
+            if (cleaningOptions.outliers) {
+              const method = methodOptions.outliers || 'iqr';
+              selectedOps.push(`Outliers (${method})`);
+            }
+            if (cleaningOptions.columnNames) {
+              const method = methodOptions.columnNames || 'snake_case';
+              selectedOps.push(`Column Names (${method})`);
+            }
+            
+            codeText += `\n\nData Cleaning Configuration:
+- Dataset: ${request.currentAgentWorkflow?.dataframe}
+- Selected Operations: ${selectedOps.join(', ')}
+
+Provide R code to ONLY perform the selected operations listed above. Do not include operations that were not selected.
+
+Guidelines:
+1. If no issues were found (e.g., no missing values, no outliers), return a simple confirmation message instead of unnecessary code
+2. Create a cleaned version only if actual cleaning was performed
+3. Include comments explaining each step
+4. Code only. Minimal chat.`;
+          } else if (request.agentType === 'modeling') {
+            // Modeling agent specific instructions
+            const selectedAlgos = [];
+            const algorithms = request.currentAgentWorkflow?.algorithms || {};
+            
+            if (algorithms.linearRegression) selectedAlgos.push('Linear Regression');
+            if (algorithms.logisticRegression) selectedAlgos.push('Logistic Regression');
+            if (algorithms.decisionTrees) selectedAlgos.push('Decision Trees');
+            if (algorithms.randomForest) selectedAlgos.push('Random Forest');
+            if (algorithms.svm) selectedAlgos.push('SVM');
+            if (algorithms.knn) selectedAlgos.push('K-NN');
+            if (algorithms.naiveBayes) selectedAlgos.push('Naive Bayes');
+            if (algorithms.clustering) selectedAlgos.push('Clustering');
+            if (algorithms.dimensionalityReduction) selectedAlgos.push('Dimensionality Reduction');
+            
+            codeText += `\n\nModeling Configuration:
+- Dataset: ${request.currentAgentWorkflow?.dataframe}
+- Target Variable: ${request.currentAgentWorkflow?.targetVariable || 'auto-detected'}
+- Selected Algorithms: ${selectedAlgos.join(', ')}
+
+Provide R code to:
+1. Build and train the selected models
+2. Evaluate model performance with appropriate metrics
+3. Generate visualizations (confusion matrix, ROC curves, feature importance, etc.)
+4. Compare models and recommend the best approach
+
+Include comments explaining each step. Code only. Minimal chat.`;
           } else {
-            // Cleaning/transformation agent instructions
-            codeText += `\n\n${request.currentAgentWorkflow?.methodOptions?.outliers === 'zscore' ? '- Handle outliers using Z-Score method (3σ threshold)\n' : ''}${request.currentAgentWorkflow?.methodOptions?.outliers === 'modified_zscore' ? '- Handle outliers using Modified Z-Score method (3.5 MAD)\n' : ''}${request.currentAgentWorkflow?.methodOptions?.outliers === 'iqr' ? '- Handle outliers using IQR method (1.5x multiplier)\n' : ''}${request.currentAgentWorkflow?.methodOptions?.outliers === 'other' ? `- Handle outliers using custom method: ${request.currentAgentWorkflow?.customInputs?.outliers || 'user specified'}\n` : ''}
-
-${request.currentAgentWorkflow?.methodOptions?.columnNames === 'camelCase' ? '- Convert column names to camelCase format\n' : ''}${request.currentAgentWorkflow?.methodOptions?.columnNames === 'PascalCase' ? '- Convert column names to PascalCase format\n' : ''}${request.currentAgentWorkflow?.methodOptions?.columnNames === 'lowercase' ? '- Convert column names to lowercase format\n' : ''}${request.currentAgentWorkflow?.methodOptions?.columnNames === 'UPPERCASE' ? '- Convert column names to UPPERCASE format\n' : ''}${request.currentAgentWorkflow?.methodOptions?.columnNames === 'snake_case' ? '- Convert column names to snake_case format\n' : ''}${request.currentAgentWorkflow?.columnNames === 'other' ? `- Convert column names using custom convention: ${request.currentAgentWorkflow?.customInputs?.columnNames || 'user specified'}\n` : ''}
-
-${request.agentResults.some(r => r.output.includes('duplicate')) ? '- Remove duplicate records\n' : ''}
-- Create cleaned version: ${request.currentAgentWorkflow?.dataframe}_cleaned
-
-Code only. Minimal chat.`;
+            // Unknown agent type - generic instructions
+            codeText += `\n\nProvide R code based on the analysis results above. Code only. Minimal chat.`;
           }
           
           if (ws && ws.readyState === WebSocket.OPEN) {
