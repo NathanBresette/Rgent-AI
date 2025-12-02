@@ -10353,9 +10353,27 @@ cat("\\nModeling workflow completed successfully!\\n")
       function getOriginalFormattedCode(message) {
         console.log('🔍 Getting original formatted code');
         
+        // Decode HTML entities first - messages from streaming may be HTML-encoded
+        // Create a temporary div to decode HTML entities
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = message;
+        let decodedMessage = tempDiv.textContent || tempDiv.innerText || message;
+        
+        // If decoding didn't work or message wasn't HTML, use original
+        if (!decodedMessage || decodedMessage === message) {
+          // Try manual decoding of common entities
+          decodedMessage = message
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ');
+        }
+        
         // Find the first code block and extract it with original formatting
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
-        const codeBlockMatch = message.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
+        const codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
         
         if (codeBlockMatch) {
           let originalCode = codeBlockMatch[1];
