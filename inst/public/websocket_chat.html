@@ -10288,13 +10288,33 @@ cat("\\nModeling workflow completed successfully!\\n")
       function extractRCodeBlocks(message) {
         console.log('🔍 Extracting R code from message:', message.substring(0, 200) + '...');
         
+        // Decode HTML entities first - messages from streaming may be HTML-encoded
+        // Create a temporary div to decode HTML entities
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = message;
+        let decodedMessage = tempDiv.textContent || tempDiv.innerText || message;
+        
+        // If decoding didn't work or message wasn't HTML, use original
+        if (!decodedMessage || decodedMessage === message) {
+          // Try manual decoding of common entities
+          decodedMessage = message
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ');
+        }
+        
+        console.log('🔍 Decoded message preview:', decodedMessage.substring(0, 200) + '...');
+        
         // More flexible regex to catch different code block formats
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
         const codeBlockRegex = /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/gi;
         const codeBlocks = [];
         let match;
         
-        while ((match = codeBlockRegex.exec(message)) !== null) {
+        while ((match = codeBlockRegex.exec(decodedMessage)) !== null) {
           const codeContent = match[1];
           console.log('🔍 Found code block:', codeContent.substring(0, 100) + '...');
           
@@ -10304,6 +10324,14 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
             .replace(/^[rR]\s*\n?/, '') // Remove r or R at start
             .replace(/^\s*[rR]\s*\n?/, ''); // Remove r or R with whitespace
+          
+          // Decode any remaining HTML entities in the code content
+          cleanedCode = cleanedCode
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
           
           // AGGRESSIVELY preserve line breaks - this is critical for R syntax
           // Only remove leading/trailing whitespace from each line, keep ALL line breaks
