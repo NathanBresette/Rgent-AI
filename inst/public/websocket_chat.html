@@ -3832,6 +3832,14 @@
             console.log('🔍 Transformation agent message received:', data);
           }
           
+          // Helper function to detect code blocks - used by multiple cases
+          const hasCodeBlock = (text) => {
+            if (!text) return false;
+            return text.includes('```r') || text.includes('```R') || 
+                   text.includes('```{r}') || text.includes('```{R}') ||
+                   /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
+          };
+          
           switch(data.action) {
             case "ai_response":
               // Check if agent was stopped before processing AI response
@@ -4324,13 +4332,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               
               // Check if this is Claude's response to our cleaning code request
               // Detect code blocks with ```r, ```R, ```{r}, ```{R}, or plain ```
-              const hasCodeBlock = (text) => {
-                if (!text) return false;
-                return text.includes('```r') || text.includes('```R') || 
-                       text.includes('```{r}') || text.includes('```{R}') ||
-                       /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
-              };
-              
               if (data.message && hasCodeBlock(data.message)) {
                 console.log('🔍 Detected R code in AI response message, handling automatically');
                 handleCleaningCodeResponse(data.message, data.conversation_context);
@@ -4360,13 +4361,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
             case "streaming_complete":
               console.log('🔍 Streaming complete, checking for R code in final message');
               // Check if we have a complete message with R code - use same detection as ai_response
-              const hasCodeBlock = (text) => {
-                if (!text) return false;
-                return text.includes('```r') || text.includes('```R') || 
-                       text.includes('```{r}') || text.includes('```{R}') ||
-                       /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
-              };
-              
               if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
                 console.log('🔍 Detected R code in complete streaming message, handling automatically');
                 
