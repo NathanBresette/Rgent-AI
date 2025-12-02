@@ -4363,14 +4363,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               // Check if we have a complete message with R code - use same detection as ai_response
               if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
                 console.log('🔍 Detected R code in complete streaming message, handling automatically');
-                
-                if (currentAgentWorkflow) {
-                  console.log('🔍 Agent workflow is running, not handling as cleaning code');
-                  // For agent workflows, the code execution is handled by the workflow system
-                } else {
-                  console.log('🔍 No agent workflow running, handling as cleaning code');
-                  handleCleaningCodeResponse(window.lastCompleteMessage, 'data_cleaning_agent_code');
-                }
+                handleCleaningCodeResponse(window.lastCompleteMessage, 'data_cleaning_agent_code');
               }
               break;
             case "stop_response":
@@ -4598,9 +4591,12 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           console.log("DEBUG: Processing final message for formatting");
           
           // Store the complete message for potential R code detection
+          // Get both HTML and text content - text content for code extraction, HTML for display
           const content = currentStreamingMessage.innerHTML;
-          window.lastCompleteMessage = content;
-          console.log("DEBUG: Stored complete message:", content.substring(0, 100) + "...");
+          const textContent = currentStreamingMessage.textContent || currentStreamingMessage.innerText || content;
+          window.lastCompleteMessage = textContent; // Use text content for code extraction
+          window.lastCompleteMessageHTML = content; // Store HTML separately if needed
+          console.log("DEBUG: Stored complete message:", textContent.substring(0, 100) + "...");
           
           // Check if this is a plot analysis message (has plot analysis content)
           const isPlotAnalysis = content.includes("plot") || content.includes("histogram") || 
