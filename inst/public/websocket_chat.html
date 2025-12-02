@@ -4237,11 +4237,11 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             case "chat_with_ai":
               // Handle messages sent to the chat interface
               if (data.message) {
-                // If this is the debugging start message, remove the placeholder and don't show the static message
-                // (we already have the animated placeholder)
+                // If this is the debugging start message, don't show the static message
+                // (we already have the animated placeholder - it will be removed when streaming starts)
                 if (data.message.includes("🔍 Debugging error")) {
-                  removeAnimatedPlaceholder("ai-debugging");
-                  // Don't add the static message - the animated placeholder was already shown
+                  // Don't add the static message - keep the animated placeholder until streaming starts
+                  // The placeholder will be removed by addStreamingChunk when the first chunk arrives
                 } else {
                   addMessage(data.message, "ai");
                 }
@@ -4496,7 +4496,10 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         placeholder.className = "message ai-message";
         placeholder.id = id;
         const textSpan = document.createElement("span");
-        textSpan.textContent = text;
+        // Set as innerHTML to allow markdown processing
+        textSpan.innerHTML = text;
+        // Process markdown formatting (bold, italic, etc.)
+        processMarkdownFormatting(textSpan);
         const dotsSpan = document.createElement("span");
         dotsSpan.className = "thinking-dots";
         placeholder.appendChild(textSpan);
@@ -4765,6 +4768,61 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         
         // Bullet points
         content = content.replace(/^[-*]\s+(.*)$/gm, '<div style="margin-left: 20px; white-space: normal; word-wrap: break-word; word-break: normal; hyphens: none;">• $1</div>');
+        
+        // Markdown tables (must be processed before inline code to avoid conflicts)
+        // Matches tables with format: | Header 1 | Header 2 |\n|--------|--------|\n| Cell 1 | Cell 2 |
+        content = content.replace(/(\|[^\n]+\|\n(?:\|[\s\-:]+\|\n)?(?:\|[^\n]+\|\n?)+)/g, (match) => {
+          const lines = match.trim().split('\n').filter(line => line.trim() && line.includes('|'));
+          if (lines.length < 2) return match; // Need at least header and one data row
+          
+          // Check if second line is a separator (contains only dashes, colons, spaces, and pipes)
+          const secondLine = lines[1].trim();
+          const isSeparator = /^[\|\s\-:]+$/.test(secondLine);
+          
+          // Parse header (first line if separator exists, otherwise first line is header)
+          const headerLine = lines[0];
+          const headers = headerLine.split('|').map(h => h.trim()).filter(h => h.length > 0);
+          
+          if (headers.length === 0) return match; // Invalid table
+          
+          // Get data rows (skip header and separator if present)
+          const dataStartIndex = isSeparator ? 2 : 1;
+          const dataRows = lines.slice(dataStartIndex);
+          
+          // Build table HTML
+          let tableHtml = '<div style="overflow-x: auto; margin: 16px 0;"><table style="border-collapse: collapse; width: 100%; max-width: 100%;">';
+          
+          // Header row
+          tableHtml += '<thead><tr>';
+          headers.forEach(header => {
+            tableHtml += `<th style="border: 1px solid var(--border-color); padding: 8px 12px; text-align: left; background-color: var(--bg-secondary); font-weight: 600; white-space: nowrap;">${header}</th>`;
+          });
+          tableHtml += '</tr></thead>';
+          
+          // Data rows
+          tableHtml += '<tbody>';
+          dataRows.forEach(row => {
+            const cells = row.split('|').map(c => c.trim());
+            // Remove empty cells at start/end (from leading/trailing |)
+            if (cells.length > 0 && cells[0] === '') cells.shift();
+            if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+            
+            if (cells.length > 0) {
+              tableHtml += '<tr>';
+              // Match number of cells to headers (pad or truncate)
+              const paddedCells = cells.slice(0, headers.length);
+              while (paddedCells.length < headers.length) paddedCells.push('');
+              
+              paddedCells.forEach(cell => {
+                tableHtml += `<td style="border: 1px solid var(--border-color); padding: 8px 12px;">${cell || '&nbsp;'}</td>`;
+              });
+              tableHtml += '</tr>';
+            }
+          });
+          tableHtml += '</tbody></table></div>';
+          
+          return tableHtml;
+        });
         
         // Inline code (but not code blocks) - only single backticks
         // Make sure we don't match triple backticks (```)
