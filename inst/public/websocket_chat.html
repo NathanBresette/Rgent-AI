@@ -4890,7 +4890,8 @@ Code only. Minimal chat.`;
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
                 // Also handle cases with language identifiers like ```python, ```javascript, etc.
-                cleanCode = part.replace(/^```[a-zA-Z]*[\s\n]*/, "").replace(/```$/, "");
+                // Only remove language identifier if followed by whitespace/newline (not part of code)
+                cleanCode = part.replace(/^```(?:[a-zA-Z]+[\s\n]+)?/, "").replace(/```$/, "");
               } else {
                 // HTML format - extract clean text from nested HTML
                 // Create a temporary div to parse HTML and extract text
@@ -5430,7 +5431,8 @@ Code only. Minimal chat.`;
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
-                cleanCode = part.replace(/^```[a-zA-Z]*[\s\n]*/, "").replace(/```$/, "");
+                // Only remove language identifier if followed by whitespace/newline (not part of code)
+                cleanCode = part.replace(/^```(?:[a-zA-Z]+[\s\n]+)?/, "").replace(/```$/, "");
               } else {
                 // HTML format - extract clean text from nested HTML
                 const tempDiv = document.createElement('div');
