@@ -4315,13 +4315,21 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               console.log('🔍 Data structure:', JSON.stringify(data, null, 2));
               
               // Check if this is Claude's response to our cleaning code request
-              if (data.message && data.message.includes('```r')) {
+              // Detect code blocks with ```r, ```R, ```{r}, ```{R}, or plain ```
+              const hasCodeBlock = (text) => {
+                if (!text) return false;
+                return text.includes('```r') || text.includes('```R') || 
+                       text.includes('```{r}') || text.includes('```{R}') ||
+                       /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
+              };
+              
+              if (data.message && hasCodeBlock(data.message)) {
                 console.log('🔍 Detected R code in AI response message, handling automatically');
                 handleCleaningCodeResponse(data.message, data.conversation_context);
-              } else if (data.chunk && data.chunk.includes('```r')) {
+              } else if (data.chunk && hasCodeBlock(data.chunk)) {
                 console.log('🔍 Detected R code in AI response chunk, handling automatically');
                 handleCleaningCodeResponse(data.chunk, data.conversation_context);
-              } else if (data.finished && data.chunk && data.chunk.includes('```r')) {
+              } else if (data.finished && data.chunk && hasCodeBlock(data.chunk)) {
                 console.log('🔍 Detected R code in finished AI response, handling automatically');
                 handleCleaningCodeResponse(data.chunk, data.conversation_context);
               } else {
@@ -10217,8 +10225,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         console.log('🔍 Extracting R code from message:', message.substring(0, 200) + '...');
         
         // More flexible regex to catch different code block formats
-        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n with optional whitespace
-        const codeBlockRegex = /```(?:\{[rR]\}|[rR])(?:\n|\s*)([\s\S]*?)```/gi;
+        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
+        const codeBlockRegex = /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/gi;
         const codeBlocks = [];
         let match;
         
@@ -10226,13 +10234,23 @@ cat("\\nModeling workflow completed successfully!\\n")
           const codeContent = match[1];
           console.log('🔍 Found code block:', codeContent.substring(0, 100) + '...');
           
+          // Remove any language identifier that might be at the start (like {r}, r, etc.)
+          let cleanedCode = codeContent
+            .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
+            .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
+            .replace(/^[rR]\s*\n?/, '') // Remove r or R at start
+            .replace(/^\s*[rR]\s*\n?/, ''); // Remove r or R with whitespace
+          
           // AGGRESSIVELY preserve line breaks - this is critical for R syntax
           // Only remove leading/trailing whitespace from each line, keep ALL line breaks
-          const cleanedCode = codeContent
+          cleanedCode = cleanedCode
             .replace(/^\s+|\s+$/gm, '') // Remove leading/trailing whitespace from each line
             .replace(/\n{6,}/g, '\n\n\n\n\n'); // Only replace 6+ consecutive newlines
           
-          codeBlocks.push(cleanedCode);
+          // Only add if there's actual code content (not just whitespace)
+          if (cleanedCode.trim().length > 0) {
+            codeBlocks.push(cleanedCode);
+          }
         }
         
         console.log('🔍 Extracted code blocks count:', codeBlocks.length);
@@ -10244,12 +10262,19 @@ cat("\\nModeling workflow completed successfully!\\n")
         console.log('🔍 Getting original formatted code');
         
         // Find the first code block and extract it with original formatting
-        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n with optional whitespace
-        const codeBlockMatch = message.match(/```(?:\{[rR]\}|[rR])(?:\n|\s*)([\s\S]*?)```/i);
+        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
+        const codeBlockMatch = message.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
         
         if (codeBlockMatch) {
           let originalCode = codeBlockMatch[1];
           console.log('🔍 Original code block found, length:', originalCode.length);
+          
+          // Remove any language identifier that might be at the start (like {r}, r, etc.)
+          originalCode = originalCode
+            .replace(/^\{[rR]\}\s*\n?/, '') // Remove {r} or {R} at start
+            .replace(/^\s*\{[rR]\}\s*\n?/, '') // Remove {r} or {R} with whitespace
+            .replace(/^[rR]\s*\n?/, '') // Remove r or R at start
+            .replace(/^\s*[rR]\s*\n?/, ''); // Remove r or R with whitespace
           
           // Decode HTML entities back to actual characters
           originalCode = originalCode
