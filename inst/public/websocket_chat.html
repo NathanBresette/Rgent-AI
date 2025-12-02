@@ -4591,12 +4591,10 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           console.log("DEBUG: Processing final message for formatting");
           
           // Store the complete message for potential R code detection
-          // Get both HTML and text content - text content for code extraction, HTML for display
+          // Use innerHTML to preserve newlines and formatting in code blocks
           const content = currentStreamingMessage.innerHTML;
-          const textContent = currentStreamingMessage.textContent || currentStreamingMessage.innerText || content;
-          window.lastCompleteMessage = textContent; // Use text content for code extraction
-          window.lastCompleteMessageHTML = content; // Store HTML separately if needed
-          console.log("DEBUG: Stored complete message:", textContent.substring(0, 100) + "...");
+          window.lastCompleteMessage = content; // Use HTML content to preserve code block formatting
+          console.log("DEBUG: Stored complete message:", content.substring(0, 100) + "...");
           
           // Check if this is a plot analysis message (has plot analysis content)
           const isPlotAnalysis = content.includes("plot") || content.includes("histogram") || 
