@@ -4737,6 +4737,9 @@ Code only. Minimal chat.`;
             // Set AI responding flag for the second message
             isAIResponding = true;
             
+            // Mark that this is agent-generated final code
+            window.isAgentFinalCode = true;
+            
             ws.send(JSON.stringify({
               action: 'chat_with_ai',
               message: codeText,
@@ -8919,20 +8922,14 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Check if auto-execute is enabled
-            const autoExecute = isAutoExecuteEnabled();
-            if (autoExecute) {
-              // Send code execution request via WebSocket
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('🔍 Auto-execute enabled: Executing first cleaning step');
-                ws.send(JSON.stringify({
-                  action: 'execute_code',
-                  code: result.current_step.code
-                }));
-              }
-            } else {
-              console.log('🔍 Auto-execute disabled: Showing first cleaning step code');
-              addMessage(result.current_step.code, 'ai');
+            // Agent workflow steps are ALWAYS auto-executed (predefined code)
+            // The auto-execute toggle only applies to final Claude-generated code
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              console.log('🔍 Executing first agent workflow step');
+              ws.send(JSON.stringify({
+                action: 'execute_code',
+                code: result.current_step.code
+              }));
             }
           } else {
             console.log('No code to execute for first step');
@@ -9002,20 +8999,14 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Check if auto-execute is enabled
-            const autoExecute = isAutoExecuteEnabled();
-            if (autoExecute) {
-              // Send code execution request via WebSocket
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('🔍 Auto-execute enabled: Executing first transformation step');
-                ws.send(JSON.stringify({
-                  action: 'execute_code',
-                  code: result.current_step.code
-                }));
-              }
-            } else {
-              console.log('🔍 Auto-execute disabled: Showing first transformation step code');
-              addMessage(result.current_step.code, 'ai');
+            // Agent workflow steps are ALWAYS auto-executed (predefined code)
+            // The auto-execute toggle only applies to final Claude-generated code
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              console.log('🔍 Executing first transformation workflow step');
+              ws.send(JSON.stringify({
+                action: 'execute_code',
+                code: result.current_step.code
+              }));
             }
           } else {
             console.log('No code to execute for first transformation step');
@@ -9078,20 +9069,14 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Check if auto-execute is enabled
-            const autoExecute = isAutoExecuteEnabled();
-            if (autoExecute) {
-              // Send code execution request via WebSocket
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('🔍 Auto-execute enabled: Executing first statistical analysis step');
-                ws.send(JSON.stringify({
-                  action: 'execute_code',
-                  code: result.current_step.code
-                }));
-              }
-            } else {
-              console.log('🔍 Auto-execute disabled: Showing first statistical analysis step code');
-              addMessage(result.current_step.code, 'ai');
+            // Agent workflow steps are ALWAYS auto-executed (predefined code)
+            // The auto-execute toggle only applies to final Claude-generated code
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              console.log('🔍 Executing first statistical workflow step');
+              ws.send(JSON.stringify({
+                action: 'execute_code',
+                code: result.current_step.code
+              }));
             }
           } else {
             console.log('No code to execute for first statistical analysis step');
@@ -9656,20 +9641,14 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Check if auto-execute is enabled
-            const autoExecute = isAutoExecuteEnabled();
-            if (autoExecute) {
-              // Execute the first step directly
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('🔍 Auto-execute enabled: Executing first modeling step');
-                ws.send(JSON.stringify({
-                  action: 'execute_code',
-                  code: result.current_step.code
-                }));
-              }
-            } else {
-              console.log('🔍 Auto-execute disabled: Showing first modeling step code');
-              addMessage(result.current_step.code, 'ai');
+            // Agent workflow steps are ALWAYS auto-executed (predefined code)
+            // The auto-execute toggle only applies to final Claude-generated code
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              console.log('🔍 Executing first modeling workflow step');
+              ws.send(JSON.stringify({
+                action: 'execute_code',
+                code: result.current_step.code
+              }));
             }
           } else {
             console.log('No code to execute for first modeling step');
@@ -10132,35 +10111,29 @@ cat("\\nModeling workflow completed successfully!\\n")
           // Add code message to chat
           addMessage(code, 'user');
           
-          // Check if auto-execute is enabled
-          const autoExecute = isAutoExecuteEnabled();
-          if (autoExecute) {
-            // Execute the code
-            console.log('🔍 Auto-execute enabled: Executing agent code');
-            ws.send(JSON.stringify({
-              action: 'execute_code',
-              code: code
-            }));
-            
-            // After a brief delay, request next step based on agent type
-            setTimeout(() => {
-              if (currentAgentWorkflow?.problemType) {
-                // Modeling agent - use the step-by-step execution flow
-                executeNextAgentStep();
-              } else {
-                // Cleaning or transformation agent - use the legacy flow
-                ws.send(JSON.stringify({
-                  action: 'next_agent_step',
-                  dataframe: dataframe,
-                  na_handling: naHandling,
-                  step: currentStep + 1
-                }));
-              }
-            }, 1000);
-          } else {
-            console.log('🔍 Auto-execute disabled: Agent code will not be executed automatically');
-            // Don't execute, but still show the code (already added above)
-          }
+          // Agent workflow steps are ALWAYS auto-executed (predefined code)
+          // The auto-execute toggle only applies to final Claude-generated code
+          console.log('🔍 Executing agent workflow step code');
+          ws.send(JSON.stringify({
+            action: 'execute_code',
+            code: code
+          }));
+          
+          // After a brief delay, request next step based on agent type
+          setTimeout(() => {
+            if (currentAgentWorkflow?.problemType) {
+              // Modeling agent - use the step-by-step execution flow
+              executeNextAgentStep();
+            } else {
+              // Cleaning or transformation agent - use the legacy flow
+              ws.send(JSON.stringify({
+                action: 'next_agent_step',
+                dataframe: dataframe,
+                na_handling: naHandling,
+                step: currentStep + 1
+              }));
+            }
+          }, 1000);
         }
       }
       
@@ -10228,6 +10201,9 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Check if auto-execute is enabled
         const autoExecute = isAutoExecuteEnabled();
+        
+        // Clear agent final code flag after handling
+        window.isAgentFinalCode = false;
         
         if (autoExecute) {
           // Store the code for error handling
@@ -10432,7 +10408,7 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Execute cleaning code with automatic error handling and iteration
       function executeCleaningCodeWithErrorHandling(code, originalMessage) {
-        console.log('🔍 Executing cleaning code with error handling');
+        console.log('🔍 Executing code with error handling');
         
         // Store the code that's being executed for error handling
         currentStepCode = code;
