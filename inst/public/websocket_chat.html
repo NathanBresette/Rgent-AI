@@ -4804,6 +4804,8 @@ Code only. Minimal chat.`;
             
             // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R}, plain ```, and variations with whitespace
             const isCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
+                                part.startsWith("```{r}\n") || part.startsWith("```{R}\n") ||
+                                part.startsWith("```{r} ") || part.startsWith("```{R} ") ||
                                 part.startsWith("```r\n") || part.startsWith("```R\n") ||
                                 part.startsWith("```r ") || part.startsWith("```R ") ||
                                 (part.startsWith("```r") && part.endsWith("```")) ||
@@ -4850,9 +4852,9 @@ Code only. Minimal chat.`;
               // Create code content div - extract just the code
               const codeContent = document.createElement("div");
               let cleanCode;
-              if (part.startsWith("```{r}") || part.startsWith("```{R}")) {
-                // R Markdown format with curly braces - remove ```{r} or ```{R} at start and ``` at end
-                cleanCode = part.replace(/^```\{[rR]\}/, "").replace(/```$/, "");
+              if (part.startsWith("```{r}") || part.startsWith("```{R}") || part.startsWith("```{r}\n") || part.startsWith("```{R}\n") || part.startsWith("```{r} ")) {
+                // R Markdown format with curly braces - remove ```{r} or ```{R} (with optional newline/space) at start and ``` at end
+                cleanCode = part.replace(/^```\{[rR]\}[\s\n]*/, "").replace(/```$/, "");
               } else if (part.startsWith("```r\n") || part.startsWith("```r ")) {
                 // Markdown format - remove ```r\n or ```r  at start and ``` at end
                 cleanCode = part.replace(/^```r[\s\n]+/, "").replace(/```$/, "");
@@ -4891,6 +4893,10 @@ Code only. Minimal chat.`;
               // Remove any remaining "R" at the start
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
+              
+              // Remove {r} or {R} if it appears at the start (should have been removed but just in case)
+              cleanCode = cleanCode.replace(/^\{[rR]\}\s*\n?/, "");
+              cleanCode = cleanCode.replace(/^\s*\{[rR]\}\s*\n?/, "");
               
               // Decode HTML entities
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
@@ -5387,7 +5393,10 @@ Code only. Minimal chat.`;
               // Create code content div - extract just the code
               const codeContent = document.createElement("div");
               let cleanCode;
-              if (part.startsWith("```r\n") || part.startsWith("```r ")) {
+              if (part.startsWith("```{r}") || part.startsWith("```{R}") || part.startsWith("```{r}\n") || part.startsWith("```{R}\n") || part.startsWith("```{r} ")) {
+                // R Markdown format with curly braces - remove ```{r} or ```{R} (with optional newline/space) at start and ``` at end
+                cleanCode = part.replace(/^```\{[rR]\}[\s\n]*/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r\n") || part.startsWith("```r ")) {
                 // Markdown format - remove ```r\n or ```r  at start and ``` at end
                 cleanCode = part.replace(/^```r[\s\n]+/, "").replace(/```$/, "");
               } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
@@ -5421,6 +5430,11 @@ Code only. Minimal chat.`;
               cleanCode = cleanCode.replace(/^\s*['"]?r['"]?\s*/, "");
               cleanCode = cleanCode.replace(/^R\s*/, "");
               cleanCode = cleanCode.replace(/^r\s*/, "");
+              
+              // Remove {r} or {R} if it appears at the start (should have been removed but just in case)
+              cleanCode = cleanCode.replace(/^\{[rR]\}\s*\n?/, "");
+              cleanCode = cleanCode.replace(/^\s*\{[rR]\}\s*\n?/, "");
+              
               cleanCode = cleanCode.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
               
               codeContent.textContent = cleanCode;
