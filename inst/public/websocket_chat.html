@@ -4290,15 +4290,23 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
                   }));
                 }
               } else {
-                // Automatically execute the next step's code
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                  console.log('🔍 Sending execute_code request');
-                  ws.send(JSON.stringify({
-                    action: 'execute_code',
-                    code: data.code
-                  }));
+                // Check if auto-execute is enabled before executing
+                const autoExecute = isAutoExecuteEnabled();
+                if (autoExecute) {
+                  // Automatically execute the next step's code
+                  if (ws && ws.readyState === WebSocket.OPEN) {
+                    console.log('🔍 Auto-execute enabled: Sending execute_code request');
+                    ws.send(JSON.stringify({
+                      action: 'execute_code',
+                      code: data.code
+                    }));
+                  } else {
+                    console.log('🔍 WebSocket not available for execute_code');
+                  }
                 } else {
-                  console.log('🔍 WebSocket not available for execute_code');
+                  console.log('🔍 Auto-execute disabled: Code will not be executed automatically');
+                  // Add the code as a message with execute button
+                  addMessage(data.code, 'ai');
                 }
               }
               break;
@@ -4351,8 +4359,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               
             case "streaming_complete":
               console.log('🔍 Streaming complete, checking for R code in final message');
-              // Check if we have a complete message with R code
-              if (window.lastCompleteMessage && window.lastCompleteMessage.includes('```r')) {
+              // Check if we have a complete message with R code - use same detection as ai_response
+              const hasCodeBlock = (text) => {
+                if (!text) return false;
+                return text.includes('```r') || text.includes('```R') || 
+                       text.includes('```{r}') || text.includes('```{R}') ||
+                       /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
+              };
+              
+              if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
                 console.log('🔍 Detected R code in complete streaming message, handling automatically');
                 
                 if (currentAgentWorkflow) {
@@ -6266,15 +6281,23 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
             }
             
-            // Automatically execute the next step's code
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              console.log('🔍 Sending execute_code request');
-              ws.send(JSON.stringify({
-                action: 'execute_code',
-                code: data.code
-              }));
+            // Check if auto-execute is enabled before executing
+            const autoExecute = isAutoExecuteEnabled();
+            if (autoExecute) {
+              // Automatically execute the next step's code
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🔍 Auto-execute enabled: Sending execute_code request');
+                ws.send(JSON.stringify({
+                  action: 'execute_code',
+                  code: data.code
+                }));
+              } else {
+                console.log('🔍 WebSocket not available for execute_code');
+              }
             } else {
-              console.log('🔍 WebSocket not available for execute_code');
+              console.log('🔍 Auto-execute disabled: Code will not be executed automatically');
+              // Add the code as a message with execute button
+              addMessage(data.code, 'ai');
             }
             break;
         }
@@ -8902,12 +8925,20 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Send code execution request via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                action: 'execute_code',
-                code: result.current_step.code
-              }));
+            // Check if auto-execute is enabled
+            const autoExecute = isAutoExecuteEnabled();
+            if (autoExecute) {
+              // Send code execution request via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🔍 Auto-execute enabled: Executing first cleaning step');
+                ws.send(JSON.stringify({
+                  action: 'execute_code',
+                  code: result.current_step.code
+                }));
+              }
+            } else {
+              console.log('🔍 Auto-execute disabled: Showing first cleaning step code');
+              addMessage(result.current_step.code, 'ai');
             }
           } else {
             console.log('No code to execute for first step');
@@ -8977,12 +9008,20 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Send code execution request via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                action: 'execute_code',
-                code: result.current_step.code
-              }));
+            // Check if auto-execute is enabled
+            const autoExecute = isAutoExecuteEnabled();
+            if (autoExecute) {
+              // Send code execution request via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🔍 Auto-execute enabled: Executing first transformation step');
+                ws.send(JSON.stringify({
+                  action: 'execute_code',
+                  code: result.current_step.code
+                }));
+              }
+            } else {
+              console.log('🔍 Auto-execute disabled: Showing first transformation step code');
+              addMessage(result.current_step.code, 'ai');
             }
           } else {
             console.log('No code to execute for first transformation step');
@@ -9045,12 +9084,20 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Send code execution request via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                action: 'execute_code',
-                code: result.current_step.code
-              }));
+            // Check if auto-execute is enabled
+            const autoExecute = isAutoExecuteEnabled();
+            if (autoExecute) {
+              // Send code execution request via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🔍 Auto-execute enabled: Executing first statistical analysis step');
+                ws.send(JSON.stringify({
+                  action: 'execute_code',
+                  code: result.current_step.code
+                }));
+              }
+            } else {
+              console.log('🔍 Auto-execute disabled: Showing first statistical analysis step code');
+              addMessage(result.current_step.code, 'ai');
             }
           } else {
             console.log('No code to execute for first statistical analysis step');
@@ -9615,12 +9662,20 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
             // Store the code for later display
             currentStepCode = result.current_step.code;
             
-            // Execute the first step directly
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                action: 'execute_code',
-                code: result.current_step.code
-              }));
+            // Check if auto-execute is enabled
+            const autoExecute = isAutoExecuteEnabled();
+            if (autoExecute) {
+              // Execute the first step directly
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🔍 Auto-execute enabled: Executing first modeling step');
+                ws.send(JSON.stringify({
+                  action: 'execute_code',
+                  code: result.current_step.code
+                }));
+              }
+            } else {
+              console.log('🔍 Auto-execute disabled: Showing first modeling step code');
+              addMessage(result.current_step.code, 'ai');
             }
           } else {
             console.log('No code to execute for first modeling step');
@@ -10083,27 +10138,35 @@ cat("\\nModeling workflow completed successfully!\\n")
           // Add code message to chat
           addMessage(code, 'user');
           
-          // Execute the code
-          ws.send(JSON.stringify({
-            action: 'execute_code',
-            code: code
-          }));
-          
-          // After a brief delay, request next step based on agent type
-          setTimeout(() => {
-            if (currentAgentWorkflow?.problemType) {
-              // Modeling agent - use the step-by-step execution flow
-              executeNextAgentStep();
-            } else {
-              // Cleaning or transformation agent - use the legacy flow
-              ws.send(JSON.stringify({
-                action: 'next_agent_step',
-                dataframe: dataframe,
-                na_handling: naHandling,
-                step: currentStep + 1
-              }));
-            }
-          }, 1000);
+          // Check if auto-execute is enabled
+          const autoExecute = isAutoExecuteEnabled();
+          if (autoExecute) {
+            // Execute the code
+            console.log('🔍 Auto-execute enabled: Executing agent code');
+            ws.send(JSON.stringify({
+              action: 'execute_code',
+              code: code
+            }));
+            
+            // After a brief delay, request next step based on agent type
+            setTimeout(() => {
+              if (currentAgentWorkflow?.problemType) {
+                // Modeling agent - use the step-by-step execution flow
+                executeNextAgentStep();
+              } else {
+                // Cleaning or transformation agent - use the legacy flow
+                ws.send(JSON.stringify({
+                  action: 'next_agent_step',
+                  dataframe: dataframe,
+                  na_handling: naHandling,
+                  step: currentStep + 1
+                }));
+              }
+            }, 1000);
+          } else {
+            console.log('🔍 Auto-execute disabled: Agent code will not be executed automatically');
+            // Don't execute, but still show the code (already added above)
+          }
         }
       }
       
@@ -10131,18 +10194,25 @@ cat("\\nModeling workflow completed successfully!\\n")
         console.log('🔍 Message received:', message);
         console.log('🔍 Conversation context:', conversationContext);
         
-        // Check if this is modeling agent code - if so, don't execute automatically
+        // Check if this is modeling agent code - respect auto-execute toggle
         if (conversationContext === 'data_modeling_agent_code' || currentAgentWorkflow?.algorithms) {
-          console.log('🔍 This is modeling agent code - showing success message without execution');
-          addMessage(`✅ **Modeling Code Generated Successfully!**\n\nThe modeling workflow has completed and Claude has provided the final R code for your selected algorithms.`, 'ai');
-          addMessage(`🎯 **Next Steps:**\n- Copy the code above to your R script\n- Execute it in your R environment\n- The modeling agent workflow is now complete!`, 'ai');
+          const autoExecute = isAutoExecuteEnabled();
           
-          // Reset workflow state
-          currentAgentWorkflow = null;
-          
-          // Don't reset button yet - wait for AI response streaming to complete
-          // The button will be reset in finishStreaming() when streaming is done
-          return;
+          if (autoExecute) {
+            console.log('🔍 This is modeling agent code with auto-execute enabled - will execute code');
+            // Continue to normal execution flow below
+          } else {
+            console.log('🔍 This is modeling agent code with auto-execute disabled - showing success message without execution');
+            addMessage(`✅ **Modeling Code Generated Successfully!**\n\nThe modeling workflow has completed and Claude has provided the final R code for your selected algorithms.`, 'ai');
+            addMessage(`🎯 **Next Steps:**\n- Copy the code above to your R script\n- Execute it in your R environment\n- The modeling agent workflow is now complete!`, 'ai');
+            
+            // Reset workflow state
+            currentAgentWorkflow = null;
+            
+            // Don't reset button yet - wait for AI response streaming to complete
+            // The button will be reset in finishStreaming() when streaming is done
+            return;
+          }
         }
         
         // Extract R code from the message
