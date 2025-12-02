@@ -10339,6 +10339,31 @@ cat("\\nModeling workflow completed successfully!\\n")
           }
         }
         
+        // Fallback: if no complete code blocks found but message starts with ```, extract partial code
+        if (codeBlocks.length === 0 && decodedMessage.trim().match(/^```/)) {
+          console.log('🔍 No complete code blocks found, but message starts with ``` - extracting partial code');
+          // Extract everything after the opening ```
+          const partialMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*)/);
+          if (partialMatch && partialMatch[1]) {
+            let partialCode = partialMatch[1]
+              .replace(/```$/, '') // Remove closing ``` if present
+              .replace(/^\{[rR]\}\s*\n?/, '')
+              .replace(/^[rR]\s*\n?/, '');
+            
+            partialCode = partialCode
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'");
+            
+            if (partialCode.trim().length > 0) {
+              console.log('🔍 Extracted partial code, length:', partialCode.length);
+              codeBlocks.push(partialCode);
+            }
+          }
+        }
+        
         console.log('🔍 Extracted code blocks count:', codeBlocks.length);
         return codeBlocks;
       }
@@ -10367,7 +10392,13 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Find the first code block and extract it with original formatting
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
-        const codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
+        let codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
+        
+        // Fallback: if no complete block found but message starts with ```, extract partial code
+        if (!codeBlockMatch && decodedMessage.trim().match(/^```/)) {
+          console.log('🔍 No complete code block found, trying partial extraction');
+          codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*)/i);
+        }
         
         if (codeBlockMatch) {
           let originalCode = codeBlockMatch[1];
@@ -10396,9 +10427,9 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/<p[^>]*>/gi, '');
           
           // AGGRESSIVELY preserve line breaks - this is critical for R syntax
-          // Only remove leading/trailing whitespace from each line, keep ALL line breaks
+          // Only remove leading/trailing spaces/tabs from each line, NOT newlines
           originalCode = originalCode
-            .replace(/^\s+|\s+$/gm, '') // Remove leading/trailing whitespace from each line
+            .replace(/^[ \t]+|[ \t]+$/gm, '') // Remove leading/trailing spaces/tabs only (preserve \n)
             .replace(/\n{6,}/g, '\n\n\n\n\n'); // Only replace 6+ consecutive newlines
           
           console.log('🔍 Decoded HTML entities and cleaned formatting, new length:', originalCode.length);
