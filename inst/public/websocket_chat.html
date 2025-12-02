@@ -4551,6 +4551,11 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         let content = messageDiv.innerHTML;
         
         // Process markdown formatting
+        // Headers (must be processed before other formatting to avoid conflicts)
+        content = content.replace(/^### (.*)$/gm, '<h3 style="margin-top: 16px; margin-bottom: 8px; font-size: 1.1em; font-weight: 600; color: var(--text-color);">$1</h3>');
+        content = content.replace(/^## (.*)$/gm, '<h2 style="margin-top: 20px; margin-bottom: 12px; font-size: 1.3em; font-weight: 600; color: var(--text-color);">$1</h2>');
+        content = content.replace(/^# (.*)$/gm, '<h1 style="margin-top: 24px; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; color: var(--text-color);">$1</h1>');
+        
         // Bold text
         content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
@@ -4764,8 +4769,10 @@ Code only. Minimal chat.`;
         let decodedContent = tempDiv.textContent || tempDiv.innerText || rawContent;
         
         // Check both raw and decoded for code blocks
-        const rawRegex = /```(?:[rR]|\{[rR]\})[\s\S]*?```/i;
-        const decodedRegex = /```(?:[rR]|\{[rR]\})[\s\S]*?```/i;
+        // More flexible regex: handles ```r, ```R, ```{r}, ```{R}, or plain ``` (no language specified)
+        // Also handles variations with/without newlines and whitespace
+        const rawRegex = /```(?:\s*[rR]|\s*\{[rR]\}|\s*[a-zA-Z]*)?[\s\S]*?```/i;
+        const decodedRegex = /```(?:\s*[rR]|\s*\{[rR]\}|\s*[a-zA-Z]*)?[\s\S]*?```/i;
         
         const rawHasCodeBlock = rawRegex.test(rawContent);
         const decodedHasCodeBlock = decodedRegex.test(decodedContent);
@@ -4782,9 +4789,9 @@ Code only. Minimal chat.`;
           messageDiv.innerHTML = "";
           
           // Split by markdown code blocks - handles both with and without newline after r/R
-          // This regex matches: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n followed by content and closing ```
-          // Match: ``` followed by r/R or {r}/{R}, optionally followed by newline or whitespace, then content, then closing ```
-          const splitRegex = /(```(?:[rR]|\{[rR]\})(?:\n|\s)*[\s\S]*?```)/gi;
+          // This regex matches: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` followed by content and closing ```
+          // Match: ``` followed by optional language identifier (r/R/{r}/{R}/other), optionally followed by newline or whitespace, then content, then closing ```
+          const splitRegex = /(```(?:\s*[rR]|\s*\{[rR]\}|\s*[a-zA-Z]*)?(?:\n|\s)*[\s\S]*?```)/gi;
           let parts = content.split(splitRegex);
           
           // If no markdown blocks found, try HTML code blocks
@@ -4795,11 +4802,13 @@ Code only. Minimal chat.`;
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             
-            // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R} formats
+            // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R}, plain ```, and variations with whitespace
             const isCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
                                 part.startsWith("```r\n") || part.startsWith("```R\n") ||
+                                part.startsWith("```r ") || part.startsWith("```R ") ||
                                 (part.startsWith("```r") && part.endsWith("```")) ||
-                                (part.startsWith("```R") && part.endsWith("```"))) ||
+                                (part.startsWith("```R") && part.endsWith("```")) ||
+                                (part.startsWith("```") && part.endsWith("```") && part.length > 6)) ||
                                 (part.includes("<code") && part.includes("</code>"));
             
             if (isCodeBlock) {
@@ -4844,18 +4853,22 @@ Code only. Minimal chat.`;
               if (part.startsWith("```{r}") || part.startsWith("```{R}")) {
                 // R Markdown format with curly braces - remove ```{r} or ```{R} at start and ``` at end
                 cleanCode = part.replace(/^```\{[rR]\}/, "").replace(/```$/, "");
-              } else if (part.startsWith("```r\n")) {
-                // Markdown format - remove ```r\n at start and ``` at end
-                cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
-              } else if (part.startsWith("```R\n")) {
-                // Markdown format - remove ```R\n at start and ``` at end
-                cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r\n") || part.startsWith("```r ")) {
+                // Markdown format - remove ```r\n or ```r  at start and ``` at end
+                cleanCode = part.replace(/^```r[\s\n]+/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
+                // Markdown format - remove ```R\n or ```R  at start and ``` at end
+                cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
                 // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
                 // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
+              } else if (part.startsWith("```") && part.endsWith("```")) {
+                // Plain code block without language identifier - remove ``` at start and end
+                // Also handle cases with language identifiers like ```python, ```javascript, etc.
+                cleanCode = part.replace(/^```[a-zA-Z]*[\s\n]*/, "").replace(/```$/, "");
               } else {
                 // HTML format - extract clean text from nested HTML
                 // Create a temporary div to parse HTML and extract text
@@ -4918,7 +4931,8 @@ Code only. Minimal chat.`;
         
         if (role === "ai") {
           // More precise code block detection - only for actual R code blocks
-          if (content.includes("```r") || content.includes("```R")) {
+          // Check for code blocks - handles ```r, ```R, ```{r}, ```{R}, or plain ```
+          if (content.includes("```r") || content.includes("```R") || /```[\s\S]*?```/.test(content)) {
             const start = content.indexOf("```");
             const end = content.lastIndexOf("```");
             if (start !== -1 && end !== -1 && end > start) {
@@ -5306,7 +5320,8 @@ Code only. Minimal chat.`;
         const content = messageDiv.innerHTML;
         
         // More precise code block detection - only create blocks for actual code blocks
-        const hasMarkdownCodeBlock = /```[rR]\n[\s\S]*?```/.test(content) || /```[rR][\s\S]*?```/.test(content) || /```R\n[\s\S]*?```/.test(content) || /```R[\s\S]*?```/.test(content);
+        // Handles ```r, ```R, ```{r}, ```{R}, plain ```, and variations with whitespace
+        const hasMarkdownCodeBlock = /```(?:\s*[rR]|\s*\{[rR]\}|\s*[a-zA-Z]*)?[\s\S]*?```/i.test(content);
         
         // Only detect HTML code blocks that are actual blocks, not inline code
         const hasHTMLCodeBlock = /<code[^>]*>[\s\S]*?<\/code>/.test(content) && 
@@ -5316,8 +5331,8 @@ Code only. Minimal chat.`;
           // Clear the message div
           messageDiv.innerHTML = "";
           
-          // Try to split by markdown code blocks first
-          let parts = content.split(/(```[rR]\n[\s\S]*?```)/g);
+          // Try to split by markdown code blocks first - handles various formats
+          let parts = content.split(/(```(?:\s*[rR]|\s*\{[rR]\}|\s*[a-zA-Z]*)?(?:\n|\s)*[\s\S]*?```)/gi);
           
           // If no markdown blocks found, try HTML code blocks
           if (parts.length === 1) {
@@ -5329,6 +5344,11 @@ Code only. Minimal chat.`;
             
             if ((part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
+                (part.startsWith("```r ") && part.endsWith("```")) ||
+                (part.startsWith("```R ") && part.endsWith("```")) ||
+                (part.startsWith("```r") && part.endsWith("```")) ||
+                (part.startsWith("```R") && part.endsWith("```")) ||
+                (part.startsWith("```") && part.endsWith("```") && part.length > 6) ||
                 (part.includes("<code") && part.includes("</code>"))) {
               // This is a code block - style it with only Copy/Insert buttons
               const codeDiv = document.createElement("div");
@@ -5367,18 +5387,21 @@ Code only. Minimal chat.`;
               // Create code content div - extract just the code
               const codeContent = document.createElement("div");
               let cleanCode;
-              if (part.startsWith("```r\n")) {
-                // Markdown format - remove ```r\n at start and ``` at end
-                cleanCode = part.replace(/^```r\n/, "").replace(/```$/, "");
-              } else if (part.startsWith("```R\n")) {
-                // Markdown format - remove ```R\n at start and ``` at end
-                cleanCode = part.replace(/^```R\n/, "").replace(/```$/, "");
+              if (part.startsWith("```r\n") || part.startsWith("```r ")) {
+                // Markdown format - remove ```r\n or ```r  at start and ``` at end
+                cleanCode = part.replace(/^```r[\s\n]+/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
+                // Markdown format - remove ```R\n or ```R  at start and ``` at end
+                cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
               } else if (part.startsWith("```r") && part.endsWith("```")) {
                 // Markdown format without newline after r
                 cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
               } else if (part.startsWith("```R") && part.endsWith("```")) {
                 // Markdown format without newline after R
                 cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
+              } else if (part.startsWith("```") && part.endsWith("```")) {
+                // Plain code block without language identifier - remove ``` at start and end
+                cleanCode = part.replace(/^```[a-zA-Z]*[\s\n]*/, "").replace(/```$/, "");
               } else {
                 // HTML format - extract clean text from nested HTML
                 const tempDiv = document.createElement('div');
