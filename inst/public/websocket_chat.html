@@ -3835,9 +3835,9 @@
           // Helper function to detect code blocks - used by multiple cases
           const hasCodeBlock = (text) => {
             if (!text) return false;
-            return text.includes('```r') || text.includes('```R') || 
-                   text.includes('```{r}') || text.includes('```{R}') ||
-                   /```[\s\S]{10,}```/.test(text); // Plain code blocks with at least 10 chars
+            // Only return true if we have BOTH opening and closing backticks
+            // This prevents triggering on incomplete/truncated code blocks
+            return /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?[\s\S]+?```/.test(text);
           };
           
           switch(data.action) {
@@ -4362,8 +4362,14 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               console.log('🔍 Streaming complete, checking for R code in final message');
               // Check if we have a complete message with R code - use same detection as ai_response
               if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
-                console.log('🔍 Detected R code in complete streaming message, handling automatically');
-                handleCleaningCodeResponse(window.lastCompleteMessage, 'data_cleaning_agent_code');
+                console.log('🔍 Detected R code in complete streaming message');
+                
+                // Add a small delay to let the user see the complete message before execution
+                // This prevents jarring UX where code executes while still reading
+                setTimeout(() => {
+                  console.log('🔍 Handling code after brief display delay');
+                  handleCleaningCodeResponse(window.lastCompleteMessage, 'data_cleaning_agent_code');
+                }, 800); // 800ms delay to allow reading
               }
               break;
             case "stop_response":
@@ -10328,39 +10334,14 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/&#39;/g, "'");
           
           // AGGRESSIVELY preserve line breaks - this is critical for R syntax
-          // Only remove leading/trailing whitespace from each line, keep ALL line breaks
+          // Only remove leading/trailing spaces/tabs from each line, NOT newlines
           cleanedCode = cleanedCode
-            .replace(/^\s+|\s+$/gm, '') // Remove leading/trailing whitespace from each line
+            .replace(/^[ \t]+|[ \t]+$/gm, '') // Remove leading/trailing spaces/tabs only (preserve \n)
             .replace(/\n{6,}/g, '\n\n\n\n\n'); // Only replace 6+ consecutive newlines
           
           // Only add if there's actual code content (not just whitespace)
           if (cleanedCode.trim().length > 0) {
             codeBlocks.push(cleanedCode);
-          }
-        }
-        
-        // Fallback: if no complete code blocks found but message starts with ```, extract partial code
-        if (codeBlocks.length === 0 && decodedMessage.trim().match(/^```/)) {
-          console.log('🔍 No complete code blocks found, but message starts with ``` - extracting partial code');
-          // Extract everything after the opening ```
-          const partialMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*)/);
-          if (partialMatch && partialMatch[1]) {
-            let partialCode = partialMatch[1]
-              .replace(/```$/, '') // Remove closing ``` if present
-              .replace(/^\{[rR]\}\s*\n?/, '')
-              .replace(/^[rR]\s*\n?/, '');
-            
-            partialCode = partialCode
-              .replace(/&lt;/g, '<')
-              .replace(/&gt;/g, '>')
-              .replace(/&amp;/g, '&')
-              .replace(/&quot;/g, '"')
-              .replace(/&#39;/g, "'");
-            
-            if (partialCode.trim().length > 0) {
-              console.log('🔍 Extracted partial code, length:', partialCode.length);
-              codeBlocks.push(partialCode);
-            }
           }
         }
         
@@ -10392,13 +10373,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Find the first code block and extract it with original formatting
         // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
-        let codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
-        
-        // Fallback: if no complete block found but message starts with ```, extract partial code
-        if (!codeBlockMatch && decodedMessage.trim().match(/^```/)) {
-          console.log('🔍 No complete code block found, trying partial extraction');
-          codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*)/i);
-        }
+        // ONLY matches COMPLETE blocks with both opening and closing ```
+        const codeBlockMatch = decodedMessage.match(/```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/i);
         
         if (codeBlockMatch) {
           let originalCode = codeBlockMatch[1];
