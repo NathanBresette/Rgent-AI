@@ -4881,6 +4881,12 @@ Code only. Minimal chat.`;
               } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
                 // Markdown format - remove ```R\n or ```R  at start and ``` at end
                 cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r") && part.endsWith("```")) {
+                // Markdown format without newline after r
+                cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R") && part.endsWith("```")) {
+                // Markdown format without newline after R
+                cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
                 // Also handle cases with language identifiers like ```python, ```javascript, etc.
@@ -5417,6 +5423,12 @@ Code only. Minimal chat.`;
               } else if (part.startsWith("```R\n") || part.startsWith("```R ")) {
                 // Markdown format - remove ```R\n or ```R  at start and ``` at end
                 cleanCode = part.replace(/^```R[\s\n]+/, "").replace(/```$/, "");
+              } else if (part.startsWith("```r") && part.endsWith("```")) {
+                // Markdown format without newline after r
+                cleanCode = part.replace(/^```r/, "").replace(/```$/, "");
+              } else if (part.startsWith("```R") && part.endsWith("```")) {
+                // Markdown format without newline after R
+                cleanCode = part.replace(/^```R/, "").replace(/```$/, "");
               } else if (part.startsWith("```") && part.endsWith("```")) {
                 // Plain code block without language identifier - remove ``` at start and end
                 // Only remove language identifier if followed by whitespace/newline (not part of code)
@@ -9474,9 +9486,14 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           sendStatisticalSummaryToClaude();
         } else if (agentType === 'Transformation') {
           sendTransformationSummaryToClaude();
+        } else if (agentType === 'Cleaning') {
+          sendCleaningSummaryToClaude();
+        } else if (agentType === 'Modeling') {
+          sendModelingSummaryToClaude();
         } else {
-          // Default to statistical for backward compatibility
-          sendStatisticalSummaryToClaude();
+          // Unknown agent type - log error
+          console.error('Unknown agent type:', agentType);
+          addMessage(`❌ **Agent Error:** Unknown agent type "${agentType}"`, 'ai');
         }
         
         // Clear workflow state
@@ -9564,6 +9581,88 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         window.pendingAgentCodeRequest = {
           agentType: 'transformation',
           operationType: 'data transformation',
+          agentResults,
+          currentAgentWorkflow: currentAgentWorkflow
+        };
+      }
+      
+      // Send data cleaning analysis summary to Claude
+      function sendCleaningSummaryToClaude() {
+        if (!currentAgentWorkflow) return;
+        
+        addMessage(`🧹 **Analyzing Results...** Sending data cleaning findings to Claude for comprehensive summary.`, 'ai');
+        
+        // Format results for Claude
+        const summaryText = `Analyze these data cleaning results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
+
+${agentResults.map(result => `
+**${result.description}:**
+${result.output}
+`).join('\n')}
+
+Provide a CONCISE summary (max 3-4 sentences) covering:
+- Data quality issues found
+- Missing values and outliers detected
+- Key cleaning steps needed
+
+Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
+
+        // Send to Claude for analysis
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          window.lastMessageContext = "agent_summary";
+          ws.send(JSON.stringify({
+            action: 'chat_with_ai',
+            message: summaryText,
+            conversation_context: 'data_cleaning_agent_summary'
+          }));
+        }
+        
+        // Store the agent type and results for the follow-up code request
+        // We'll send this after the first response completes
+        window.pendingAgentCodeRequest = {
+          agentType: 'cleaning',
+          operationType: 'data cleaning',
+          agentResults,
+          currentAgentWorkflow: currentAgentWorkflow
+        };
+      }
+      
+      // Send modeling analysis summary to Claude
+      function sendModelingSummaryToClaude() {
+        if (!currentAgentWorkflow) return;
+        
+        addMessage(`🤖 **Analyzing Results...** Sending modeling findings to Claude for comprehensive summary.`, 'ai');
+        
+        // Format results for Claude
+        const summaryText = `Analyze these modeling results for the "${currentAgentWorkflow.dataframe}" dataset and provide a BRIEF summary:
+
+${agentResults.map(result => `
+**${result.description}:**
+${result.output}
+`).join('\n')}
+
+Provide a CONCISE summary (max 3-4 sentences) covering:
+- Key model characteristics and suitability
+- Data preparation completed
+- Modeling approach recommendations
+
+Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
+
+        // Send to Claude for analysis
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          window.lastMessageContext = "agent_summary";
+          ws.send(JSON.stringify({
+            action: 'chat_with_ai',
+            message: summaryText,
+            conversation_context: 'data_modeling_agent_summary'
+          }));
+        }
+        
+        // Store the agent type and results for the follow-up code request
+        // We'll send this after the first response completes
+        window.pendingAgentCodeRequest = {
+          agentType: 'modeling',
+          operationType: 'predictive modeling',
           agentResults,
           currentAgentWorkflow: currentAgentWorkflow
         };
