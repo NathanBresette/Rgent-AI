@@ -2075,7 +2075,35 @@ start_websocket_server <- function() {
         }
         
         # Use auto_unbox = TRUE for all responses (dataframes data is now a list, so it won't be unboxed)
-        response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+        response_json <- tryCatch({
+          jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+        }, error = function(e) {
+          cat("WARNING: Failed to serialize response to JSON:", e$message, "\n")
+          
+          # Handle complex objects that can't be serialized (like randomForest, models, etc.)
+          if (!is.null(response$result) && !is.atomic(response$result) && !is.list(response$result)) {
+            cat("Simplifying complex result object of class:", class(response$result), "\n")
+            # Replace complex object with summary
+            response$result <- list(
+              class = class(response$result),
+              summary = tryCatch(capture.output(print(response$result)), error = function(e2) "Complex object")
+            )
+          }
+          
+          # Try again with simplified response
+          tryCatch({
+            jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
+          }, error = function(e2) {
+            # If still failing, send minimal error response
+            jsonlite::toJSON(list(
+              action = response$action,
+              status = "error",
+              error = "Result contains objects that cannot be displayed",
+              output = response$output
+            ), auto_unbox = TRUE)
+          })
+        })
+        
         # Check if response is too large (WebSocket has size limits)
         if (nchar(response_json) > 100000) {  # 100KB limit
           cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
