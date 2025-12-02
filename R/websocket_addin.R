@@ -1039,7 +1039,7 @@ start_websocket_server <- function() {
               "https://rgent.onrender.com/chat/stream",
               body = request_body,
               encode = "json",
-              httr::timeout(30),  # 30 second timeout
+              httr::timeout(60),  # 60 second timeout
               httr::add_headers("Accept" = "text/event-stream")
             )
             
