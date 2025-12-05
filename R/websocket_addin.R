@@ -6155,6 +6155,21 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
       if (rstudio_available) {
         # Use a task callback to delay the start slightly (gives RStudio time to fully initialize)
         start_callback <- function(expr, value, ok, visible) {
+          # Check if current expression is a library/require call
+          # If so, skip this execution - callback will fire again on next command
+          # This prevents RStudio crashes during package loading
+          tryCatch({
+            expr_str <- paste(deparse(expr, width.cutoff = 500), collapse = " ")
+            # Detect library/require calls
+            if (grepl("^(library|require)\\s*\\(", expr_str, ignore.case = TRUE)) {
+              # Skip during package loading - callback will fire again after library() completes
+              return(TRUE)  # Keep callback active for next expression
+            }
+          }, error = function(e) {
+            # If we can't check, proceed normally (don't block)
+          })
+          
+          # Normal execution - not during package loading
           tryCatch({
             if (rstudioapi::isAvailable()) {
               result <- auto_start_rgent()
@@ -6182,6 +6197,20 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
         max_attempts <- 100  # Try up to 100 times (should be enough for RStudio to start)
         
         delayed_callback <- function(expr, value, ok, visible) {
+          # Check if current expression is a library/require call
+          # If so, skip this execution - callback will fire again on next command
+          # This prevents RStudio crashes during package loading
+          tryCatch({
+            expr_str <- paste(deparse(expr, width.cutoff = 500), collapse = " ")
+            # Detect library/require calls
+            if (grepl("^(library|require)\\s*\\(", expr_str, ignore.case = TRUE)) {
+              # Skip during package loading - callback will fire again after library() completes
+              return(TRUE)  # Keep callback active for next expression
+            }
+          }, error = function(e) {
+            # If we can't check, proceed normally (don't block)
+          })
+          
           callback_env$attempt_count <- callback_env$attempt_count + 1
           tryCatch({
             if (rstudioapi::isAvailable()) {
@@ -6227,6 +6256,21 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
         # Also add a simple callback that just executes immediately
         # This will fire on the next R command, which should happen soon after startup
         simple_callback <- function(expr, value, ok, visible) {
+          # Check if current expression is a library/require call
+          # If so, skip this execution - callback will fire again on next command
+          # This prevents RStudio crashes during package loading
+          tryCatch({
+            expr_str <- paste(deparse(expr, width.cutoff = 500), collapse = " ")
+            # Detect library/require calls
+            if (grepl("^(library|require)\\s*\\(", expr_str, ignore.case = TRUE)) {
+              # Skip during package loading - callback will fire again after library() completes
+              return(TRUE)  # Keep callback active for next expression
+            }
+          }, error = function(e) {
+            # If we can't check, proceed normally (don't block)
+          })
+          
+          # Normal execution - not during package loading
           tryCatch({
             if (rstudioapi::isAvailable()) {
               result <- auto_start_rgent()
