@@ -1390,16 +1390,6 @@
         color: var(--text-primary) !important;
       }
       
-      /* Override any other rules that might change button color */
-      .tab-content .action-btn,
-      .tab-content .action-btn:hover,
-      .tab-content .action-btn:active,
-      .tab-content .action-btn:focus,
-      .tab-content .action-btn:visited {
-        color: var(--text-primary) !important;
-        background: var(--bg-card) !important;
-      }
-      
       .explorer-filter-bar {
         padding: 10px;
         background: var(--bg-secondary);
@@ -1883,6 +1873,12 @@
       .variable-selection select {
         width: 100%;
         margin-bottom: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--input-bg);
+        color: var(--text-primary);
+        font-size: 14px;
       }
       
       .test-guidance {
@@ -4251,8 +4247,8 @@
               <span id="explorer-df-dims" class="dims-text" style="margin-left: 15px;"></span>
             </div>
             <div class="explorer-actions" style="display: none; gap: 8px; align-items: center;">
-              <button id="prev-page-btn" onclick="explorerPreviousPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>◀ Previous 100</button>
-              <button id="next-page-btn" onclick="explorerNextPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>Next 100 ▶</button>
+              <button id="prev-page-btn" onclick="explorerPreviousPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary) !important; cursor: pointer; font-size: 12px; font-weight: 500; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>◀ Previous 100</button>
+              <button id="next-page-btn" onclick="explorerNextPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary) !important; cursor: pointer; font-size: 12px; font-weight: 500; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>Next 100 ▶</button>
             </div>
           </div>
           
@@ -7500,10 +7496,11 @@ Include comments explaining each step. Code only. Minimal chat.`;
           }
         });
         
-        // Close completion dropdown when clicking outside
+        // Close completion suggestion when clicking outside
         document.addEventListener("click", function(e) {
-          if (completionDropdown && !completionDropdown.contains(e.target) && e.target !== userInput) {
-            hideCompletions();
+          const completionSuggestionEl = document.getElementById("completion-suggestion");
+          if (completionSuggestionEl && !completionSuggestionEl.contains(e.target) && e.target !== userInput) {
+            hideCompletionSuggestion();
           }
         });
       }
