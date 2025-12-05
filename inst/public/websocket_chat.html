@@ -575,6 +575,13 @@
         word-wrap: break-word;
         line-height: 1.4;
       }
+      
+      #user-input:focus {
+        outline: none;
+        border-color: var(--border-color);
+        background-color: var(--bg-primary);
+        box-shadow: none;
+      }
       /* Specific button classes - each button type has its own explicit styling */
       button.debug-button {
         background-color: #dc3545 !important;
@@ -599,12 +606,12 @@
       }
       
       /* Ensure buttons in tab content are not affected by tab hover */
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button) {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.action-btn):not(.custom-dropdown-button) {
         background-color: var(--text-primary) !important;
         color: var(--bg-primary) !important;
       }
       
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):hover {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.action-btn):not(.custom-dropdown-button):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
       }
@@ -1285,6 +1292,43 @@
         -webkit-backdrop-filter: none !important;
       }
       
+      /* Theme-aware gray matching dataview rows (text-secondary) */
+      body.dark-theme .dropdown-arrow {
+        color: #6c757d;
+      }
+      
+      body:not(.dark-theme) .dropdown-arrow {
+        color: #6c757d;
+      }
+      
+      /* Custom dropdown button text color matching dataview rows - must use !important to override tab-content rule */
+      body.dark-theme .custom-dropdown-button {
+        color: #6c757d !important;
+      }
+      
+      body:not(.dark-theme) .custom-dropdown-button {
+        color: #6c757d !important;
+      }
+      
+      /* Prevent color change on hover/active/focus for dropdown button */
+      .custom-dropdown-button:hover,
+      .custom-dropdown-button:active,
+      .custom-dropdown-button:focus {
+        color: #6c757d !important;
+      }
+      
+      body.dark-theme .custom-dropdown-button:hover,
+      body.dark-theme .custom-dropdown-button:active,
+      body.dark-theme .custom-dropdown-button:focus {
+        color: #6c757d !important;
+      }
+      
+      body:not(.dark-theme) .custom-dropdown-button:hover,
+      body:not(.dark-theme) .custom-dropdown-button:active,
+      body:not(.dark-theme) .custom-dropdown-button:focus {
+        color: #6c757d !important;
+      }
+      
       .dropdown-category-items {
         background: var(--bg-card) !important;
         background-color: var(--bg-card) !important;
@@ -1313,20 +1357,47 @@
         padding: 8px 14px;
         border-radius: 6px;
         border: 1px solid var(--border-color);
-        background: var(--bg-primary);
-        color: var(--text-primary);
+        background: var(--bg-card);
         cursor: pointer;
         font-size: 12px;
         font-weight: 500;
         transition: all 0.2s;
         white-space: nowrap;
+        color: var(--text-primary) !important;
       }
       
-      .action-btn:hover {
-        background: var(--bg-secondary);
-        border-color: var(--text-primary);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      .action-btn:hover:not(:disabled) {
+        /* No color change on hover */
+        color: var(--text-primary) !important;
+      }
+      
+      .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        color: var(--text-primary) !important;
+      }
+      
+      /* Prevent color and background change on active/focus for action buttons */
+      .action-btn:active,
+      .action-btn:focus {
+        color: var(--text-primary) !important;
+        background: var(--bg-card) !important;
+      }
+      
+      .action-btn:active:not(:disabled),
+      .action-btn:focus:not(:disabled) {
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+      }
+      
+      /* Override any other rules that might change button color */
+      .tab-content .action-btn,
+      .tab-content .action-btn:hover,
+      .tab-content .action-btn:active,
+      .tab-content .action-btn:focus,
+      .tab-content .action-btn:visited {
+        color: var(--text-primary) !important;
+        background: var(--bg-card) !important;
       }
       
       .explorer-filter-bar {
@@ -1477,7 +1548,6 @@
       
       .sparkline-bar {
         flex: 1;
-        background: linear-gradient(to top, var(--text-primary), color-mix(in srgb, var(--text-primary) 70%, transparent));
         min-height: 2px;
         border-radius: 2px 2px 0 0;
         transition: opacity 0.2s;
@@ -1485,6 +1555,15 @@
       
       .sparkline-bar:hover {
         opacity: 0.8;
+      }
+      
+      /* Theme-aware blue for histogram bars */
+      body.dark-theme .sparkline-bar {
+        background: #4a9eff;
+      }
+      
+      body:not(.dark-theme) .sparkline-bar {
+        background: #0066cc;
       }
       
       .missing-data-bar {
@@ -4161,9 +4240,9 @@
           <div class="explorer-action-bar">
             <div class="explorer-title-section">
               <div class="custom-dropdown" id="explorer-dataframe-select-wrapper" style="position: relative; min-width: 200px;">
-                <button id="explorer-dataframe-select-button" class="custom-dropdown-button" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 14px; width: 100%; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                <button id="explorer-dataframe-select-button" class="custom-dropdown-button" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); font-size: 14px; width: 100%; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
                   <span id="explorer-dataframe-select-text">Select an object...</span>
-                  <span style="margin-left: 8px;">▼</span>
+                  <span class="dropdown-arrow" style="margin-left: 8px; display: inline-block;">▼</span>
                 </button>
                 <div id="explorer-dataframe-select-dropdown" class="custom-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card) !important; background-color: var(--bg-card) !important; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 4px; max-height: 400px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto;">
                   <!-- Options will be populated here -->
@@ -4172,8 +4251,8 @@
               <span id="explorer-df-dims" class="dims-text" style="margin-left: 15px;"></span>
             </div>
             <div class="explorer-actions" style="display: none; gap: 8px; align-items: center;">
-              <button id="prev-page-btn" onclick="explorerPreviousPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>◀ Previous 100</button>
-              <button id="next-page-btn" onclick="explorerNextPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>Next 100 ▶</button>
+              <button id="prev-page-btn" onclick="explorerPreviousPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>◀ Previous 100</button>
+              <button id="next-page-btn" onclick="explorerNextPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-size: 12px; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>Next 100 ▶</button>
             </div>
           </div>
           
@@ -4333,6 +4412,7 @@
       let isAIResponding = false;
       let currentRequestId = null;
       let pendingTimeouts = [];
+      let operationStopped = false; // Flag to track if operation was stopped
       
       // Access validation
       window.validateAccess = async function(isAutoLogin = false) {
@@ -4873,6 +4953,12 @@
           
           switch(data.action) {
             case "ai_response":
+              // Check if operation was stopped before processing AI response
+              if (operationStopped) {
+                console.log('🛑 Operation was stopped, ignoring AI response');
+                return;
+              }
+              
               // Check if agent was stopped before processing AI response
               if (currentAgentWorkflow && currentAgentWorkflow.stopped) {
                 console.log('🛑 Agent was stopped, ignoring AI response');
@@ -4882,8 +4968,18 @@
               if (data.streaming) {
                 // Handle streaming response
                 if (data.chunk) {
+                  // Check if stopped before adding chunk
+                  if (operationStopped) {
+                    console.log('🛑 Operation was stopped, ignoring chunk');
+                    return;
+                  }
                   addStreamingChunk(data.chunk);
                 } else if (data.finished) {
+                  // Check if stopped before finishing
+                  if (operationStopped) {
+                    console.log('🛑 Operation was stopped, ignoring finish');
+                    return;
+                  }
                   finishStreaming();
                 }
               } else {
@@ -5174,6 +5270,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                   } else {
                     // Regular code execution, not agent
                     addMessage("Code executed successfully! Output: " + outputText, "ai");
+                    
+                    // Reset AI responding flag and transform button back
+                    if (isAIResponding) {
+                      isAIResponding = false;
+                      transformToSendButton();
+                    }
                   }
                 }
               } else {
@@ -5186,6 +5288,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                 } else {
                   // Regular code execution failed
                   addMessage("Code execution failed: " + data.error, "ai");
+                  
+                  // Reset AI responding flag and transform button back
+                  if (isAIResponding) {
+                    isAIResponding = false;
+                    transformToSendButton();
+                  }
                 }
               }
               break;
@@ -5204,6 +5312,11 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             case "get_last_error":
               if (data.message) {
                 addMessage(data.message, "ai");
+              }
+              // Reset AI responding flag and transform button back
+              if (isAIResponding) {
+                isAIResponding = false;
+                transformToSendButton();
               }
               break;
             case "debug_info":
@@ -5242,6 +5355,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               }
               break;
             case "plot_analysis":
+              // Check if operation was stopped
+              if (operationStopped) {
+                console.log('🛑 Operation was stopped, ignoring plot analysis response');
+                return;
+              }
+              
               if (data.success) {
                 // Process plot analysis response properly
                 const fullMessage = "**Plot Analysis Complete!**\n\n" + data.ai_interpretation;
@@ -5249,6 +5368,15 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               } else {
                 addMessage("**Plot Analysis Failed:** " + data.message, "ai");
               }
+              
+              // Reset AI responding flag and transform button back
+              if (isAIResponding) {
+                isAIResponding = false;
+                transformToSendButton();
+              }
+              
+              // Reset stop flag when analysis completes
+              operationStopped = false;
               break;
 
             case "theme_info":
@@ -5694,6 +5822,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         
         console.log("Requesting last error...");
         
+        // Reset stop flag for new operation
+        operationStopped = false;
+        
+        // Set AI responding flag
+        isAIResponding = true;
+        
+        // Transform send button to stop button
+        transformToStopButton();
+        
         // Insert debugging placeholder with animated dots
         createAnimatedPlaceholder("ai-debugging", "Debugging error");
         
@@ -5741,8 +5878,14 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Store interval ID so we can clear it when response arrives
         thinking.dataset.intervalId = thinkingInterval;
         
+        // Reset stop flag for new operation
+        operationStopped = false;
+        
         // Set AI responding flag when sending message
         isAIResponding = true;
+        
+        // Transform send button to stop button
+        transformToStopButton();
         
         // Send to R via WebSocket
         ws.send(JSON.stringify({
@@ -5765,6 +5908,21 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         currentRequestId = null;
       }
       
+      // Transform send button to stop button (generic, for chat/auto-execute/debug)
+      function transformToStopButton() {
+        console.log('🔄 Transforming send button to stop button...');
+        const sendBtn = document.getElementById('send-button');
+        
+        if (sendBtn) {
+          sendBtn.textContent = 'Stop';
+          sendBtn.className = 'send-button stop-mode';
+          sendBtn.onclick = stopCurrentOperation;
+          console.log('✅ Button transformed to stop button');
+        } else {
+          console.error('❌ Send button not found!');
+        }
+      }
+      
       // Transform send button to agent stop button
       function transformToAgentStopButton() {
         console.log('🔄 Transforming send button to agent stop button...');
@@ -5782,6 +5940,70 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         } else {
           console.error('❌ Send button not found!');
         }
+      }
+      
+      // Stop current operation (chat/auto-execute/debug)
+      function stopCurrentOperation() {
+        console.log('🛑 Stopping current operation...');
+        
+        // Set stop flag to ignore incoming chunks
+        operationStopped = true;
+        
+        // Clear all pending timeouts
+        pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+        pendingTimeouts = [];
+        
+        // Clear streaming timeout
+        if (streamingTimeout) {
+          clearTimeout(streamingTimeout);
+          streamingTimeout = null;
+        }
+        
+        // Send stop message to backend
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            action: 'stop_response',
+            message: 'User requested to stop the current operation'
+          }));
+        }
+        
+        // Remove current streaming message if it exists
+        if (currentStreamingMessage) {
+          currentStreamingMessage.remove();
+          currentStreamingMessage = null;
+        }
+        
+        // Reset streaming state
+        currentStreamingMessage = null;
+        
+        // Reset cleaning code state
+        cleaningCodeExecuting = false;
+        cleaningCodeIterationCount = 0;
+        
+        // Remove thinking placeholder if it exists
+        const thinkingPlaceholder = document.getElementById('ai-thinking');
+        if (thinkingPlaceholder) {
+          const intervalId = thinkingPlaceholder.dataset.intervalId;
+          if (intervalId) {
+            clearInterval(parseInt(intervalId));
+          }
+          thinkingPlaceholder.remove();
+        }
+        
+        // Remove debugging placeholder if it exists
+        const debugPlaceholder = document.getElementById('ai-debugging');
+        if (debugPlaceholder) {
+          debugPlaceholder.remove();
+        }
+        
+        // Show stopped message
+        addMessage('**Operation Stopped** - Request interrupted by user.', 'ai');
+        
+        // Reset AI responding flag
+        isAIResponding = false;
+        
+        // Transform back to send button
+        transformToSendButton();
       }
       
       // Stop agent workflow and reset everything
@@ -5849,6 +6071,12 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       function addStreamingChunk(chunk) {
+        // Check if operation was stopped
+        if (operationStopped) {
+          console.log('🛑 Operation was stopped, ignoring streaming chunk');
+          return;
+        }
+        
         if (!currentStreamingMessage) {
           // Remove all animated placeholders when streaming starts
           removeAnimatedPlaceholder("ai-thinking");
@@ -5997,6 +6225,14 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       function finishStreaming() {
+        // Check if operation was stopped
+        if (operationStopped) {
+          console.log('🛑 Operation was stopped, ignoring finishStreaming');
+          // Reset the flag for next operation
+          operationStopped = false;
+          return;
+        }
+        
         console.log("DEBUG: finishStreaming called");
         if (currentStreamingMessage) {
           console.log("DEBUG: Processing final message for formatting");
@@ -6038,6 +6274,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           clearTimeout(streamingTimeout);
           streamingTimeout = null;
         }
+        
+        // Reset AI responding flag and transform button back (if not an agent workflow)
+        if (isAIResponding && !currentAgentWorkflow) {
+          isAIResponding = false;
+          transformToSendButton();
+        }
+        
+        // Reset stop flag when streaming completes normally
+        operationStopped = false;
         
         // Check if there's a pending agent code request and send it
         if (window.pendingAgentCodeRequest) {
@@ -7105,12 +7350,13 @@ Include comments explaining each step. Code only. Minimal chat.`;
         completionSuggestion.style.height = inputRect.height + "px";
         completionSuggestion.style.display = "block";
         
-        // Match input styling exactly
+        // Match input styling exactly (but no border/outline)
         completionSuggestion.style.fontFamily = computedStyle.fontFamily;
         completionSuggestion.style.fontSize = computedStyle.fontSize;
         completionSuggestion.style.lineHeight = computedStyle.lineHeight;
         completionSuggestion.style.padding = computedStyle.padding;
-        completionSuggestion.style.border = computedStyle.border;
+        completionSuggestion.style.border = "none";
+        completionSuggestion.style.outline = "none";
         completionSuggestion.style.borderRadius = computedStyle.borderRadius;
         completionSuggestion.style.boxSizing = computedStyle.boxSizing;
         
@@ -7373,6 +7619,15 @@ Include comments explaining each step. Code only. Minimal chat.`;
           return;
         }
         
+        // Reset stop flag for new operation
+        operationStopped = false;
+        
+        // Set AI responding flag
+        isAIResponding = true;
+        
+        // Transform send button to stop button
+        transformToStopButton();
+        
         // Add initial message showing we're starting analysis
         addMessage("**Starting Plot Analysis:**\n\nStep 1: Scanning R history for plot commands:", "ai");
         
@@ -7405,6 +7660,12 @@ Include comments explaining each step. Code only. Minimal chat.`;
       
       // Special processing for plot analysis content (no Execute & Fix)
       function processPlotAnalysisContent(messageDiv) {
+        // Check if operation was stopped
+        if (operationStopped) {
+          console.log('🛑 Operation was stopped, ignoring plot analysis processing');
+          return;
+        }
+        
         const content = messageDiv.innerHTML;
         
         // More precise code block detection - only create blocks for actual code blocks
@@ -12433,6 +12694,12 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Handle Claude's cleaning code response with automatic execution and error handling
       function handleCleaningCodeResponse(message, conversationContext) {
+        // Check if operation was stopped
+        if (operationStopped) {
+          console.log('🛑 Operation was stopped, ignoring code response');
+          return;
+        }
+        
         console.log('🔍 Handling Claude cleaning code response');
         console.log('🔍 Message received:', message);
         console.log('🔍 Conversation context:', conversationContext);
@@ -12719,6 +12986,15 @@ cat("\\nModeling workflow completed successfully!\\n")
         // Set flag to prevent duplicate handling
         cleaningCodeExecuting = true;
         
+        // Reset stop flag for new operation
+        operationStopped = false;
+        
+        // Set AI responding flag
+        isAIResponding = true;
+        
+        // Transform send button to stop button
+        transformToStopButton();
+        
         // Check if this is normal chat auto-execute (not an agent workflow)
         // If no active agent workflow, clear the agent type flags for normal chat
         if (!currentAgentWorkflow) {
@@ -12750,7 +13026,7 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Check if we've exceeded the maximum iterations
         if (cleaningCodeIterationCount >= MAX_CLEANING_ITERATIONS) {
-          addMessage(`🛑 **Maximum Iterations Reached**\n\nThe cleaning code has failed ${MAX_CLEANING_ITERATIONS} times. Stopping automatic iteration to prevent infinite loops.\n\n**Last Error:**\n\`${error}\`\n\n**Recommendation:**\nPlease manually review and fix the code, or try a different approach.`, 'ai');
+          addMessage(`🛑 **Maximum Iterations Reached**\n\nThe code has failed ${MAX_CLEANING_ITERATIONS} times. Stopping automatic iteration to prevent infinite loops.\n\n**Last Error:**\n\`${error}\`\n\n**Recommendation:**\nPlease manually review and fix the code, or try a different approach.`, 'ai');
           
           // Reset counter for future attempts
           cleaningCodeIterationCount = 0;
@@ -12760,7 +13036,7 @@ cat("\\nModeling workflow completed successfully!\\n")
           return;
         }
         
-        addMessage(`❌ **Code Execution Failed (Attempt ${cleaningCodeIterationCount}/${MAX_CLEANING_ITERATIONS})**\n\nThe cleaning code encountered an error:\n\n\`${error}\`\n\nAsking Claude to fix this...`, 'ai');
+        addMessage(`❌ **Code Execution Failed (Attempt ${cleaningCodeIterationCount}/${MAX_CLEANING_ITERATIONS})**\n\nThe code encountered an error:\n\n\`${error}\`\n\nAsking Claude to fix this...`, 'ai');
         
         // Ask Claude to fix the code
         const fixRequest = `The R code I provided earlier failed to execute with this error:

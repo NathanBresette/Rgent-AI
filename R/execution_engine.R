@@ -128,8 +128,19 @@ execute_code_in_session <- function(code, settings = NULL) {
     ))
   }, finally = {
     # Clean up temporary files
+    # Use unlink() instead of file.remove() as it's more robust on Windows
+    # Suppress warnings about file removal failures (file may be locked or already deleted)
     if (!is.null(plot_file) && file.exists(plot_file)) {
-      try(file.remove(plot_file), silent = TRUE)
+      tryCatch({
+        # Ensure graphics device is fully closed
+        while (grDevices::dev.cur() != 1) {
+          grDevices::dev.off()
+        }
+        # Use unlink with force=TRUE to handle locked files on Windows
+        suppressWarnings(unlink(plot_file, force = TRUE))
+      }, error = function(e) {
+        # Silently ignore cleanup errors
+      })
     }
   })
 }

@@ -48,7 +48,11 @@ if (!exists("global_env") || !is.environment(global_env)) {
   global_env$session_index$file_hashes <- new.env(parent = emptyenv())
   global_env$session_index$functions <- new.env(parent = emptyenv())
   global_env$session_index$variables <- new.env(parent = emptyenv())
-  
+}
+
+# Global flag to track if current operation should be stopped
+if (!exists("operation_stopped", envir = .GlobalEnv)) {
+  .GlobalEnv$operation_stopped <- FALSE
 }
 
 # Initialize conversation history
@@ -1870,7 +1874,8 @@ start_websocket_server <- function() {
         },
         "analyze_last_plot" = {
           # Analyze the last plot command and provide insights
-          
+          # Reset stop flag for new operation
+          .GlobalEnv$operation_stopped <- FALSE
           
           tryCatch({
             # Step 1: Find and analyze the last plot
@@ -1971,6 +1976,12 @@ start_websocket_server <- function() {
                         tryCatch({
                           chunk_data <- jsonlite::fromJSON(json_data)
                           
+                          # Check if operation was stopped
+                          if (.GlobalEnv$operation_stopped) {
+                            cat("Plot analysis stopped by user\n")
+                            break
+                          }
+                          
                           if (!is.null(chunk_data$chunk)) {
                             full_response <- paste0(full_response, chunk_data$chunk)
                             
@@ -1990,7 +2001,8 @@ start_websocket_server <- function() {
                             # Send chunk to frontend when we have a complete word or sentence
                             # Also send when we have a complete code block
                             # Don't send if we're in the middle of a code block or incomplete function
-                            if (!code_block_open && !incomplete_function && (grepl("[.!?]\\s*$", current_chunk_buffer) || 
+                            # AND don't send if operation was stopped
+                            if (!.GlobalEnv$operation_stopped && !code_block_open && !incomplete_function && (grepl("[.!?]\\s*$", current_chunk_buffer) || 
                                 grepl("\\n\\n", current_chunk_buffer) ||
                                 grepl("```$", current_chunk_buffer) ||
                                 nchar(current_chunk_buffer) > 100)) {
@@ -2009,16 +2021,18 @@ start_websocket_server <- function() {
                           }
                           
                           # Check if this is the final chunk
-                                                      if (!is.null(chunk_data$done) && chunk_data$done) {
-                              
+                          if (!is.null(chunk_data$done) && chunk_data$done) {
+                            # Check if operation was stopped before sending final buffer
+                            if (!.GlobalEnv$operation_stopped) {
                               # Send any remaining buffer
-                            if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
-                              chunk_response <- list(
-                                action = "ai_response",
-                                streaming = TRUE,
-                                chunk = current_chunk_buffer
-                              )
-                              ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                              if (exists("current_chunk_buffer") && nchar(current_chunk_buffer) > 0) {
+                                chunk_response <- list(
+                                  action = "ai_response",
+                                  streaming = TRUE,
+                                  chunk = current_chunk_buffer
+                                )
+                                ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                              }
                             }
                             
                             break
@@ -2030,13 +2044,18 @@ start_websocket_server <- function() {
                     }
                   }
                   
-                  # Send finish signal
-                  finish_response <- list(
-                    action = "ai_response",
-                    streaming = TRUE,
-                    finished = TRUE
-                  )
-                  ws$send(jsonlite::toJSON(finish_response, auto_unbox = TRUE))
+                  # Send finish signal only if not stopped
+                  if (!.GlobalEnv$operation_stopped) {
+                    finish_response <- list(
+                      action = "ai_response",
+                      streaming = TRUE,
+                      finished = TRUE
+                    )
+                    ws$send(jsonlite::toJSON(finish_response, auto_unbox = TRUE))
+                  }
+                  
+                  # Reset stop flag
+                  .GlobalEnv$operation_stopped <- FALSE
                   
                   list(action = "plot_analysis_streaming_complete")
                   
@@ -2240,6 +2259,12 @@ start_websocket_server <- function() {
         "stop_agent" = {
           list(action = "stop_response", status = "success", message = "Agent workflow stopped")
         },
+        "stop_response" = {
+          # Handle stop request for any operation (chat, auto-execute, debug, plot analysis)
+          # Set global flag to stop streaming
+          .GlobalEnv$operation_stopped <- TRUE
+          list(action = "stop_response", status = "success", message = "Operation stopped")
+        },
         {
           # Default case - log unknown actions for debugging
           cat("R: Unknown action received:", request$action, "\n")
@@ -2304,15 +2329,18 @@ start_websocket_server <- function() {
         })
         
         # Check if response is too large (WebSocket has size limits)
+        # Only warn/truncate for actions that need it (agent_step), not Data Explorer
         if (nchar(response_json) > 100000) {  # 100KB limit
-          cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
-          # For large responses, send a simplified version
+          # Only warn and truncate for agent_step actions
           if (response$action == "agent_step" && !is.null(response$data$code)) {
+            cat("WARNING: Response too large (", nchar(response_json), " chars), truncating...\n")
             response$data$code <- paste0("# Code generated successfully (", nchar(response$data$code), " characters)\n",
                                        "# Use the 'Insert at Cursor' button to get the full code\n",
                                        "# Summary: ", substr(response$data$code, 1, 500), "...")
             response_json <- jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
           }
+          # For Data Explorer actions (objects, dataframe_info, dataframe_explorer_data), 
+          # just send the full response without warning - WebSocket can handle larger messages
         }
         ws$send(response_json)
       }, error = function(e) {
