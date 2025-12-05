@@ -11,7 +11,7 @@
 #' @return List with workflow steps and initial analysis
 start_modeling_agent <- function(dataframe_name, target_variable, algorithms, options, custom_inputs = NULL, selected_variables = NULL) {
   tryCatch({
-    cat("🔍 R: start_modeling_agent called with selected_variables\n")
+    cat("R: start_modeling_agent called with selected_variables\n")
     
     # Load required packages (only essential ones to avoid errors)
     required_packages <- c("dplyr", "ggplot2", "stats", "MASS")
@@ -19,7 +19,7 @@ start_modeling_agent <- function(dataframe_name, target_variable, algorithms, op
     
     # Get the dataframe
     df <- get(dataframe_name, envir = .GlobalEnv)
-    cat("🔍 R: Dataframe retrieved successfully:", dataframe_name, "\n")
+    cat("R: Dataframe retrieved successfully:", dataframe_name, "\n")
     
     # Validate dataframe
     if (!is.data.frame(df)) {
@@ -57,13 +57,13 @@ start_modeling_agent <- function(dataframe_name, target_variable, algorithms, op
       }
     }
     
-    cat("🔍 R: After validation, selected_variables validated\n")
+    cat("R: After validation, selected_variables validated\n")
     
       # Create workflow steps based on selected algorithms
   workflow_steps <- create_modeling_workflow(algorithms, options, dataframe_name, target_variable, custom_inputs)
     
     # Debug: Check selected_variables before returning
-    cat("🔍 R: Inside start_modeling_agent, selected_variables processed\n")
+    cat("R: Inside start_modeling_agent, selected_variables processed\n")
     
     # Return workflow information (don't execute first step yet - let frontend handle it)
     result <- list(
@@ -84,7 +84,7 @@ start_modeling_agent <- function(dataframe_name, target_variable, algorithms, op
       message = "Modeling agent started successfully"
     )
     
-    cat("🔍 R: Result selected_variables before return: processed\n")
+    cat("R: Result selected_variables before return: processed\n")
     result
     
   }, error = function(e) {
@@ -1294,7 +1294,7 @@ load_packages <- function(packages) {
         install.packages(pkg, dependencies = TRUE)
         library(pkg, character.only = TRUE)
       }, error = function(e) {
-        cat("⚠️ Warning: Failed to install/load package:", pkg, "- Error:", e$message, "\n")
+        cat("Warning: Failed to install/load package:", pkg, "- Error:", e$message, "\n")
         # Don't stop execution, just warn and continue
       })
     }

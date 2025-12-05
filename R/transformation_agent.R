@@ -463,10 +463,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Mathematical Transformation Request\\n')\n",
+        "cat('Mathematical Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing numeric variables for mathematical transformations...\\n')\n",
+        "cat('\\nAnalyzing numeric variables for mathematical transformations...\\n')\n",
         "df <- ", dataframe, "\n",
         "numeric_cols <- sapply(df, is.numeric)\n",
         "if(any(numeric_cols)) {\n",
@@ -502,7 +502,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "} else {\n",
         "  cat('No numeric columns found for mathematical transformations\\n')\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed mathematical transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed mathematical transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -520,10 +520,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 New Variables Request\\n')\n",
+        "cat('New Variables Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing data structure for new variable creation...\\n')\n",
+        "cat('\\nAnalyzing data structure for new variable creation...\\n')\n",
         "df <- ", dataframe, "\n",
         "numeric_cols <- sapply(df, is.numeric)\n",
         "categorical_cols <- sapply(df, function(x) is.factor(x) || is.character(x))\n",
@@ -558,7 +558,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "  }\n",
         "  cat('\\nSUGGESTION: Can extract year, month, day, weekday, quarter\\n')\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed new variables analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed new variables analysis to Claude...\\n')\n",
         "cat('Claude will provide smart variable creation code based on this analysis.\\n')"
       )
     },
@@ -576,10 +576,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Categorical Transformation Request\\n')\n",
+        "cat('Categorical Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing categorical variables for transformations...\\n')\n",
+        "cat('\\nAnalyzing categorical variables for transformations...\\n')\n",
         "df <- ", dataframe, "\n",
         "categorical_cols <- sapply(df, function(x) is.factor(x) || is.character(x))\n",
         "if(any(categorical_cols)) {\n",
@@ -607,7 +607,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "} else {\n",
         "  cat('No categorical columns found\\n')\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed categorical transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed categorical transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -625,10 +625,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 DateTime Transformation Request\\n')\n",
+        "cat('DateTime Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing date/time variables for transformations...\\n')\n",
+        "cat('\\nAnalyzing date/time variables for transformations...\\n')\n",
         "df <- ", dataframe, "\n",
         "date_cols <- sapply(df, function(x) inherits(x, c('Date', 'POSIXct', 'POSIXt')))\n",
         "if(any(date_cols)) {\n",
@@ -654,7 +654,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "    cat('SUGGESTION: Convert character/numeric columns to date format if they contain dates\\n')\n",
         "  }\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed datetime transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed datetime transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -672,10 +672,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Merging & Combining Request\\n')\n",
+        "cat('Merging & Combining Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing data structure for merging and combining opportunities...\\n')\n",
+        "cat('\\nAnalyzing data structure for merging and combining opportunities...\\n')\n",
         "df <- ", dataframe, "\n",
         "cat('Current structure:\\n')\n",
         "cat('  Rows:', nrow(df), '\\n')\n",
@@ -703,7 +703,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "}\n",
         "cat('\\nSUGGESTION: Can combine/split columns, reshape data (wide/long), join datasets\\n')\n",
         "cat('SUGGESTION: Can create composite variables, interaction terms, grouping variables\\n')\n",
-        "cat('\\n🤖 Sending detailed merging & combining analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed merging & combining analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -721,10 +721,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Aggregation & Grouping Request\\n')\n",
+        "cat('Aggregation & Grouping Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing data for aggregation and grouping opportunities...\\n')\n",
+        "cat('\\nAnalyzing data for aggregation and grouping opportunities...\\n')\n",
         "df <- ", dataframe, "\n",
         "categorical_cols <- sapply(df, function(x) is.factor(x) || is.character(x))\n",
         "numeric_cols <- sapply(df, is.numeric)\n",
@@ -751,7 +751,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "cat('\\nSUGGESTION: Can create group summaries (mean, sum, count, min, max)\\n')\n",
         "cat('SUGGESTION: Can create rolling statistics, cumulative measures, lag variables\\n')\n",
         "cat('SUGGESTION: Can create pivot tables, cross-tabulations, frequency tables\\n')\n",
-        "cat('\\n🤖 Sending detailed aggregation & grouping analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed aggregation & grouping analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -769,10 +769,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Statistical Transformation Request\\n')\n",
+        "cat('Statistical Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing numeric variables for statistical transformations...\\n')\n",
+        "cat('\\nAnalyzing numeric variables for statistical transformations...\\n')\n",
         "df <- ", dataframe, "\n",
         "numeric_cols <- sapply(df, is.numeric)\n",
         "if(any(numeric_cols)) {\n",
@@ -812,7 +812,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "} else {\n",
         "  cat('No numeric columns found for statistical transformations\\n')\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed statistical transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed statistical transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -830,10 +830,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Text Transformation Request\\n')\n",
+        "cat('Text Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing text variables for transformations...\\n')\n",
+        "cat('\\nAnalyzing text variables for transformations...\\n')\n",
         "df <- ", dataframe, "\n",
         "text_cols <- sapply(df, function(x) is.character(x) || is.factor(x))\n",
         "if(any(text_cols)) {\n",
@@ -872,7 +872,7 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "} else {\n",
         "  cat('No text columns found\\n')\n",
         "}\n",
-        "cat('\\n🤖 Sending detailed text transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed text transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
@@ -890,10 +890,10 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
       }
       
       paste0(
-        "cat('🔧 Spatial Transformation Request\\n')\n",
+        "cat('Spatial Transformation Request\\n')\n",
         "cat('Request: ", request_text, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n📊 Analyzing data for spatial transformation opportunities...\\n')\n",
+        "cat('\\nAnalyzing data for spatial transformation opportunities...\\n')\n",
         "df <- ", dataframe, "\n",
         "cat('Current columns:', paste(names(df), collapse=', '), '\\n')\n",
         "cat('\\nChecking for potential coordinate columns...\\n')\n",
@@ -924,17 +924,17 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
         "cat('\\nSUGGESTION: Can convert coordinates between systems (lat/lon, UTM, etc.)\\n')\n",
         "cat('SUGGESTION: Can calculate distances, buffers, spatial joins\\n')\n",
         "cat('SUGGESTION: Can create spatial objects, perform geometric operations\\n')\n",
-        "cat('\\n🤖 Sending detailed spatial transformation analysis to Claude...\\n')\n",
+        "cat('\\nSending detailed spatial transformation analysis to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on this analysis.\\n')"
       )
     },
     
     "custom_transformations" = {
       paste0(
-        "cat('🔧 Custom Transformation Request\\n')\n",
+        "cat('Custom Transformation Request\\n')\n",
         "cat('Request: ", if (!is.null(custom_inputs) && !is.null(custom_inputs$customTransformations)) custom_inputs$customTransformations else "Custom transformation request", "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n🤖 Sending custom transformation request to Claude...\\n')\n",
+        "cat('\\nSending custom transformation request to Claude...\\n')\n",
         "cat('Claude will provide smart transformation code based on your specific request.\\n')"
       )
     },
@@ -942,12 +942,12 @@ generate_transformation_step_code <- function(step_info, dataframe, method_optio
     # Default case for unknown operations
     {
       paste0(
-        "cat('🔧 Unknown Transformation Request\\n')\n",
+        "cat('Unknown Transformation Request\\n')\n",
         "cat('Request: ", operation, "\\n')\n",
         "cat('Dataset: ", dataframe, " (", nrow(get(dataframe, envir = .GlobalEnv)), " rows × ", ncol(get(dataframe, envir = .GlobalEnv)), " columns)\\n')\n",
-        "cat('\\n⚠️  Unknown operation: ", operation, "\\n')\n",
+        "cat('\\nUnknown operation: ", operation, "\\n')\n",
         "cat('Available operations: distribution_analysis, mathematical_transformations, new_variables, categorical_transformations, datetime_transformations, merging_combining, aggregation_grouping, statistical_transformations, text_transformations, spatial_transformations, custom_transformations\\n')\n",
-        "cat('\\n🤖 Sending request to Claude for custom handling...\\n')\n",
+        "cat('\\nSending request to Claude for custom handling...\\n')\n",
         "cat('Claude will provide appropriate transformation code for this request.\\n')"
       )
     }

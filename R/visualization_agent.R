@@ -113,7 +113,7 @@ get_next_visualization_step <- function(step, dataframe, variables, options) {
 #' @return List containing execution results
 #' @export
 execute_visualization_step <- function(step, dataframe, variables, options) {
-  cat("🎨 Executing visualization step:", step, "\n")
+  cat("Executing visualization step:", step, "\n")
   
   tryCatch({
     # Get the plot configuration for this step
@@ -172,7 +172,7 @@ execute_visualization_step <- function(step, dataframe, variables, options) {
 #' @param df Dataframe to analyze
 #' @return List containing data structure information
 analyze_data_structure <- function(df) {
-  cat("🔍 Analyzing data structure for visualization planning\n")
+  cat("Analyzing data structure for visualization planning\n")
   
   # Get basic info
   n_rows <- nrow(df)
@@ -288,7 +288,7 @@ get_plot_type_for_step <- function(step, plot_types) {
 #' @param options List of visualization options
 #' @return R code string for the plot
 generate_plot_code <- function(plot_type, dataframe, variables, options) {
-  cat("🎨 Generating code for", plot_type, "plot\n")
+  cat("Generating code for", plot_type, "plot\n")
   
   # Load required libraries
   code <- "library(ggplot2)\nlibrary(base64enc)\n\n"
@@ -696,7 +696,7 @@ print(p)
 #' @param variables List of selected variables
 #' @return List containing execution results
 execute_plot_code <- function(plot_code, dataframe, variables) {
-  cat("🎨 Executing plot code\n")
+  cat("Executing plot code\n")
   
   tryCatch({
     # Execute the code with plot suppression (same as execution engine)
@@ -843,7 +843,7 @@ get_plot_config_for_step <- function(step, plots) {
 #' @param options List of visualization options
 #' @return R code string for the plot
 generate_plot_code_from_config <- function(plot_config, dataframe, options) {
-  cat("🎨 Generating code from plot configuration\n")
+  cat("Generating code from plot configuration\n")
   
   # Load required libraries
   code <- "library(ggplot2)\nlibrary(base64enc)\n\n"
@@ -999,7 +999,7 @@ get_plot_description_from_config <- function(plot_config) {
 #' @return R code string for the visualization step
 #' @export
 generate_visualization_step_code <- function(step, dataframe, variables, options) {
-  cat("🎨 Generating visualization step code for step:", step, "\n")
+  cat("Generating visualization step code for step:", step, "\n")
   
   tryCatch({
     # Get the plot configuration for this step

@@ -578,8 +578,9 @@ start_websocket_server <- function() {
     message_handler <- function(ws, isBinary, data) {
     # Global error handler to catch any unhandled errors
     tryCatch({
-      # Parse JSON message
-      request <- jsonlite::fromJSON(data)
+      # Parse JSON message - use simplifyVector = FALSE to preserve list structure for sorts/filters
+      request <- jsonlite::fromJSON(data, simplifyVector = FALSE)
+      
     
       # Handle different actions
       response <- switch(request$action,
@@ -612,6 +613,60 @@ start_websocket_server <- function() {
           # Get available DataFrames for agent configuration
           dataframes <- get_available_dataframes()
           list(action = "dataframes", data = dataframes)
+        },
+        "get_objects" = {
+          # Get all available objects (for Data Explorer)
+          if (exists("get_available_objects", envir = asNamespace("rstudioai"), inherits = FALSE)) {
+            objects <- get("get_available_objects", envir = asNamespace("rstudioai"))()
+            # Also get detailed info for each object
+            objects_info <- list()
+            for (obj_name in objects) {
+              tryCatch({
+                obj <- get(obj_name, envir = globalenv())
+                obj_type <- class(obj)[1]
+                
+                if (is.data.frame(obj)) {
+                  category <- "dataframe"
+                  size_info <- list(nrow = nrow(obj), ncol = ncol(obj), column_names = names(obj))
+                } else if (is.list(obj) && !is.data.frame(obj)) {
+                  category <- "list"
+                  size_info <- list(length = length(obj))
+                } else if (is.vector(obj) && !is.list(obj)) {
+                  category <- "vector"
+                  size_info <- list(length = length(obj))
+                } else if (is.function(obj)) {
+                  category <- "function"
+                  size_info <- list(formals = length(formals(obj)))
+                } else if (is.matrix(obj)) {
+                  category <- "matrix"
+                  size_info <- list(nrow = nrow(obj), ncol = ncol(obj))
+                } else if (is.array(obj) && !is.matrix(obj)) {
+                  category <- "array"
+                  size_info <- list(dim = dim(obj))
+                } else if (inherits(obj, "ts")) {
+                  category <- "ts"
+                  size_info <- list(length = length(obj), frequency = frequency(obj))
+                } else {
+                  category <- "other"
+                  size_info <- list()
+                }
+                
+                objects_info[[obj_name]] <- list(
+                  name = obj_name,
+                  type = obj_type,
+                  category = category,
+                  size_info = size_info
+                )
+              }, error = function(e) {
+                NULL
+              })
+            }
+            list(action = "objects", data = objects, objects_info = objects_info)
+          } else {
+            # Fallback to just dataframes
+            dataframes <- get_available_dataframes()
+            list(action = "objects", data = dataframes, objects_info = list())
+          }
         },
         "get_dataframe_variables" = {
           # Get variables from a specific DataFrame
@@ -648,6 +703,97 @@ start_websocket_server <- function() {
           # Get detailed information about a specific DataFrame
           df_info <- get_dataframe_info(request$dataframe)
           list(action = "dataframe_info", data = df_info)
+        },
+        "get_dataframe_explorer_data" = {
+          # Get comprehensive explorer data for any object type
+          tryCatch({
+            # Use package namespace to ensure function is found
+            if (exists("get_object_explorer_data", envir = asNamespace("rstudioai"), inherits = FALSE)) {
+              explorer_data <- get("get_object_explorer_data", envir = asNamespace("rstudioai"))(request$dataframe)
+            } else if (exists("get_dataframe_explorer_data", envir = asNamespace("rstudioai"), inherits = FALSE)) {
+              explorer_data <- get("get_dataframe_explorer_data", envir = asNamespace("rstudioai"))(request$dataframe)
+            } else {
+              explorer_data <- get_object_explorer_data(request$dataframe)
+            }
+            list(action = "dataframe_explorer_data", data = explorer_data)
+          }, error = function(e) {
+            list(action = "dataframe_explorer_data", data = list(exists = FALSE, error = e$message))
+          })
+        },
+        "get_dataframe_chunk_filtered" = {
+          # Get filtered and sorted chunk of DataFrame
+          tryCatch({
+            # Normalize filters and sorts from JSON (handle atomic vectors)
+            filters <- request$filters
+            sorts <- request$sorts
+            
+            # Convert atomic vectors to lists if needed (only if they're atomic)
+            if (!is.null(filters) && is.atomic(filters)) {
+              filters <- as.list(filters)
+            }
+            
+            # Handle sorts - ensure each element is a list, not atomic
+            if (!is.null(sorts) && length(sorts) > 0) {
+              if (is.atomic(sorts)) {
+                sorts <- as.list(sorts)
+              }
+              # Check if sorts is a list but elements are atomic (JSON parsing issue)
+              if (is.list(sorts) && length(sorts) > 0) {
+                # Try to convert each element if it's atomic
+                for (i in seq_along(sorts)) {
+                  if (is.atomic(sorts[[i]]) && length(sorts[[i]]) >= 2) {
+                    # This shouldn't happen, but handle it
+                    cat("R: Sort element", i, "is atomic, skipping\n")
+                  }
+                }
+              }
+            }
+            
+            if (exists("get_dataframe_chunk_filtered", envir = asNamespace("rstudioai"), inherits = FALSE)) {
+              chunk_result <- get("get_dataframe_chunk_filtered", envir = asNamespace("rstudioai"))(
+                request$dataframe,
+                request$page %||% 1,
+                request$page_size %||% 100,
+                filters,
+                sorts,
+                request$pinned_cols
+              )
+            } else {
+              chunk_result <- get_dataframe_chunk_filtered(
+                request$dataframe,
+                request$page %||% 1,
+                request$page_size %||% 100,
+                filters,
+                sorts,
+                request$pinned_cols
+              )
+            }
+            list(action = "dataframe_chunk_filtered", data = chunk_result)
+          }, error = function(e) {
+            list(action = "dataframe_chunk_filtered", data = list(exists = FALSE, error = e$message))
+          })
+        },
+        "convert_explorer_to_code" = {
+          # Convert explorer view (filters/sorts) to R code
+          tryCatch({
+            if (exists("convert_explorer_view_to_code", envir = asNamespace("rstudioai"), inherits = FALSE)) {
+              code <- get("convert_explorer_view_to_code", envir = asNamespace("rstudioai"))(
+                request$dataframe,
+                request$filters,
+                request$sorts
+              )
+            } else {
+              code <- convert_explorer_view_to_code(
+                request$dataframe,
+                request$filters,
+                request$sorts
+              )
+            }
+            list(action = "explorer_code", data = list(code = code))
+          }, error = function(e) {
+            cat("R: Error converting to code:", e$message, "\n")
+            list(action = "explorer_code", data = list(code = paste("# Error:", e$message)))
+          })
         },
         "start_cleaning_agent" = {
           # Start the cleaning agent workflow
@@ -1015,9 +1161,18 @@ start_websocket_server <- function() {
               current_context$workspace_objects
             }
             
+            # Get conversation history to include in prompt
+            conversation_history <- get_conversation_history()
+            
+            # Prepend conversation history to prompt if it exists
+            enhanced_prompt <- request$message
+            if (nchar(conversation_history) > 0) {
+              enhanced_prompt <- paste0(conversation_history, "\n\nUSER REQUEST: ", request$message)
+            }
+            
             request_body <- list(
               access_code = current_access_code,
-              prompt = request$message,
+              prompt = enhanced_prompt,
               context_data = list(
                 workspace_objects = workspace_objects_array,
                 file_info = current_context$file_info,
@@ -1453,7 +1608,7 @@ start_websocket_server <- function() {
             # Send a message to the AI chat that debugging is starting
             debug_start_message <- list(
               action = "chat_with_ai",
-              message = "🔍 Debugging error..."
+              message = "Debugging error..."
             )
             ws$send(jsonlite::toJSON(debug_start_message, auto_unbox = TRUE))
             
@@ -1630,11 +1785,20 @@ start_websocket_server <- function() {
         },
         "new_conversation" = {
           # Clear conversation history
-          
-          # Clear conversation history
-          .GlobalEnv$conversation_history <- list()
+          if (exists("conversation_history", envir = .GlobalEnv)) {
+            .GlobalEnv$conversation_history <- list()
+          }
           
           list(action = "new_conversation", status = "success", message = "Conversation history cleared. Workspace context refreshed.")
+        },
+        "add_to_conversation_history" = {
+          # Add a message to conversation history (e.g., welcome message)
+          if (!is.null(request$role) && !is.null(request$message)) {
+            add_to_conversation_history(request$role, request$message)
+            list(action = "conversation_history_added", status = "success")
+          } else {
+            list(action = "conversation_history_added", status = "error", message = "Missing role or message")
+          }
         },
         "apply_debug_fix" = {
           # Apply the proposed fix to the code
@@ -2046,7 +2210,12 @@ start_websocket_server <- function() {
         "stop_agent" = {
           list(action = "stop_response", status = "success", message = "Agent workflow stopped")
         },
-        list(action = "error", message = "Unknown action")
+        {
+          # Default case - log unknown actions for debugging
+          cat("R: Unknown action received:", request$action, "\n")
+          cat("R: This usually means the R session needs to be restarted to load new code.\n")
+          list(action = "error", message = paste("Unknown action:", request$action, "- Please restart R session and reinstall package"))
+        }
       )
       
       # Send response back to JavaScript
@@ -2303,9 +2472,9 @@ add_to_conversation_history <- function(role, message) {
     )
   ))
   
-  # Keep only last 6 messages to avoid context bloat
-  if (length(.GlobalEnv$conversation_history) > 6) {
-    .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 5):length(.GlobalEnv$conversation_history)]
+  # Keep only last 4 messages to avoid context bloat (welcome message + 3 recent exchanges)
+  if (length(.GlobalEnv$conversation_history) > 4) {
+    .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 3):length(.GlobalEnv$conversation_history)]
   }
   
   
