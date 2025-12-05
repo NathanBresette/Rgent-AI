@@ -4722,6 +4722,9 @@
           console.log("WebSocket connected");
           isConnected = true;
           
+          // Request completions for tab completion
+          requestCompletions();
+          
           // Only enable UI elements and show message if access is already validated
           // (If not validated, wait for access_code_loaded to auto-validate)
           if (isAccessValid) {
@@ -5191,6 +5194,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
 
             // Agent-related cases
+            case "completions":
+              if (data.data) {
+                completions = data.data;
+                console.log('📋 Completions received:', completions);
+              }
+              break;
             case "dataframes":
               console.log('Handling dataframes action');
               // Populate all agents' dataframes to ensure consistency
@@ -6903,15 +6912,263 @@ Include comments explaining each step. Code only. Minimal chat.`;
         addMessage("Fix declined", "user");
       }
       
+      // Tab completion state
+      let completions = { dataframes: [], functions: [], variables: [] };
+      let completionSuggestion = null;
+      let currentCompletion = null;
+      let completionPrefix = "";
+      
+      // Request completions from backend
+      function requestCompletions() {
+        if (!isConnected || !ws) return;
+        ws.send(JSON.stringify({ action: "get_completions" }));
+      }
+      
+      // Create inline completion suggestion overlay
+      function createCompletionSuggestion() {
+        if (completionSuggestion) {
+          completionSuggestion.remove();
+        }
+        
+        const userInput = document.getElementById("user-input");
+        if (!userInput) return;
+        
+        const inputRow = userInput.parentElement;
+        if (!inputRow) return;
+        
+        completionSuggestion = document.createElement("div");
+        completionSuggestion.id = "completion-suggestion";
+        completionSuggestion.style.cssText = `
+          position: absolute;
+          pointer-events: none;
+          color: #888;
+          font-family: inherit;
+          font-size: inherit;
+          line-height: inherit;
+          padding: 0;
+          margin: 0;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          z-index: 1;
+          background: transparent;
+          border: none;
+          overflow: hidden;
+          display: none;
+        `;
+        
+        inputRow.style.position = "relative";
+        inputRow.appendChild(completionSuggestion);
+        
+        // Ensure input is above suggestion
+        userInput.style.position = "relative";
+        userInput.style.zIndex = "2";
+      }
+      
+      // Show inline completion suggestion
+      function showCompletionSuggestion(prefix) {
+        if (!completionSuggestion) createCompletionSuggestion();
+        
+        const userInput = document.getElementById("user-input");
+        if (!userInput) return;
+        
+        completionPrefix = prefix.toLowerCase();
+        currentCompletion = null;
+        
+        // Filter and combine all completions
+        const allItems = [
+          ...completions.dataframes.map(name => ({ name, type: "dataframe" })),
+          ...completions.functions.map(name => ({ name, type: "function" })),
+          ...completions.variables.map(name => ({ name, type: "variable" }))
+        ].filter(item => item.name.toLowerCase().startsWith(completionPrefix));
+        
+        if (allItems.length === 0) {
+          hideCompletionSuggestion();
+          return;
+        }
+        
+        // Sort: dataframes first, then functions, then variables
+        allItems.sort((a, b) => {
+          const typeOrder = { dataframe: 0, function: 1, variable: 2 };
+          if (typeOrder[a.type] !== typeOrder[b.type]) {
+            return typeOrder[a.type] - typeOrder[b.type];
+          }
+          return a.name.localeCompare(b.name);
+        });
+        
+        // Use the first matching completion
+        currentCompletion = allItems[0].name;
+        
+        // Get the text and cursor position
+        const text = userInput.value;
+        const cursorPos = userInput.selectionStart;
+        const beforeText = text.substring(0, cursorPos);
+        const suggestionText = currentCompletion.substring(prefix.length);
+        
+        if (suggestionText.length === 0) {
+          hideCompletionSuggestion();
+          return;
+        }
+        
+        // Create a temporary span to measure text width for cursor positioning
+        const tempSpan = document.createElement("span");
+        const computedStyle = window.getComputedStyle(userInput);
+        tempSpan.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          white-space: pre-wrap;
+          font-family: ${computedStyle.fontFamily};
+          font-size: ${computedStyle.fontSize};
+          padding: ${computedStyle.padding};
+        `;
+        tempSpan.textContent = beforeText;
+        document.body.appendChild(tempSpan);
+        
+        // Calculate where the cursor is in the input
+        const inputRect = userInput.getBoundingClientRect();
+        const inputRow = userInput.parentElement;
+        const containerRect = inputRow.getBoundingClientRect();
+        
+        // Set suggestion overlay content - show full text with completion in gray
+        completionSuggestion.innerHTML = beforeText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + 
+          '<span style="color: ' + (document.body.classList.contains('dark-theme') || window.matchMedia('(prefers-color-scheme: dark)').matches ? '#666' : '#999') + ';">' + 
+          suggestionText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + '</span>';
+        
+        // Position and size to match input exactly
+        completionSuggestion.style.top = (inputRect.top - containerRect.top) + "px";
+        completionSuggestion.style.left = (inputRect.left - containerRect.left) + "px";
+        completionSuggestion.style.width = inputRect.width + "px";
+        completionSuggestion.style.height = inputRect.height + "px";
+        completionSuggestion.style.display = "block";
+        
+        // Match input styling exactly
+        completionSuggestion.style.fontFamily = computedStyle.fontFamily;
+        completionSuggestion.style.fontSize = computedStyle.fontSize;
+        completionSuggestion.style.lineHeight = computedStyle.lineHeight;
+        completionSuggestion.style.padding = computedStyle.padding;
+        completionSuggestion.style.border = computedStyle.border;
+        completionSuggestion.style.borderRadius = computedStyle.borderRadius;
+        completionSuggestion.style.boxSizing = computedStyle.boxSizing;
+        
+        // Clean up temp span
+        document.body.removeChild(tempSpan);
+      }
+      
+      // Hide completion suggestion
+      function hideCompletionSuggestion() {
+        if (completionSuggestion) {
+          completionSuggestion.style.display = "none";
+        }
+        currentCompletion = null;
+        completionPrefix = "";
+      }
+      
+      // Accept completion suggestion
+      function acceptCompletion() {
+        if (!currentCompletion) return;
+        
+        const userInput = document.getElementById("user-input");
+        if (!userInput) return;
+        
+        const text = userInput.value;
+        const cursorPos = userInput.selectionStart;
+        
+        // Find the start of the current word
+        let start = cursorPos;
+        while (start > 0 && /[a-zA-Z0-9_.]/.test(text[start - 1])) {
+          start--;
+        }
+        
+        // Replace the prefix with the full name
+        const before = text.substring(0, start);
+        const after = text.substring(cursorPos);
+        userInput.value = before + currentCompletion + after;
+        
+        // Set cursor after the inserted name
+        const newPos = start + currentCompletion.length;
+        userInput.setSelectionRange(newPos, newPos);
+        userInput.focus();
+        
+        hideCompletionSuggestion();
+      }
+      
       // Handle Enter key
       const userInput = document.getElementById("user-input");
       if (userInput) {
+        // Request completions on connection
+        if (isConnected) {
+          requestCompletions();
+        }
+        
         userInput.addEventListener("keydown", function(e) {
+          // Handle Tab key to accept completion
+          if (e.key === "Tab" && currentCompletion) {
+            e.preventDefault();
+            acceptCompletion();
+            return;
+          }
+          
+          // Hide suggestion on Escape
+          if (e.key === "Escape") {
+            hideCompletionSuggestion();
+            return;
+          }
+          
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
           }
           // Allow Shift+Enter for new lines
+        });
+        
+        // Handle input changes for autocomplete
+        userInput.addEventListener("input", function() {
+          const text = this.value;
+          const cursorPos = this.selectionStart;
+          
+          // Find the current word being typed
+          let start = cursorPos;
+          while (start > 0 && /[a-zA-Z0-9_.]/.test(text[start - 1])) {
+            start--;
+          }
+          
+          const currentWord = text.substring(start, cursorPos);
+          
+          // Show completion suggestion if word is at least 3 characters
+          if (currentWord.length >= 3 && /^[a-zA-Z]/.test(currentWord)) {
+            showCompletionSuggestion(currentWord);
+          } else {
+            hideCompletionSuggestion();
+          }
+        });
+        
+        // Update suggestion position on scroll/resize
+        userInput.addEventListener("scroll", function() {
+          if (currentCompletion && completionSuggestion) {
+            const inputRect = userInput.getBoundingClientRect();
+            const inputRow = userInput.parentElement;
+            const containerRect = inputRow.getBoundingClientRect();
+            completionSuggestion.style.top = (inputRect.top - containerRect.top) + "px";
+            completionSuggestion.style.left = (inputRect.left - containerRect.left) + "px";
+          }
+        });
+        
+        // Update suggestion on selection change
+        userInput.addEventListener("selectionchange", function() {
+          if (currentCompletion && completionSuggestion) {
+            const text = userInput.value;
+            const cursorPos = userInput.selectionStart;
+            const start = cursorPos;
+            let wordStart = start;
+            while (wordStart > 0 && /[a-zA-Z0-9_.]/.test(text[wordStart - 1])) {
+              wordStart--;
+            }
+            const currentWord = text.substring(wordStart, cursorPos);
+            if (currentWord.length >= 3 && /^[a-zA-Z]/.test(currentWord)) {
+              showCompletionSuggestion(currentWord);
+            } else {
+              hideCompletionSuggestion();
+            }
+          }
         });
         
         // Auto-resize textarea - only expand when text wraps to a new line
@@ -6929,6 +7186,13 @@ Include comments explaining each step. Code only. Minimal chat.`;
           } else {
             // Keep at base height when content fits on one line
             this.style.height = "24px";
+          }
+        });
+        
+        // Close completion dropdown when clicking outside
+        document.addEventListener("click", function(e) {
+          if (completionDropdown && !completionDropdown.contains(e.target) && e.target !== userInput) {
+            hideCompletions();
           }
         });
       }

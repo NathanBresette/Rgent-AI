@@ -699,6 +699,36 @@ start_websocket_server <- function() {
             }
           }
         },
+        "get_completions" = {
+          # Get completion suggestions for tab completion (dataframes, functions, variables)
+          tryCatch({
+            env_objects <- ls(envir = globalenv())
+            completions <- list(
+              dataframes = character(0),
+              functions = character(0),
+              variables = character(0)
+            )
+            
+            for (obj_name in env_objects) {
+              tryCatch({
+                obj <- get(obj_name, envir = globalenv())
+                if (is.data.frame(obj)) {
+                  completions$dataframes <- c(completions$dataframes, obj_name)
+                } else if (is.function(obj)) {
+                  completions$functions <- c(completions$functions, obj_name)
+                } else {
+                  completions$variables <- c(completions$variables, obj_name)
+                }
+              }, error = function(e) {
+                # Skip objects that can't be accessed
+              })
+            }
+            
+            list(action = "completions", data = completions)
+          }, error = function(e) {
+            list(action = "completions", data = list(dataframes = character(0), functions = character(0), variables = character(0)))
+          })
+        },
         "get_dataframe_info" = {
           # Get detailed information about a specific DataFrame
           df_info <- get_dataframe_info(request$dataframe)
