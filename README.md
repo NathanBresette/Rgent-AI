@@ -1,35 +1,6 @@
-# RgentAI: AI-Powered Statistical Analysis Assistant for R
+# RgentAI
 
-An intelligent agent system that guides users through complete statistical analysis workflows in R. RgentAI provides AI-powered assistance for data cleaning, transformation, statistical analysis, and machine learning while maintaining reproducibility and statistical rigor.
-
-## Features
-
-### 🧹 **Data Cleaning Agent**
-- Automated missing value detection and intelligent imputation
-- Duplicate detection and outlier identification  
-- Data type validation and column name standardization
-
-### 🔄 **Transformation Agent**
-- Intelligent mathematical transformations based on skewness analysis
-- Automated new variable creation (ratios, interactions, features)
-- Smart categorical encoding and data reshaping
-
-### 📊 **Statistical Analysis Agent**
-- Automatic test selection based on data characteristics
-- Intelligent effect size calculation and distribution analysis
-- Smart group comparison methods with assumption checking
-
-### 🤖 **Modeling Agent**
-- Intelligent algorithm recommendations based on target variable:
-  - Binary classification → Logistic regression
-  - Multi-class classification → Multinomial regression  
-  - Continuous outcomes → Linear regression
-- Automated feature engineering and model interpretability
-
-### 📈 **Visualization Agent**
-- Smart plot selection based on data types and analysis goals
-- Automated chart generation with proper statistical annotations
-- Interactive visualizations and publication-ready graphics
+AI-powered assistant for RStudio that provides context-aware code help, debugging, and specialized agents for data science workflows.
 
 ## Installation
 
@@ -38,29 +9,67 @@ An intelligent agent system that guides users through complete statistical analy
 if (!require(devtools)) install.packages("devtools")
 devtools::install_github("NathanBresette/rstudioai")
 
-# Load and launch
+# Load the package
 library(rstudioai)
+
+# Rgent will auto-start in RStudio, or launch manually:
 run_rgent()
 ```
 
-## Quick Start
+## Features
 
-```r
-# Launch the AI assistant
-run_rgent()
+### Context-Aware AI Chat
 
-# Select from 5 specialized agents and follow the guided workflow:
-# 1. Choose your dataframe
-# 2. Configure analysis options  
-# 3. Get AI-powered guidance and code generation
-```
+![RgentAI Chat Interface](images/RgentChatBot.png)
+
+Get instant AI assistance that understands your entire R project, including variables, functions, and data structures. Features include:
+
+- Context-aware code generation
+- Self-correcting code execution
+- One-click debugging for the last error
+- Plot analysis and visualization interpretation
+
+### Data Explorer
+
+![RgentAI Data Explorer](images/RgentDataExplorer.png)
+
+Interactive tool for exploring and understanding your datasets:
+
+- Browse, sort, and filter data with intuitive tables
+- Instant summary statistics and data quality insights
+- Quick visualizations to understand data distribution
+- Column analysis with type detection and pattern recognition
+
+### Specialized AI Agents
+
+![RgentAI Agents Interface](images/RgentAgentsView.png)
+
+Automated workflows for common data science tasks:
+
+- **Data Cleaning Agent**: Automated preprocessing and quality improvements
+- **Transformation Agent**: Data transformations and feature creation
+- **Statistical Analysis Agent**: Comprehensive testing with intelligent test selection
+- **Modeling Agent**: Machine learning with model interpretability
+- **Visualization Agent**: Creates and analyzes data visualizations
+
+### Additional Features
+
+- Real-time streaming responses
+- Copy and insert code directly into RStudio editor
+- Multi-model support (Claude Haiku for speed, Sonnet for complex tasks)
+- Automatic updates
+- Secure API with zero-data retention
 
 ## Requirements
 
 - R >= 4.0.0
-- RStudio (recommended for full integration)
-- Internet connection for AI features
-- Access code (free for academic use - visit [rgentai.com](https://rgentai.com))
+- RStudio (recommended)
+- Internet connection
+- Access code (get started at [rgentai.com](https://rgentai.com))
+
+## Quick Start
+
+After installation, Rgent will automatically start when you load the package in RStudio. The interface opens in RStudio's viewer pane. Start chatting or select an agent from the sidebar.
 
 ## Documentation
 
@@ -68,18 +77,10 @@ run_rgent()
 # Package help
 ?rstudioai
 
-# Function documentation  
+# Function documentation
 ?run_rgent
-?start_cleaning_agent
-?start_transformation_agent
-?start_statistical_analysis
-?start_modeling_agent
-?start_visualization_agent
+?auto_start_rgent
 ```
-
-## Contributing
-
-See [joss-submission/CONTRIBUTING.md](joss-submission/CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
