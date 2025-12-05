@@ -634,15 +634,6 @@
 
       
       /* Usage Tab Styles */
-      .usage-container {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 15px;
-        color: var(--text-primary);
-      }
-      
       .stats-section {
         margin-bottom: 30px;
       }
@@ -917,14 +908,6 @@
       }
       
       /* Guide Tab Styles */
-      .guide-container {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 15px;
-        color: var(--text-primary);
-      }
       
       .guide-section {
         margin-bottom: 30px;
@@ -1114,6 +1097,88 @@
         padding: 0;
         flex: 1;
         position: relative;
+      }
+      
+      /* Guide Tab Styles */
+      #guide-tab {
+        overflow: hidden !important;
+        display: none !important;
+        margin: 0;
+        padding: 0;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        position: relative;
+      }
+      
+      #guide-tab.active {
+        display: flex !important;
+        overflow: hidden !important;
+        margin: 0;
+        padding: 0;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        position: relative;
+      }
+      
+      .guide-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 0;
+        flex: 1;
+        position: relative;
+        box-sizing: border-box;
+      }
+      
+      /* Usage Tab Styles */
+      #usage-tab {
+        overflow: hidden !important;
+        display: none !important;
+        margin: 0;
+        padding: 0;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        position: relative;
+      }
+      
+      #usage-tab.active {
+        display: flex !important;
+        overflow: hidden !important;
+        margin: 0;
+        padding: 0;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        position: relative;
+      }
+      
+      .usage-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 0;
+        flex: 1;
+        position: relative;
+        box-sizing: border-box;
       }
       
       #explorer-dataframe-select-wrapper {
