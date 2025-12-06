@@ -1301,32 +1301,32 @@
         color: #6c757d;
       }
       
-      /* Custom dropdown button text color matching dataview rows - must use !important to override tab-content rule */
+      /* Custom dropdown button text color - must use !important to override tab-content rule */
       body.dark-theme .custom-dropdown-button {
-        color: #6c757d !important;
+        color: var(--text-primary) !important;
       }
       
       body:not(.dark-theme) .custom-dropdown-button {
-        color: #6c757d !important;
+        color: var(--text-primary) !important;
       }
       
       /* Prevent color change on hover/active/focus for dropdown button */
       .custom-dropdown-button:hover,
       .custom-dropdown-button:active,
       .custom-dropdown-button:focus {
-        color: #6c757d !important;
+        color: var(--text-primary) !important;
       }
       
       body.dark-theme .custom-dropdown-button:hover,
       body.dark-theme .custom-dropdown-button:active,
       body.dark-theme .custom-dropdown-button:focus {
-        color: #6c757d !important;
+        color: var(--text-primary) !important;
       }
       
       body:not(.dark-theme) .custom-dropdown-button:hover,
       body:not(.dark-theme) .custom-dropdown-button:active,
       body:not(.dark-theme) .custom-dropdown-button:focus {
-        color: #6c757d !important;
+        color: var(--text-primary) !important;
       }
       
       .dropdown-category-items {
@@ -1379,15 +1379,28 @@
       
       /* Prevent color and background change on active/focus for action buttons */
       .action-btn:active,
-      .action-btn:focus {
+      .action-btn:focus,
+      .action-btn:focus-visible,
+      .action-btn:focus-within {
         color: var(--text-primary) !important;
         background: var(--bg-card) !important;
+        outline: none !important;
+        box-shadow: none !important;
       }
       
       .action-btn:active:not(:disabled),
-      .action-btn:focus:not(:disabled) {
+      .action-btn:focus:not(:disabled),
+      .action-btn:focus-visible:not(:disabled) {
         background: var(--bg-card) !important;
         color: var(--text-primary) !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Ensure buttons maintain color after click (remove any visited/active state styling) */
+      .action-btn:visited {
+        color: var(--text-primary) !important;
+        background: var(--bg-card) !important;
       }
       
       .explorer-filter-bar {
@@ -7499,7 +7512,8 @@ Include comments explaining each step. Code only. Minimal chat.`;
         // Close completion suggestion when clicking outside
         document.addEventListener("click", function(e) {
           const completionSuggestionEl = document.getElementById("completion-suggestion");
-          if (completionSuggestionEl && !completionSuggestionEl.contains(e.target) && e.target !== userInput) {
+          const userInputEl = document.getElementById("user-input");
+          if (completionSuggestionEl && !completionSuggestionEl.contains(e.target) && e.target !== userInputEl) {
             hideCompletionSuggestion();
           }
         });
@@ -15519,6 +15533,9 @@ Please fix the code and provide a corrected version that will work. The code sho
         if (!explorerState.currentDataframe) return;
         const currentPage = explorerState.page || 1;
         loadExplorerPage(currentPage + 1);
+        // Remove focus from button after click to prevent color change
+        const nextBtn = document.getElementById('next-page-btn');
+        if (nextBtn) nextBtn.blur();
       }
       
       // Navigate to previous page
@@ -15528,6 +15545,9 @@ Please fix the code and provide a corrected version that will work. The code sho
         if (currentPage > 1) {
           loadExplorerPage(currentPage - 1);
         }
+        // Remove focus from button after click to prevent color change
+        const prevBtn = document.getElementById('prev-page-btn');
+        if (prevBtn) prevBtn.blur();
       }
       
       // Cell selection
