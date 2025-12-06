@@ -2298,32 +2298,74 @@ start_websocket_server <- function() {
           }
         }
         
+        # Helper function to recursively simplify complex objects
+        simplify_for_json <- function(obj, depth = 0) {
+          if (depth > 3) {
+            # Prevent infinite recursion
+            return("... (too deeply nested)")
+          }
+          
+          if (is.null(obj)) {
+            return(NULL)
+          } else if (is.atomic(obj) || is.character(obj) || is.numeric(obj) || is.logical(obj)) {
+            # Simple types are fine
+            return(obj)
+          } else if (is.data.frame(obj)) {
+            # Dataframes are fine
+            return(obj)
+          } else if (is.list(obj)) {
+            # Recursively simplify list elements
+            return(lapply(obj, function(x) simplify_for_json(x, depth + 1)))
+          } else {
+            # Complex object - return summary
+            obj_class <- class(obj)
+            return(list(
+              class = obj_class,
+              type = typeof(obj),
+              summary = tryCatch({
+                summary_output <- capture.output(print(obj))
+                if (length(summary_output) > 10) {
+                  c(summary_output[1:10], "... (truncated)")
+                } else {
+                  summary_output
+                }
+              }, error = function(e) {
+                paste("Complex object of class:", paste(obj_class, collapse = ", "))
+              }),
+              message = "Object created successfully but cannot be displayed in JSON format"
+            ))
+          }
+        }
+        
         # Use auto_unbox = TRUE for all responses (dataframes data is now a list, so it won't be unboxed)
         response_json <- tryCatch({
           jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
         }, error = function(e) {
           cat("WARNING: Failed to serialize response to JSON:", e$message, "\n")
           
-          # Handle complex objects that can't be serialized (like randomForest, models, etc.)
-          if (!is.null(response$result) && !is.atomic(response$result) && !is.list(response$result)) {
-            cat("Simplifying complex result object of class:", class(response$result), "\n")
-            # Replace complex object with summary
-            response$result <- list(
-              class = class(response$result),
-              summary = tryCatch(capture.output(print(response$result)), error = function(e2) "Complex object")
-            )
+          # Simplify complex objects recursively
+          if (!is.null(response$result)) {
+            cat("Simplifying complex result object...\n")
+            response$result <- simplify_for_json(response$result)
+          }
+          
+          # Also check nested structures like response$data$result
+          if (!is.null(response$data) && !is.null(response$data$result)) {
+            response$data$result <- simplify_for_json(response$data$result)
           }
           
           # Try again with simplified response
           tryCatch({
             jsonlite::toJSON(response, auto_unbox = TRUE, escape_double = FALSE)
           }, error = function(e2) {
-            # If still failing, send minimal error response
+            cat("WARNING: Still failed after simplification:", e2$message, "\n")
+            # If still failing, send minimal error response with output
             jsonlite::toJSON(list(
               action = response$action,
-              status = "error",
+              status = if(is.null(response$status)) "success" else response$status,
               error = "Result contains objects that cannot be displayed",
-              output = response$output
+              output = if(!is.null(response$output)) response$output else "",
+              message = "Code executed successfully, but the result object cannot be serialized to JSON format"
             ), auto_unbox = TRUE)
           })
         })

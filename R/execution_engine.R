@@ -96,13 +96,42 @@ execute_code_in_session <- function(code, settings = NULL) {
         # For ggplot objects, don't serialize - just return a simple message
         "ggplot object created (not serialized)"
       } else {
-        # For other objects, try to convert to JSON
-        tryCatch({
-          result$value
+        # For other objects, check if they can be serialized to JSON
+        # Complex objects like models, environments, etc. cannot be serialized
+        obj_class <- class(result$value)
+        
+        # Check if object is serializable by attempting to convert to JSON
+        is_serializable <- tryCatch({
+          # Try to serialize a simple version
+          jsonlite::toJSON(list(test = result$value), auto_unbox = TRUE)
+          TRUE
         }, error = function(e) {
-          # If JSON conversion fails, convert to character
-          as.character(result$value)
+          FALSE
         })
+        
+        if (is_serializable && (is.atomic(result$value) || is.list(result$value))) {
+          # Object is simple enough to serialize
+          result$value
+        } else {
+          # Complex object - return a summary instead
+          list(
+            class = obj_class,
+            type = typeof(result$value),
+            summary = tryCatch({
+              # Try to get a summary
+              summary_output <- capture.output(print(result$value))
+              if (length(summary_output) > 20) {
+                # Truncate if too long
+                c(summary_output[1:20], "... (truncated)")
+              } else {
+                summary_output
+              }
+            }, error = function(e) {
+              paste("Complex object of class:", paste(obj_class, collapse = ", "))
+            }),
+            message = "Object created successfully but cannot be displayed in JSON format"
+          )
+        }
       }
     }
 
