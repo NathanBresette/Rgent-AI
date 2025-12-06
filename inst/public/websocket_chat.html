@@ -1278,6 +1278,12 @@
         min-width: 200px;
       }
       
+      /* Ensure select dropdown options have theme-aware colors */
+      .explorer-title-section select option {
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+      }
+      
       .explorer-title-section .dims-text {
         font-size: 13px;
         color: var(--text-secondary);
@@ -1978,6 +1984,12 @@
         font-size: 14px;
       }
       
+      /* Ensure select dropdown options have theme-aware colors for agents only */
+      .form-group select option {
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+      }
+      
       .start-agent-btn {
         padding: 12px 20px;
         background: var(--text-primary) !important;
@@ -2417,6 +2429,12 @@
         background: var(--input-bg);
         color: var(--text-primary);
         font-size: 14px;
+      }
+      
+      /* Ensure select dropdown options have theme-aware colors */
+      .config-section select option {
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
       }
       
       .dataframe-info {
