@@ -7354,51 +7354,94 @@ Include comments explaining each step. Code only. Minimal chat.`;
           return;
         }
         
-        // Create a temporary span to measure text width for cursor positioning
-        const tempSpan = document.createElement("span");
+        // Calculate cursor position for multi-line support
         const computedStyle = window.getComputedStyle(userInput);
-        tempSpan.style.cssText = `
-          position: absolute;
-          visibility: hidden;
-          white-space: pre-wrap;
-          font-family: ${computedStyle.fontFamily};
-          font-size: ${computedStyle.fontSize};
-          padding: ${computedStyle.padding};
-        `;
-        tempSpan.textContent = beforeText;
-        document.body.appendChild(tempSpan);
-        
-        // Calculate where the cursor is in the input
         const inputRect = userInput.getBoundingClientRect();
         const inputRow = userInput.parentElement;
         const containerRect = inputRow.getBoundingClientRect();
         
-        // Set suggestion overlay content - show full text with completion in gray
-        completionSuggestion.innerHTML = beforeText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + 
-          '<span style="color: ' + (document.body.classList.contains('dark-theme') || window.matchMedia('(prefers-color-scheme: dark)').matches ? '#666' : '#999') + ';">' + 
+        // Create a mirror div to measure text position accurately
+        const mirror = document.createElement("div");
+        const mirrorStyle = window.getComputedStyle(userInput);
+        mirror.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          font-family: ${mirrorStyle.fontFamily};
+          font-size: ${mirrorStyle.fontSize};
+          padding: ${mirrorStyle.padding};
+          border: ${mirrorStyle.border};
+          box-sizing: ${mirrorStyle.boxSizing};
+          width: ${inputRect.width}px;
+          line-height: ${mirrorStyle.lineHeight};
+          overflow: hidden;
+        `;
+        mirror.textContent = beforeText;
+        document.body.appendChild(mirror);
+        
+        // Create a range to measure cursor position
+        const range = document.createRange();
+        const textNode = mirror.firstChild;
+        if (textNode) {
+          range.setStart(textNode, 0);
+          range.setEnd(textNode, Math.min(beforeText.length, textNode.textContent.length));
+        }
+        
+        // Get line height
+        const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.4;
+        
+        // Calculate which line the cursor is on
+        const linesBeforeCursor = beforeText.split('\n');
+        const currentLineIndex = linesBeforeCursor.length - 1;
+        const currentLineText = linesBeforeCursor[currentLineIndex];
+        
+        // Measure width of text on current line before cursor
+        const measureSpan = document.createElement("span");
+        measureSpan.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          white-space: pre;
+          font-family: ${computedStyle.fontFamily};
+          font-size: ${computedStyle.fontSize};
+        `;
+        measureSpan.textContent = currentLineText;
+        document.body.appendChild(measureSpan);
+        const textWidth = measureSpan.offsetWidth;
+        document.body.removeChild(measureSpan);
+        
+        // Calculate position offsets
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 8;
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 8;
+        const verticalOffset = currentLineIndex * lineHeight;
+        const horizontalOffset = textWidth;
+        
+        // Set suggestion overlay content - ONLY show the suggestion text (not duplicate all text)
+        const suggestionColor = document.body.classList.contains('dark-theme') || window.matchMedia('(prefers-color-scheme: dark)').matches ? '#666' : '#999';
+        completionSuggestion.innerHTML = '<span style="color: ' + suggestionColor + ';">' + 
           suggestionText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + '</span>';
         
-        // Position and size to match input exactly
-        completionSuggestion.style.top = (inputRect.top - containerRect.top) + "px";
-        completionSuggestion.style.left = (inputRect.left - containerRect.left) + "px";
-        completionSuggestion.style.width = inputRect.width + "px";
-        completionSuggestion.style.height = inputRect.height + "px";
+        // Position suggestion exactly at cursor location
+        completionSuggestion.style.top = (inputRect.top - containerRect.top + verticalOffset + paddingTop) + "px";
+        completionSuggestion.style.left = (inputRect.left - containerRect.left + horizontalOffset + paddingLeft) + "px";
+        completionSuggestion.style.width = "auto";
+        completionSuggestion.style.height = "auto";
         completionSuggestion.style.display = "block";
+        completionSuggestion.style.whiteSpace = "pre";
         
-        // Match input styling exactly (but no border/outline)
+        // Match input styling for text rendering (but transparent background)
         completionSuggestion.style.fontFamily = computedStyle.fontFamily;
         completionSuggestion.style.fontSize = computedStyle.fontSize;
         completionSuggestion.style.lineHeight = computedStyle.lineHeight;
-        completionSuggestion.style.padding = computedStyle.padding;
+        completionSuggestion.style.padding = "0";
+        completionSuggestion.style.margin = "0";
         completionSuggestion.style.border = "none";
         completionSuggestion.style.outline = "none";
-        completionSuggestion.style.borderRadius = computedStyle.borderRadius;
-        completionSuggestion.style.boxSizing = computedStyle.boxSizing;
-        // Match input background so text aligns properly
-        completionSuggestion.style.backgroundColor = computedStyle.backgroundColor;
+        completionSuggestion.style.background = "transparent";
+        completionSuggestion.style.boxSizing = "content-box";
         
-        // Clean up temp span
-        document.body.removeChild(tempSpan);
+        // Clean up
+        document.body.removeChild(mirror);
       }
       
       // Hide completion suggestion
