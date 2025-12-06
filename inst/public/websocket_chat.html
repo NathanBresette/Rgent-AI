@@ -537,6 +537,13 @@
         gap: 10px;
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
+        background-color: var(--input-bg);
+        border-radius: 4px;
+        position: relative;
+      }
+      
+      .input-row:has(#user-input:focus) {
+        background-color: var(--bg-primary);
       }
       
       .button-row {
@@ -563,7 +570,7 @@
         padding: 8px; 
         border: 1px solid var(--border-color);
         border-radius: 4px;
-        background-color: var(--input-bg);
+        background-color: transparent;
         color: var(--text-primary);
         font-family: inherit;
         font-size: inherit;
@@ -579,9 +586,10 @@
       #user-input:focus {
         outline: none;
         border-color: var(--border-color);
-        background-color: var(--bg-primary);
+        background-color: transparent;
         box-shadow: none;
       }
+      
       /* Specific button classes - each button type has its own explicit styling */
       button.debug-button {
         background-color: #dc3545 !important;
@@ -7287,7 +7295,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
           white-space: pre-wrap;
           word-wrap: break-word;
           z-index: 1;
-          background: transparent;
+          background: var(--input-bg);
           border: none;
           overflow: hidden;
           display: none;
@@ -7386,6 +7394,8 @@ Include comments explaining each step. Code only. Minimal chat.`;
         completionSuggestion.style.outline = "none";
         completionSuggestion.style.borderRadius = computedStyle.borderRadius;
         completionSuggestion.style.boxSizing = computedStyle.boxSizing;
+        // Match input background so text aligns properly
+        completionSuggestion.style.backgroundColor = computedStyle.backgroundColor;
         
         // Clean up temp span
         document.body.removeChild(tempSpan);
