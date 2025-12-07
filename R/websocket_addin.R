@@ -777,7 +777,6 @@ start_websocket_server <- function() {
                 for (i in seq_along(sorts)) {
                   if (is.atomic(sorts[[i]]) && length(sorts[[i]]) >= 2) {
                     # This shouldn't happen, but handle it
-                    cat("R: Sort element", i, "is atomic, skipping\n")
                   }
                 }
               }

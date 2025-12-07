@@ -1563,7 +1563,6 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
     
     # Apply sorting
     if (!is.null(sorts) && length(sorts) > 0) {
-      cat("R: Processing sorts, length:", length(sorts), "class:", class(sorts), "\n")
       tryCatch({
         # Handle both list and data.frame formats from JSON
         sort_cols <- character(0)
@@ -1571,7 +1570,6 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
         
         for (i in seq_along(sorts)) {
           s <- sorts[[i]]
-          cat("R: Sort", i, "- class:", paste(class(s), collapse = ", "), "is.list:", is.list(s), "is.atomic:", is.atomic(s), "\n")
           
           # Handle different formats
           if (is.data.frame(s)) {
@@ -1579,7 +1577,6 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
             dir_val <- s$direction[1]
             sort_cols <- c(sort_cols, col_name)
             sort_dirs <- c(sort_dirs, dir_val == "asc")
-            cat("R:   Column:", col_name, "Direction:", dir_val, "Ascending:", dir_val == "asc", "\n")
           } else if (is.list(s)) {
             # Check if it has the expected structure
             if (!is.null(s$column) || "column" %in% names(s)) {
@@ -1587,18 +1584,12 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
               dir_val <- ifelse(is.null(s$direction), ifelse(is.null(s[["direction"]]), "asc", s[["direction"]]), s$direction)
               sort_cols <- c(sort_cols, col_name)
               sort_dirs <- c(sort_dirs, dir_val == "asc")
-              cat("R:   Column:", col_name, "Direction:", dir_val, "Ascending:", dir_val == "asc", "\n")
             } else {
-              cat("R: List format but no column field. Names:", paste(names(s), collapse = ", "), "\n")
-              cat("R:   Full structure:", capture.output(str(s)), "\n")
               next
             }
           } else if (is.atomic(s)) {
-            cat("R: Sort", i, "is atomic vector, cannot extract column/direction. Values:", paste(s, collapse = ", "), "\n")
-            cat("R:   This suggests JSON parsing issue - sorts should be lists\n")
             next
           } else {
-            cat("R: Skipping sort", i, "- unexpected format, class:", paste(class(s), collapse = ", "), "\n")
             next
           }
         }
@@ -1622,15 +1613,9 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
           }))
           
           df <- df[order_vec, , drop = FALSE]
-          cat("R: Applied sorting to FULL dataset -", nrow(df), "rows - columns:", paste(sort_cols, collapse = ", "), "directions:", paste(ifelse(sort_dirs, "asc", "desc"), collapse = ", "), "\n")
-          # Show first few values to confirm sorting
-          if (length(sort_cols) > 0 && sort_cols[1] %in% names(df)) {
-            first_vals <- head(df[[sort_cols[1]]], 5)
-            cat("R: First 5 values of", sort_cols[1], "after sorting:", paste(first_vals, collapse = ", "), "\n")
-          }
         }
       }, error = function(e) {
-        cat("Error in sorting:", e$message, "\n")
+        # Silently handle sorting errors
       })
     }
     
@@ -1641,7 +1626,6 @@ get_dataframe_chunk_filtered <- function(df_name, page = 1, page_size = 100,
       if (length(valid_pinned) > 0) {
         other_cols <- setdiff(names(df), valid_pinned)
         df <- df[, c(valid_pinned, other_cols), drop = FALSE]
-        cat("R: Reordered columns - pinned:", length(valid_pinned), "other:", length(other_cols), "\n")
       }
     }
     
