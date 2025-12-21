@@ -5458,14 +5458,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                   break;
                 }
                 
-                // Check for plot data in the output (for visualization agent)
+                // Check for plot data in the output (for visualization agent and regular chat)
                 // This will detect multiple plots since we use global matching
                 const plotMatches = outputText.match(/PLOT_DATA:\s*([A-Za-z0-9+/=]+)/g);
                 const analyzeMatch = outputText.match(/ANALYZE_PLOT:TRUE/);
                 
                 if (plotMatches && plotMatches.length > 0) {
-                  console.log('🎨 Detected', plotMatches.length, 'plot(s) in execution output');
-                  
                   // Display each plot found
                   plotMatches.forEach((match, index) => {
                     // Extract just the base64 data part
@@ -5473,11 +5471,11 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     const plotData = plotDataMatch ? plotDataMatch[1] : '';
                     const plotNumber = plotMatches.length > 1 ? ` (${index + 1}/${plotMatches.length})` : '';
                     
-                    console.log('🎨 Extracted plot data length:', plotData.length);
-                    console.log('🎨 Plot data preview:', plotData.substring(0, 50) + '...');
+                    // Determine if this is from visualization agent or regular chat
+                    const isVisualizationAgent = currentAgentWorkflow && currentAgentWorkflow.type === 'visualization';
+                    const plotTitle = isVisualizationAgent ? `**Plot from Visualization Agent${plotNumber}**` : `**Generated Plot${plotNumber}**`;
                     
-                    const message = `**Generated Plot${plotNumber}**\n\n` +
-                                   `Plot from visualization agent:\n\n` +
+                    const message = `${plotTitle}\n\n` +
                                    `data:image/png;base64,${plotData}`;
                     addVisualizationMessage(message, 'ai');
                   });
