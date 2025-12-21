@@ -1248,7 +1248,7 @@
         position: relative;
       }
       
-      /* Guide Tab Styles */
+      /* Guide Tab Styles - Hidden, content moved to modal */
       #guide-tab {
         overflow: hidden !important;
         display: none !important;
@@ -1262,15 +1262,7 @@
       }
       
       #guide-tab.active {
-        display: flex !important;
-        overflow: hidden !important;
-        margin: 0;
-        padding: 0;
-        padding-bottom: 0 !important;
-        margin-bottom: 0 !important;
-        flex-direction: column;
-        height: calc(100vh - 100px);
-        position: relative;
+        display: none !important; /* Keep hidden even when active - use modal instead */
       }
       
       .guide-container {
@@ -2552,6 +2544,13 @@
         padding: 24px;
       }
       
+      /* Guide modal specific styling */
+      #guide-modal {
+        z-index: 10000 !important;
+        position: fixed !important;
+        background: var(--bg-primary) !important;
+      }
+      
       .config-section {
         margin-bottom: 24px;
       }
@@ -2701,7 +2700,6 @@
         <button class="tab-btn" onclick="switchTab('explorer')">Data Explorer</button>
         <button class="tab-btn" onclick="switchTab('agents')" id="agents-tab-btn">Agents</button>
         <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
-        <button class="tab-btn" onclick="switchTab('guide')">Guide</button>
       </div>
       
       <!-- Chat Tab -->
@@ -2854,6 +2852,13 @@
                 Agents use: 1 analysis request + 1 code generation request + up to 3 error fix requests if needed
               </small>
             </div>
+          </div>
+          
+          <!-- Guide Link -->
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center;">
+            <button onclick="event.stopPropagation(); openGuideModal();" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">
+              📖 View Guide & Help
+            </button>
           </div>
         </div>
       </div>
@@ -4558,6 +4563,167 @@
               Start Cleaning Agent
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Guide Modal -->
+    <div id="guide-modal" class="modal" style="display: none; z-index: 10000;">
+      <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h3>Guide & Help</h3>
+          <span class="modal-close" onclick="closeGuideModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="guide-container">
+            <div class="guide-section">
+              <h3>Getting Started</h3>
+              <div class="guide-card">
+                <h4>Be Specific</h4>
+                <ul>
+                  <li>"Create a function to calculate mean by group"</li>
+                  <li>"help me with data"</li>
+                  <li>"Debug this ggplot error: object not found"</li>
+                  <li>"it's not working"</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="guide-section">
+              <h3>Key Features</h3>
+              <div class="guide-card">
+                <h4>Smart Context Capture</h4>
+                <p>Automatically captures your entire R environment - data frames, functions, variables, plots, and active code.</p>
+              </div>
+              <div class="guide-card">
+                <h4>Real-time Streaming</h4>
+                <p>Watch AI responses stream in real-time. No waiting for complete responses.</p>
+              </div>
+              <div class="guide-card">
+                <h4>Code Insertion</h4>
+                <p>Click "Insert at Cursor" to add code directly into your R scripts. No copy-paste needed.</p>
+              </div>
+              <div class="guide-card">
+                <h4>Error Debugging</h4>
+                <p>Click "Debug Last Error" for instant analysis and step-by-step fixes.</p>
+              </div>
+              <div class="guide-card">
+                <h4>Plot Analysis</h4>
+                <p>Click "Analyze Last Plot" for statistical insights and improvement suggestions.</p>
+              </div>
+              <div class="guide-card">
+                <h4>Data Explorer</h4>
+                <p>Browse and explore your R objects in the Data Explorer tab. View data frames, matrices, vectors, and lists with sorting and pagination.</p>
+              </div>
+            </div>
+            
+            <div class="guide-section">
+              <h3>AI Agents</h3>
+              
+              <div class="guide-card">
+                <h4>What are Agents?</h4>
+                <p>Specialized AI workflows that guide you through complete data analysis tasks step-by-step.</p>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Data Cleaning Agent</h4>
+                <ul>
+                  <li>Automatically detects missing values, outliers, duplicates</li>
+                  <li>Provides intelligent imputation suggestions</li>
+                  <li>Standardizes column names and data types</li>
+                </ul>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Transformation Agent</h4>
+                <ul>
+                  <li>Smart mathematical transformations (log, sqrt)</li>
+                  <li>Automatic new variable creation</li>
+                  <li>Data reshaping and categorical encoding</li>
+                </ul>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Statistical Analysis Agent</h4>
+                <ul>
+                  <li>Intelligent test selection (t-test, ANOVA, chi-square)</li>
+                  <li>Effect size calculations (Cohen's d, eta-squared)</li>
+                  <li>Distribution analysis with assumption checking</li>
+                </ul>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Modeling Agent</h4>
+                <ul>
+                  <li>Smart algorithm recommendations by target type</li>
+                  <li>Automatic feature engineering</li>
+                  <li>Model comparison and interpretation</li>
+                </ul>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Visualization Agent</h4>
+                <ul>
+                  <li>Intelligent plot type recommendations</li>
+                  <li>Automatic statistical analysis of plots</li>
+                  <li>Smart variable filtering and validation</li>
+                </ul>
+              </div>
+              
+              <div class="guide-card">
+                <h4>Getting Started with Agents</h4>
+                <ol>
+                  <li>Click the <strong>Agents</strong> tab</li>
+                  <li>Select your data frame</li>
+                  <li>Choose your analysis type</li>
+                  <li>Follow the guided workflow</li>
+                  <li>Get AI analysis + executable code</li>
+                </ol>
+              </div>
+            </div>
+            
+            <div class="guide-section">
+              <h3>Performance Tips</h3>
+              <div class="guide-card">
+                <h4>Keep Environment Clean</h4>
+                <p>This will save tokens and cost:</p>
+                <ul>
+                  <li>Remove unused variables: <code>rm(unused_var)</code></li>
+                  <li>Clear large objects: <code>rm(large_dataframe)</code></li>
+                  <li>Restart R session: "Session > Restart R"</li>
+                  <li>Use <code>rm(list = ls())</code> for fresh start</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="guide-section">
+              <h3>Troubleshooting</h3>
+              <div class="guide-card">
+                <h4>Slow Responses?</h4>
+                <ul>
+                  <li>Your environment might be too large</li>
+                  <li>Try <code>rm(list = ls())</code> to clear workspace</li>
+                  <li>Restart R session for fresh start</li>
+                </ul>
+              </div>
+              <div class="guide-card">
+                <h4>Connection Issues?</h4>
+                <ul>
+                  <li>Check your internet connection</li>
+                  <li>Verify your access code is valid</li>
+                  <li>Try refreshing the page</li>
+                  <li>Restart the addin if needed</li>
+                </ul>
+              </div>
+              <div class="guide-card">
+                <h4>Need Anything?</h4>
+                <p>Contact us at <a href="mailto:founders@rgentai.com">founders@rgentai.com</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="closeGuideModal()">Close</button>
         </div>
       </div>
     </div>
@@ -8553,6 +8719,12 @@ Include comments explaining each step. Code only. Minimal chat.`;
       // Switch tabs (including agents)
       function switchTab(tabName) {
         console.log('🔀 switchTab called with:', tabName);
+        
+        // Prevent switching to guide tab (now opened as modal)
+        if (tabName === 'guide') {
+          openGuideModal();
+          return;
+        }
         
         // Hide all tabs
         const tabs = document.querySelectorAll('.tab-content');
@@ -16532,6 +16704,42 @@ Please fix the code and provide a corrected version that will work. The code sho
       function closeFilterModal() {
         document.getElementById('filter-modal').style.display = 'none';
       }
+      
+      // Open guide modal
+      function openGuideModal() {
+        console.log('📖 Opening guide modal');
+        const modal = document.getElementById('guide-modal');
+        if (modal) {
+          modal.style.display = 'flex';
+          console.log('📖 Guide modal display set to flex');
+        } else {
+          console.error('📖 Guide modal not found!');
+        }
+      }
+      
+      // Close guide modal
+      function closeGuideModal() {
+        console.log('📖 Closing guide modal');
+        const modal = document.getElementById('guide-modal');
+        if (modal) {
+          modal.style.display = 'none';
+        }
+      }
+      
+      // Close guide modal when clicking outside
+      document.addEventListener('click', function(e) {
+        const guideModal = document.getElementById('guide-modal');
+        const modalContent = guideModal ? guideModal.querySelector('.modal-content') : null;
+        // Don't close if clicking the button that opens the modal
+        const openButton = e.target.closest('button[onclick*="openGuideModal"]');
+        if (openButton) {
+          return; // Let the button's onclick handle opening
+        }
+        // Close if clicking outside the modal content
+        if (guideModal && guideModal.style.display === 'flex' && modalContent && !modalContent.contains(e.target) && !e.target.closest('.modal-content')) {
+          closeGuideModal();
+        }
+      });
       
       // Render filters
       // Helper function to escape HTML content for filters
