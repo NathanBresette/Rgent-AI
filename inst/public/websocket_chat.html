@@ -8538,6 +8538,12 @@ Include comments explaining each step. Code only. Minimal chat.`;
           explorerDropdown.style.opacity = '0';
           explorerDropdown.style.pointerEvents = 'none';
         }
+        
+        // Initialize mode status (set initial state without showing message)
+        const toggle = document.getElementById('auto-execute-toggle');
+        if (toggle) {
+          lastModeStatus = toggle.checked ? 'auto' : 'ask';
+        }
       });
       
       // Analyze Last Plot functionality
@@ -10889,7 +10895,30 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             button.textContent = 'Ask';
           }
           
+          // Update mode status indicator
+          updateModeStatus();
+          
           console.log('🔧 Mode changed to:', toggle.checked ? 'Auto Execute' : 'Ask');
+        }
+      }
+      
+      // Track last mode to avoid duplicate messages
+      let lastModeStatus = null;
+      
+      // Update mode status indicator in chat
+      function updateModeStatus() {
+        const toggle = document.getElementById('auto-execute-toggle');
+        
+        if (toggle) {
+          const currentMode = toggle.checked ? 'auto' : 'ask';
+          
+          // Only add message if mode changed
+          if (lastModeStatus !== null && lastModeStatus !== currentMode) {
+            const modeText = toggle.checked ? 'Auto Execute On' : 'Ask Mode On';
+            addMessage(`**Mode Changed:** ${modeText}`, 'ai');
+          }
+          
+          lastModeStatus = currentMode;
         }
       }
       
@@ -10906,6 +10935,9 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             toggle.checked = false;
             button.textContent = 'Ask';
           }
+          
+          // Update mode status indicator
+          updateModeStatus();
           
           console.log('🔧 Mode set to:', mode);
         }
