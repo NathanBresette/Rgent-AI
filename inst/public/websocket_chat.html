@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- CACHE BUST: 2024-12-19 16:00:00 - TRANSFORMATION AGENT ROUTING FIX -->
+<!-- CACHE BUST: 2024-12-08-v9 - DEBUG: Added table detection logging to diagnose formatting issues -->
 <html>
 <head>
     <meta charset="UTF-8">
@@ -161,6 +161,36 @@
         text-align: left;
       }
       
+      /* Streaming cursor - ChatGPT/Gemini style */
+      .streaming-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1.1em;
+        background: var(--text-primary);
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        animation: cursor-blink 0.8s ease-in-out infinite;
+      }
+      
+      @keyframes cursor-blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+      }
+      
+      /* Streaming message container for smooth rendering */
+      .ai-message.streaming {
+        min-height: 1.5em;
+      }
+      
+      .ai-message.streaming .streaming-content {
+        display: inline;
+      }
+      
+      /* Streaming message styles */
+      .ai-message.streaming {
+        min-height: 1.5em;
+      }
+      
       .debug-button {
         background-color: #dc3545 !important;
         color: white !important;
@@ -168,6 +198,7 @@
         padding: 8px 12px !important;
         border-radius: 4px !important;
         cursor: pointer !important;
+        font-size: 12px !important;
       }
       .debug-button:hover {
         background-color: #c82333 !important;
@@ -182,10 +213,26 @@
         border-radius: 4px !important;
         cursor: pointer !important;
         transition: all 0.3s ease !important;
+        font-size: 12px !important;
       }
       
       .analyze-button:hover {
         background-color: #6b46c1 !important;
+      }
+      
+      .new-chat-button {
+        background-color: #6b7280 !important; /* Neutral gray */
+        color: white !important;
+        border: none !important;
+        padding: 8px 12px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        font-size: 12px !important;
+      }
+      
+      .new-chat-button:hover {
+        background-color: #4b5563 !important;
       }
       
       .access-button {
@@ -305,6 +352,8 @@
         border-radius: 4px !important;
         cursor: pointer !important;
         transition: all 0.3s ease !important;
+        flex: 0 0 auto;
+        font-size: 12px !important;
       }
       
       .send-button:hover {
@@ -320,64 +369,131 @@
         background-color: #c0392b !important;
       }
       
-      /* Agent Auto Execute Toggle Styles */
+      /* Mode Selector (Auto Execute / Ask) - Simple toggle button */
       .auto-execute-toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: 12px;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        flex: 23.8 !important;
+        min-width: 0 !important;
+        width: 100% !important;
       }
       
+      .mode-selector-button {
+        width: 100% !important;
+        padding: 8px 16px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        text-align: center !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: white !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
+        background-color: #6b7280 !important;
+        white-space: nowrap !important;
+        user-select: none !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      
+      .mode-selector-button:hover {
+        background-color: #4b5563 !important;
+      }
+      
+      .mode-selector-button:active {
+        transform: scale(0.98);
+      }
+      
+      /* Override any tab-content button styles - match New Chat button exactly */
+      .tab-content .mode-selector-button {
+        background-color: #6b7280 !important;
+        color: white !important;
+        padding: 8px 16px !important;
+      }
+      
+      .tab-content .mode-selector-button:hover {
+        background-color: #4b5563 !important;
+        color: white !important;
+      }
+      
+      /* Match New Chat button styling exactly */
+      button.mode-selector-button {
+        background-color: #6b7280 !important;
+        color: white !important;
+      }
+      
+      button.mode-selector-button:hover {
+        background-color: #4b5563 !important;
+        color: white !important;
+      }
+      
+      /* Ensure input-row doesn't override */
+      .input-row .auto-execute-toggle {
+        flex: 23.8 !important;
+      }
+      
+      .input-row .mode-selector-button {
+        padding: 8px 16px !important;
+      }
+      
+      /* Most specific selectors to override everything */
+      #mode-selector-button {
+        padding: 8px 16px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-color: #6b7280 !important;
+        color: white !important;
+        border: none !important;
+      }
+      
+      #mode-selector-button:hover {
+        background-color: #4b5563 !important;
+        color: white !important;
+      }
+      
+      .input-row #mode-selector-button {
+        padding: 8px 16px !important;
+        box-sizing: border-box !important;
+        background-color: #6b7280 !important;
+        color: white !important;
+      }
+      
+      .input-row #mode-selector-button:hover {
+        background-color: #4b5563 !important;
+      }
+      
+      .tab-content .input-row .auto-execute-toggle {
+        flex: 23.8 !important;
+        width: 100% !important;
+      }
+      
+      .tab-content .input-row #mode-selector-button {
+        padding: 8px 16px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-color: #6b7280 !important;
+        color: white !important;
+        border: none !important;
+      }
+      
+      .tab-content .input-row #mode-selector-button:hover {
+        background-color: #4b5563 !important;
+        color: white !important;
+      }
+      
+      /* Keep hidden checkbox for compatibility */
       .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 44px;
-        height: 24px;
-      }
-      
-      .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      
-      .toggle-slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #ccc;
-        transition: .4s;
-        border-radius: 24px;
-      }
-      
-      .toggle-slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: .4s;
-        border-radius: 50%;
-      }
-      
-      input:checked + .toggle-slider {
-        background-color: #27ae60;
-      }
-      
-      input:checked + .toggle-slider:before {
-        transform: translateX(20px);
-      }
-      
-      .toggle-label {
-        font-size: 12px;
-        color: var(--text-secondary);
-        font-weight: 500;
-        white-space: nowrap;
+        display: none;
       }
       
       /* Execute Cleaning Button Styles */
@@ -552,9 +668,21 @@
       }
       
       .button-row button {
-        flex: 1;
         margin-bottom: 0 !important;
         padding-bottom: 8px;
+      }
+      
+      /* Button size ratios: Debug = 40, Analyze = 40, New Chat = 20 */
+      #debug-error-button {
+        flex: 40;
+      }
+      
+      #analyze-plot-button {
+        flex: 40;
+      }
+      
+      #new-conversation-button {
+        flex: 20;
       }
       input[type="text"] { 
         flex: 1;
@@ -566,7 +694,7 @@
       }
       
       #user-input {
-        flex: 1;
+        flex: 75;
         padding: 8px; 
         border: 1px solid var(--border-color);
         border-radius: 4px;
@@ -612,14 +740,17 @@
       button.execute-cleaning-button {
         background-color: #27ae60 !important;
       }
+      button.new-chat-button {
+        background-color: #6b7280 !important;
+      }
       
       /* Ensure buttons in tab content are not affected by tab hover */
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.action-btn):not(.custom-dropdown-button) {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button) {
         background-color: var(--text-primary) !important;
         color: var(--bg-primary) !important;
       }
       
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.action-btn):not(.custom-dropdown-button):hover {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
       }
@@ -642,6 +773,9 @@
       }
       .tab-content button.insert-button {
         background-color: #28a745 !important;
+      }
+      .tab-content button.new-chat-button {
+        background-color: #6b7280 !important;
       }
       .tab-content button.execute-cleaning-button {
         background-color: #27ae60 !important;
@@ -2568,7 +2702,6 @@
         <button class="tab-btn" onclick="switchTab('agents')" id="agents-tab-btn">Agents</button>
         <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
         <button class="tab-btn" onclick="switchTab('guide')">Guide</button>
-        <button class="tab-btn" onclick="newConversation()" id="new-conversation-button" disabled>New Chat</button>
       </div>
       
       <!-- Chat Tab -->
@@ -2580,16 +2713,14 @@
             <textarea id="user-input" placeholder="Ask me anything about your R project" disabled rows="1" style="resize: none; height: 24px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"></textarea>
             <button onclick="sendMessage()" id="send-button" disabled class="send-button">Send</button>
             <div class="auto-execute-toggle">
-              <label class="toggle-switch">
-                <input type="checkbox" id="auto-execute-toggle" checked>
-                <span class="toggle-slider"></span>
-              </label>
-              <span class="toggle-label">Auto Execute</span>
+              <input type="checkbox" id="auto-execute-toggle" checked style="display: none;">
+              <button class="mode-selector-button" id="mode-selector-button" onclick="toggleMode()">Auto Execute</button>
             </div>
           </div>
           <div class="button-row">
             <button onclick="debugLastError()" id="debug-error-button" disabled class="debug-button">Debug Last Error</button>
             <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">Analyze Last Plot</button>
+            <button onclick="newConversation()" id="new-conversation-button" disabled class="new-chat-button">New Chat</button>
           </div>
         </div>
 
@@ -4936,11 +5067,9 @@
         
         ws.onmessage = function(event) {
           const data = JSON.parse(event.data);
-          // Enhanced logging for explorer debugging
+          // Minimal logging for explorer debugging only
           if (data.action && (data.action.includes('explorer') || data.action.includes('dataframe'))) {
-            console.log("📊 Explorer: Received message - Action:", data.action, "Data:", data.data);
-          } else {
-            console.log("Received:", data.action || "unknown", data);
+            console.log("📊 Explorer:", data.action);
           }
           
           // Handle access_code_loaded message (when R backend has saved access code)
@@ -4968,10 +5097,6 @@
             }
           }
           
-          // FIXED: Add debugging for transformation agent messages
-          if (data.action === 'transformation_agent_started') {
-            console.log('🔍 Transformation agent message received:', data);
-          }
           
           // Helper function to detect code blocks - used by multiple cases
           const hasCodeBlock = (text) => {
@@ -4981,10 +5106,6 @@
             return /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?[\s\S]+?```/.test(text);
           };
           
-          // Debug: Log all received messages for explorer debugging
-          if (data.action && (data.action.includes('explorer') || data.action.includes('dataframe'))) {
-            console.log('📊 Explorer: Received message:', JSON.stringify(data, null, 2));
-          }
           
           switch(data.action) {
             case "ai_response":
@@ -5718,13 +5839,10 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               // Check if this is Claude's response to our cleaning code request
               // Detect code blocks with ```r, ```R, ```{r}, ```{R}, or plain ```
               if (data.message && hasCodeBlock(data.message)) {
-                console.log('🔍 Detected R code in AI response message, handling automatically');
                 handleCleaningCodeResponse(data.message, data.conversation_context);
               } else if (data.chunk && hasCodeBlock(data.chunk)) {
-                console.log('🔍 Detected R code in AI response chunk, handling automatically');
                 handleCleaningCodeResponse(data.chunk, data.conversation_context);
               } else if (data.finished && data.chunk && hasCodeBlock(data.chunk)) {
-                console.log('🔍 Detected R code in finished AI response, handling automatically');
                 handleCleaningCodeResponse(data.chunk, data.conversation_context);
               } else {
                 console.log('🔍 No R code detected in AI response');
@@ -5960,20 +6078,13 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       // Transform send button to agent stop button
       function transformToAgentStopButton() {
-        console.log('🔄 Transforming send button to agent stop button...');
         const sendBtn = document.getElementById('send-button');
-        console.log('🔍 Send button found:', sendBtn);
-        
         if (sendBtn) {
           sendBtn.textContent = 'Stop Agent';
           sendBtn.className = 'send-button stop-mode';
           sendBtn.onclick = stopAgentWorkflow;
-          console.log('✅ Button transformed to agent stop button');
-          
           // Set AI responding flag when agent workflow starts
           isAIResponding = true;
-        } else {
-          console.error('❌ Send button not found!');
         }
       }
       
@@ -6108,7 +6219,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       function addStreamingChunk(chunk) {
         // Check if operation was stopped
         if (operationStopped) {
-          console.log('🛑 Operation was stopped, ignoring streaming chunk');
           return;
         }
         
@@ -6123,25 +6233,39 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           removeAnimatedPlaceholder("ai-analyzing-modeling");
           removeAnimatedPlaceholder("ai-analyzing-results");
           
-          // Start new streaming message
+          console.log('🚀 Streaming started');
+          
+          // Start new streaming message with streaming class
           currentStreamingMessage = document.createElement("div");
-          currentStreamingMessage.className = "message ai-message";
-          currentStreamingMessage.innerHTML = "";
+          currentStreamingMessage.className = "message ai-message streaming";
+          
+          // Create content container and cursor
+          const contentSpan = document.createElement("span");
+          contentSpan.className = "streaming-content";
+          const cursor = document.createElement("span");
+          cursor.className = "streaming-cursor";
+          
+          currentStreamingMessage.appendChild(contentSpan);
+          currentStreamingMessage.appendChild(cursor);
           document.getElementById("chat-container").appendChild(currentStreamingMessage);
+          
+          // Store raw text content for incremental formatting
+          currentStreamingMessage._rawText = "";
+          currentStreamingMessage._lastRenderedLength = 0;
           
           // Set AI responding flag when streaming starts
           isAIResponding = true;
         }
         
-        // Add chunk to current message
-        currentStreamingMessage.innerHTML += chunk;
+        // Accumulate raw text content
+        currentStreamingMessage._rawText += chunk;
         
-        // Don't apply any formatting during streaming - wait until complete
-        // This prevents breaking lines in the middle of words
+        // Apply smart streaming formatting (ChatGPT/Gemini style)
+        applySmartStreamingFormat(currentStreamingMessage);
         
-        // Scroll to bottom
+        // Scroll to bottom smoothly
         const container = document.getElementById("chat-container");
-        container.scrollTop = container.scrollHeight;
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         
         // Clear any existing timeout
         if (streamingTimeout) {
@@ -6154,23 +6278,552 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         }, 1000);
       }
       
+      // Progressive streaming formatter - formats as content streams (like ChatGPT/Gemini)
+      function applySmartStreamingFormat(messageDiv) {
+        const rawContent = messageDiv._rawText || '';
+        if (!rawContent) return;
+        
+        const contentSpan = messageDiv.querySelector('.streaming-content');
+        if (!contentSpan) return;
+        
+        // Parse content into segments (text, code blocks, etc.)
+        const segments = parseStreamingContent(rawContent);
+        
+        // Render each segment with appropriate formatting
+        let html = '';
+        segments.forEach((segment, index) => {
+          html += renderStreamingSegment(segment);
+        });
+        
+        // Clean up excessive breaks around block elements (code blocks, lists, etc.)
+        // Code blocks have margin: 15px 0, so remove breaks before/after them
+        html = html.replace(/(<br>){2,}(<div[^>]*class="code-block")/g, '<br>$2');
+        html = html.replace(/(<\/div><\/div>)(<br>){2,}/g, '$1<br>');
+        // Lists have margin-bottom, so remove breaks between consecutive list items
+        html = html.replace(/(<\/div>)(<br>)+(<div[^>]*style="margin-left: 20px[^"]*">)/g, '$1$3');
+        // Remove excessive breaks after lists when followed by code blocks
+        html = html.replace(/(<\/div>)(<br>){2,}(<div[^>]*class="code-block")/g, '$1<br>$3');
+        // Remove excessive breaks after code blocks when followed by lists
+        html = html.replace(/(<\/div><\/div>)(<br>){2,}(<div[^>]*style="margin-left: 20px[^"]*">)/g, '$1<br>$3');
+        
+        // Update content
+        contentSpan.innerHTML = html;
+        
+        // Move cursor to the right position
+        const cursor = messageDiv.querySelector('.streaming-cursor');
+        if (cursor) {
+          // If last segment is incomplete, cursor is already in the right place
+          // Otherwise, move it after the content
+          const lastSegment = segments[segments.length - 1];
+          if (!lastSegment || lastSegment.complete !== false) {
+            // All segments complete, move cursor to end
+            messageDiv.appendChild(cursor);
+          }
+        }
+      }
+      
+      // Parse raw text into structured segments for rendering
+      function parseStreamingContent(text) {
+        const segments = [];
+        let remaining = text;
+        let pos = 0;
+        
+        while (pos < remaining.length) {
+          // Check for code block start
+          if (remaining.substring(pos).startsWith('```')) {
+            // Find the end of code block
+            const afterOpening = remaining.indexOf('\n', pos);
+            let lang = afterOpening > pos ? remaining.substring(pos + 3, afterOpening).trim() : '';
+            
+            // Handle {r} or {R} format
+            if (lang.startsWith('{') && lang.includes('}')) {
+              lang = lang.replace(/\{([rR])\}/, '$1');
+            }
+            
+            const closePos = remaining.indexOf('```', pos + 3);
+            
+            if (closePos !== -1) {
+              // Complete code block
+              const codeStart = afterOpening !== -1 && afterOpening < closePos ? afterOpening + 1 : pos + 3 + lang.length;
+              const code = remaining.substring(codeStart, closePos);
+              segments.push({ type: 'code-block', lang: lang || 'r', content: code, complete: true });
+              pos = closePos + 3;
+            } else {
+              // Incomplete code block (still being typed)
+              const codeStart = afterOpening !== -1 ? afterOpening + 1 : pos + 3;
+              const code = remaining.substring(codeStart);
+              segments.push({ type: 'code-block', lang: lang || 'r', content: code, complete: false });
+              pos = remaining.length;
+            }
+            continue;
+          }
+          
+          // Find the next special element
+          let nextSpecial = remaining.length;
+          let specialType = null;
+          
+          // Check for code block
+          const codeBlockStart = remaining.indexOf('```', pos);
+          if (codeBlockStart !== -1 && codeBlockStart < nextSpecial) {
+            nextSpecial = codeBlockStart;
+            specialType = 'code-block';
+          }
+          
+          // Extract text segment up to next special element
+          if (nextSpecial > pos) {
+            const textSegment = remaining.substring(pos, nextSpecial);
+            segments.push({ type: 'text', content: textSegment });
+            pos = nextSpecial;
+          }
+          
+          // If no special element found, we're done
+          if (specialType === null && pos >= remaining.length) break;
+        }
+        
+        return segments;
+      }
+      
+      // Render a single segment with appropriate formatting
+      function renderStreamingSegment(segment) {
+        if (segment.type === 'code-block') {
+          return renderStreamingCodeBlock(segment);
+        }
+        return renderStreamingText(segment.content);
+      }
+      
+      // Render code block with proper styling during streaming
+      // MUST match the exact format that processMessageContent creates to avoid visual jump
+      function renderStreamingCodeBlock(segment) {
+        // Create the exact same DOM structure as processMessageContent
+        const codeDiv = document.createElement("div");
+        codeDiv.className = "code-block";
+        
+        // Create header
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "code-block-header";
+        
+        const languageLabel = document.createElement("span");
+        languageLabel.textContent = "R Code";
+        
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "code-block-actions";
+        
+        const streamingLabel = document.createElement("span");
+        streamingLabel.style.color = "var(--text-secondary)";
+        streamingLabel.style.fontSize = "11px";
+        streamingLabel.textContent = "streaming...";
+        actionsDiv.appendChild(streamingLabel);
+        
+        headerDiv.appendChild(languageLabel);
+        headerDiv.appendChild(actionsDiv);
+        codeDiv.appendChild(headerDiv);
+        
+        // Create code content div - EXACTLY like processMessageContent
+        const codeContent = document.createElement("div");
+        codeContent.textContent = segment.content; // Use textContent, not innerHTML!
+        codeDiv.appendChild(codeContent);
+        
+        // Add cursor if incomplete
+        if (!segment.complete) {
+          const cursor = document.createElement("span");
+          cursor.className = "streaming-cursor";
+          codeContent.appendChild(cursor);
+        }
+        
+        return codeDiv.outerHTML;
+      }
+      
+      // Render text with markdown formatting during streaming
+      // ChatGPT-style: Tables FIRST, then inline formatting inside cells
+      function renderStreamingText(text) {
+        if (!text) return '';
+        
+        
+        let result = text;
+        
+        // 1. TABLES FIRST (before inline formatting breaks the structure)
+        const beforeTable = result;
+        result = formatStreamingTablesWithInlineFormatting(result);
+        
+        
+        // 2. INLINE FORMATTING (for non-table content)
+        
+        // Bold: **text** - only complete pairs
+        result = result.replace(/\*\*([^*]+?)\*\*/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<strong>${escaped}</strong>`;
+        });
+        
+        // Italic: *text* - only complete pairs, not adjacent to **
+        result = result.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<em>${escaped}</em>`;
+        });
+        
+        // Inline code: `code` - only complete pairs
+        result = result.replace(/`([^`\n]+?)`/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">${escaped}</code>`;
+        });
+        
+        // 3. BLOCK FORMATTING
+        
+        // Headers - must start at beginning of line (can contain inline formatting)
+        result = result.replace(/^### (.+)$/gm, (match, content) => {
+          return `<h3 style="margin: 12px 0 6px 0; font-size: 1.1em; font-weight: 600;">${content}</h3>`;
+        });
+        result = result.replace(/^## (.+)$/gm, (match, content) => {
+          return `<h2 style="margin: 14px 0 8px 0; font-size: 1.2em; font-weight: 600;">${content}</h2>`;
+        });
+        result = result.replace(/^# (.+)$/gm, (match, content) => {
+          return `<h1 style="margin: 16px 0 10px 0; font-size: 1.3em; font-weight: 600;">${content}</h1>`;
+        });
+        
+        // Horizontal rule
+        result = result.replace(/^---+$/gm, '<hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">');
+        
+        // Numbered lists (can contain inline formatting)
+        result = result.replace(/^(\d+)\.\s+(.+)$/gm, (match, num, content) => {
+          return `<div style="margin-left: 20px; margin-bottom: 2px;"><strong>${num}.</strong> ${content}</div>`;
+        });
+        
+        // Bullet points (can contain inline formatting)
+        result = result.replace(/^[-*•]\s+(.+)$/gm, (match, content) => {
+          return `<div style="margin-left: 20px; margin-bottom: 2px;">• ${content}</div>`;
+        });
+        
+        // Convert multiple newlines to single break (reduce gaps)
+        result = result.replace(/\n{3,}/g, '\n\n');
+        
+        // Convert newlines to breaks
+        result = result.replace(/\n/g, '<br>');
+        
+        // Clean up excessive breaks
+        result = result.replace(/(<br>){3,}/g, '<br><br>');
+        
+        // Reduce multiple breaks to single break before/after headers (headers have their own top/bottom spacing)
+        result = result.replace(/(<br>){2,}(<h[1-6][^>]*>)/g, '<br>$2');
+        result = result.replace(/(<\/h[1-6]>)(<br>){2,}/g, '$1<br>');
+        
+        // Reduce multiple breaks to single break before/after horizontal rules
+        result = result.replace(/(<br>){2,}(<hr[^>]*>)/g, '<br>$2');
+        result = result.replace(/(<\/hr>)(<br>){2,}/g, '$1<br>');
+        
+        // Reduce multiple breaks to single break before/after tables
+        result = result.replace(/(<br>){2,}(<div[^>]*><table)/g, '<br>$2');
+        result = result.replace(/(<\/table><\/div>)(<br>){2,}/g, '$1<br>');
+        
+        // Reduce multiple breaks to single break before lists (keep one for spacing from text above)
+        result = result.replace(/(<br>){2,}(<div[^>]*style="margin-left: 20px[^"]*">)/g, '<br>$2');
+        // Remove ALL breaks between consecutive list items (they have margin-bottom)
+        result = result.replace(/(<\/div>)(<br>)+(<div[^>]*style="margin-left: 20px[^"]*">)/g, '$1$3');
+        // Reduce multiple breaks to single break after list items when followed by other block elements
+        result = result.replace(/(<\/div>)(<br>){2,}(<h[1-6][^>]*>)/g, '$1<br>$3');
+        result = result.replace(/(<\/div>)(<br>){2,}(<hr[^>]*>)/g, '$1<br>$3');
+        result = result.replace(/(<\/div>)(<br>){2,}(<div[^>]*><table)/g, '$1<br>$3');
+        // Reduce multiple breaks after any closing div (handles list items and other block elements)
+        // This catches breaks after the last item in a list before regular text
+        result = result.replace(/(<\/div>)(<br>){2,}(?!<[hH]|<[hH][rR]|<div|<table)/g, '$1<br>');
+        
+        
+        return result;
+      }
+      
+      // Format tables with inline formatting support
+      function formatStreamingTablesWithInlineFormatting(text) {
+        // More flexible regex: allows blank lines between header, separator, and data rows
+        // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
+        const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
+        
+        
+        // Try the regex replacement
+        let result = text.replace(tableRegex, (match, headerRow, separatorRow, dataRows) => {
+          // Parse header
+          const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
+          if (headers.length === 0) return match;
+          
+          // Parse data rows
+          const rows = dataRows.trim().split('\n').filter(r => r.includes('|'));
+          
+          // Build table HTML with inline formatting applied to cells
+          let html = '<div style="overflow-x: auto; margin: 10px 0;"><table style="border-collapse: collapse; width: 100%; font-size: 0.9em;">';
+          
+          // Header
+          html += '<thead><tr>';
+          headers.forEach(h => {
+            const formatted = formatTableCell(h);
+            html += `<th style="border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; background: var(--bg-secondary); font-weight: 600;">${formatted}</th>`;
+          });
+          html += '</tr></thead>';
+          
+          // Body
+          html += '<tbody>';
+          rows.forEach(row => {
+            const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1 || c.length > 0);
+            // Clean up - remove empty first/last from pipe split
+            if (cells[0] === '') cells.shift();
+            if (cells[cells.length - 1] === '') cells.pop();
+            
+            if (cells.length > 0) {
+              html += '<tr>';
+              cells.forEach(cell => {
+                const formatted = formatTableCell(cell);
+                html += `<td style="border: 1px solid var(--border-color); padding: 6px 10px;">${formatted}</td>`;
+              });
+              html += '</tr>';
+            }
+          });
+          html += '</tbody></table></div>';
+          
+          return html;
+        });
+        
+        // FALLBACK: If regex didn't match but we have table-like content, try manual parsing
+        const hasTableContent = text.includes('|') && text.includes('---');
+        const hasTableTag = result.includes('<table') || result.includes('<TABLE');
+        
+        if (!hasTableTag && hasTableContent) {
+          
+          // Find all lines that look like table rows
+          const lines = text.split('\n');
+          const tableStartIndices = [];
+          
+          // Find potential table starts (header row followed by separator)
+          for (let i = 0; i < lines.length - 1; i++) {
+            const line = lines[i].trim();
+            const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+            
+            // Check if this looks like a header row (starts and ends with |)
+            if (line.startsWith('|') && line.endsWith('|') && line.includes('|') && line.split('|').length >= 3) {
+              // Check if next line is a separator
+              if (nextLine.startsWith('|') && nextLine.match(/^[\|\s\-:]+$/)) {
+                tableStartIndices.push(i);
+              }
+            }
+          }
+          
+          // Process tables from bottom to top to preserve indices
+          for (let idx = tableStartIndices.length - 1; idx >= 0; idx--) {
+            const startLine = tableStartIndices[idx];
+            let endLine = startLine + 1; // Start after separator
+            
+            // Collect all data rows
+            while (endLine < lines.length) {
+              const line = lines[endLine].trim();
+              if (line.startsWith('|') && line.endsWith('|') && line.includes('|')) {
+                endLine++;
+              } else {
+                break;
+              }
+            }
+            
+            // Extract table content
+            const tableLines = lines.slice(startLine, endLine);
+            const headerRow = tableLines[0];
+            const dataRows = tableLines.slice(2); // Skip header and separator
+            
+            if (dataRows.length > 0) {
+              // Parse header
+              const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
+              
+              if (headers.length > 0) {
+                // Build table HTML
+                let html = '<div style="overflow-x: auto; margin: 10px 0;"><table style="border-collapse: collapse; width: 100%; font-size: 0.9em;">';
+                
+                // Header
+                html += '<thead><tr>';
+                headers.forEach(h => {
+                  const formatted = formatTableCell(h);
+                  html += `<th style="border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; background: var(--bg-secondary); font-weight: 600;">${formatted}</th>`;
+                });
+                html += '</tr></thead>';
+                
+                // Body
+                html += '<tbody>';
+                dataRows.forEach(row => {
+                  const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1 || c.length > 0);
+                  if (cells[0] === '') cells.shift();
+                  if (cells[cells.length - 1] === '') cells.pop();
+                  
+                  if (cells.length > 0) {
+                    html += '<tr>';
+                    cells.forEach(cell => {
+                      const formatted = formatTableCell(cell);
+                      html += `<td style="border: 1px solid var(--border-color); padding: 6px 10px;">${formatted}</td>`;
+                    });
+                    html += '</tr>';
+                  }
+                });
+                html += '</tbody></table></div>';
+                
+                // Replace the table in the text
+                const beforeTable = lines.slice(0, startLine).join('\n');
+                const afterTable = lines.slice(endLine).join('\n');
+                result = beforeTable + '\n' + html + '\n' + afterTable;
+                break; // Only process first table found
+              }
+            }
+          }
+        }
+        
+        return result;
+      }
+      
+      // Format a table cell with inline markdown
+      function formatTableCell(cell) {
+        let result = cell;
+        
+        // Apply inline formatting to cell content
+        // Bold: **text**
+        result = result.replace(/\*\*([^*]+?)\*\*/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<strong>${escaped}</strong>`;
+        });
+        
+        // Italic: *text*
+        result = result.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<em>${escaped}</em>`;
+        });
+        
+        // Inline code: `code`
+        result = result.replace(/`([^`\n]+?)`/g, (match, content) => {
+          const escaped = escapeHtmlForStreaming(content);
+          return `<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">${escaped}</code>`;
+        });
+        
+        // If nothing was formatted, escape the whole thing
+        if (!result.includes('<')) {
+          result = escapeHtmlForStreaming(result);
+        }
+        
+        return result;
+      }
+      
+      
+      
+      // Escape HTML for streaming display
+      function escapeHtmlForStreaming(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+      
+      // Legacy function - kept for compatibility
+      function applyStreamingFormatting(messageDiv) {
+        applySmartStreamingFormat(messageDiv);
+      }
+      
+      // Add Copy/Insert buttons to already-formatted code blocks
+      function addCopyInsertButtonsToCodeBlocks(messageDiv, rawContent) {
+        // Find all code blocks in the message
+        const codeBlocks = messageDiv.querySelectorAll('.code-block');
+        
+        // Extract code from raw content for button actions
+        const codeBlockRegex = /```(?:\{?[rR]\}?|[a-zA-Z]*)?[\s\n]*([\s\S]*?)```/g;
+        const codeContents = [];
+        let match;
+        while ((match = codeBlockRegex.exec(rawContent)) !== null) {
+          let code = match[1];
+          // Clean up the code
+          code = code.replace(/^\{[rR]\}\s*\n?/, '').replace(/^[rR]\s+/, '').trim();
+          codeContents.push(code);
+        }
+        
+        codeBlocks.forEach((codeBlock, index) => {
+          const header = codeBlock.querySelector('.code-block-header');
+          if (!header) return;
+          
+          let actionsDiv = header.querySelector('.code-block-actions');
+          if (!actionsDiv) {
+            actionsDiv = document.createElement('div');
+            actionsDiv.className = 'code-block-actions';
+            header.appendChild(actionsDiv);
+          }
+          
+          // Clear existing content (like "streaming..." label)
+          actionsDiv.innerHTML = '';
+          
+          // Get the code for this block
+          const cleanCode = codeContents[index] || codeBlock.textContent || '';
+          
+          // Replace "streaming..." with actual buttons
+          actionsDiv.innerHTML = '';
+          
+          const copyButton = document.createElement("button");
+          copyButton.className = "copy-button";
+          copyButton.textContent = "Copy";
+          copyButton.onclick = function() {
+            copyToClipboard(cleanCode, copyButton);
+          };
+          
+          const insertButton = document.createElement("button");
+          insertButton.className = "copy-button";
+          insertButton.textContent = "Insert at Cursor";
+          insertButton.onclick = function() {
+            insertCode(cleanCode);
+          };
+          
+          actionsDiv.appendChild(copyButton);
+          actionsDiv.appendChild(insertButton);
+        });
+      }
+      
+      // Convert streaming raw text to final HTML format
+      // Preserves newlines inside code blocks, converts to <br> outside
+      function convertStreamingToFinalFormat(rawContent) {
+        if (!rawContent) return '';
+        
+        let result = '';
+        let pos = 0;
+        
+        // Find all code blocks and process them separately
+        const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+        let match;
+        let lastIndex = 0;
+        
+        while ((match = codeBlockRegex.exec(rawContent)) !== null) {
+          // Process text before this code block
+          const textBefore = rawContent.substring(lastIndex, match.index);
+          result += escapeAndFormatText(textBefore);
+          
+          // Add code block marker that processMessageContent can detect
+          // Use a special format that preserves the structure
+          const lang = match[1] || 'r';
+          const code = match[2];
+          // Keep code blocks in markdown format for processMessageContent to handle
+          result += '```' + lang + '\n' + code + '```';
+          
+          lastIndex = match.index + match[0].length;
+        }
+        
+        // Process remaining text after last code block
+        if (lastIndex < rawContent.length) {
+          const textAfter = rawContent.substring(lastIndex);
+          result += escapeAndFormatText(textAfter);
+        }
+        
+        return result;
+      }
+      
+      // Escape HTML and convert newlines to <br> for non-code text
+      function escapeAndFormatText(text) {
+        if (!text) return '';
+        
+        // Escape HTML special characters
+        const div = document.createElement('div');
+        div.textContent = text;
+        let escaped = div.innerHTML;
+        
+        // Convert newlines to <br>
+        escaped = escaped.replace(/\n/g, '<br>');
+        
+        return escaped;
+      }
+      
       function applyBasicFormatting(messageDiv) {
-        let content = messageDiv.innerHTML;
-        
-        // Only apply basic formatting during streaming (no code blocks)
-        // Bold text
-        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        
-        // Italic text
-        content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        
-        // Numbered lists
-        content = content.replace(/^(\d+\.\s+)(.*)$/gm, '<div style="margin-left: 20px; white-space: normal; word-wrap: break-word; word-break: normal; hyphens: none;"><strong>$1</strong>$2</div>');
-        
-        // Bullet points
-        content = content.replace(/^[-*]\s+(.*)$/gm, '<div style="margin-left: 20px; white-space: normal; word-wrap: break-word; word-break: normal; hyphens: none;">• $1</div>');
-        
-        messageDiv.innerHTML = content;
+        // Legacy function - kept for compatibility
+        applyStreamingFormatting(messageDiv);
       }
       
       function processMarkdownFormatting(messageDiv) {
@@ -6262,35 +6915,34 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       function finishStreaming() {
         // Check if operation was stopped
         if (operationStopped) {
-          console.log('🛑 Operation was stopped, ignoring finishStreaming');
           // Reset the flag for next operation
           operationStopped = false;
           return;
         }
         
-        console.log("DEBUG: finishStreaming called");
+        console.log('✅ Streaming complete');
+        
         if (currentStreamingMessage) {
-          console.log("DEBUG: Processing final message for formatting");
+          // Remove streaming class and cursor
+          currentStreamingMessage.classList.remove('streaming');
+          const allCursors = currentStreamingMessage.querySelectorAll('.streaming-cursor');
+          allCursors.forEach(c => c.remove());
           
-          // Store the complete message for potential R code detection
-          // Use innerHTML to preserve newlines and formatting in code blocks
-          const content = currentStreamingMessage.innerHTML;
-          window.lastCompleteMessage = content; // Use HTML content to preserve code block formatting
-          console.log("DEBUG: Stored complete message:", content.substring(0, 100) + "...");
+          // Get raw text content for R code detection
+          const rawContent = currentStreamingMessage._rawText || '';
+          window.lastCompleteMessage = rawContent;
           
-          // Check if this is a plot analysis message (has plot analysis content)
-          const isPlotAnalysis = content.includes("plot") || content.includes("histogram") || 
-                                content.includes("scatter") || content.includes("boxplot") ||
-                                content.includes("density") || content.includes("violin") ||
-                                content.includes("correlation") || content.includes("outlier");
+          // DON'T destroy the formatted HTML - just enhance it!
+          // Remove "streaming..." text from code block headers
+          const streamingLabels = currentStreamingMessage.querySelectorAll('.code-block-actions span');
+          streamingLabels.forEach(label => {
+            if (label.textContent.includes('streaming...')) {
+              label.remove();
+            }
+          });
           
-          if (isPlotAnalysis) {
-            // Use plot analysis specific processing (no Execute & Fix button)
-            processPlotAnalysisContent(currentStreamingMessage);
-          } else {
-            // Use regular processing for code blocks and buttons
-            processMessageContent(currentStreamingMessage);
-          }
+          // Add Copy/Insert buttons to code blocks
+          addCopyInsertButtonsToCodeBlocks(currentStreamingMessage, rawContent);
           
           currentStreamingMessage = null;
         }
@@ -10021,6 +10673,44 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         }
       }
       
+      // Toggle mode (Auto Execute or Ask) - simple click toggle
+      function toggleMode() {
+        const toggle = document.getElementById('auto-execute-toggle');
+        const button = document.getElementById('mode-selector-button');
+        
+        if (toggle && button) {
+          // Toggle the checkbox state
+          toggle.checked = !toggle.checked;
+          
+          // Update button text based on current state
+          if (toggle.checked) {
+            button.textContent = 'Auto Execute';
+          } else {
+            button.textContent = 'Ask';
+          }
+          
+          console.log('🔧 Mode changed to:', toggle.checked ? 'Auto Execute' : 'Ask');
+        }
+      }
+      
+      // Set mode (for initialization and programmatic changes)
+      function setMode(mode) {
+        const toggle = document.getElementById('auto-execute-toggle');
+        const button = document.getElementById('mode-selector-button');
+        
+        if (toggle && button) {
+          if (mode === 'auto') {
+            toggle.checked = true;
+            button.textContent = 'Auto Execute';
+          } else {
+            toggle.checked = false;
+            button.textContent = 'Ask';
+          }
+          
+          console.log('🔧 Mode set to:', mode);
+        }
+      }
+      
       // Get current auto-execute toggle state
       function isAutoExecuteEnabled() {
         const toggle = document.getElementById('auto-execute-toggle');
@@ -10630,18 +11320,20 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           }
         }
         
-        // Setup auto-execute toggle
+        // Setup mode selector (Auto Execute / Ask)
         const autoExecuteToggle = document.getElementById('auto-execute-toggle');
         if (autoExecuteToggle) {
+          // Initialize mode based on checkbox state
+          if (autoExecuteToggle.checked) {
+            setMode('auto');
+          } else {
+            setMode('ask');
+          }
+          
+          // Keep checkbox in sync if it's changed programmatically
           autoExecuteToggle.addEventListener('change', function() {
             const isEnabled = this.checked;
-            console.log('🔧 Auto-execute toggle changed:', isEnabled ? 'ON' : 'OFF');
-            
-            // Update toggle label color based on state
-            const toggleLabel = this.parentElement.querySelector('.toggle-label');
-            if (toggleLabel) {
-              toggleLabel.style.color = isEnabled ? '#27ae60' : '#666';
-            }
+            setMode(isEnabled ? 'auto' : 'ask');
           });
         }
         
@@ -12907,7 +13599,6 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Extract R code blocks from Claude's message
       function extractRCodeBlocks(message) {
-        console.log('🔍 Extracting R code from message:', message.substring(0, 200) + '...');
         
         // Decode HTML entities first - messages from streaming may be HTML-encoded
         // Create a temporary div to decode HTML entities
@@ -12972,7 +13663,6 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Get the original formatted code from the message
       function getOriginalFormattedCode(message) {
-        console.log('🔍 Getting original formatted code');
         
         // Decode HTML entities first - messages from streaming may be HTML-encoded
         // Create a temporary div to decode HTML entities
@@ -14549,20 +15239,7 @@ Please fix the code and provide a corrected version that will work. The code sho
           const explorerTab = document.getElementById('explorer-tab');
           const isExplorerActive = explorerTab && explorerTab.classList.contains('active') && explorerTab.style.display !== 'none';
           
-          console.log('🖱️ Click event:', {
-            target: e.target ? (e.target.id || e.target.className || e.target.tagName) : 'unknown',
-            buttonExists: !!button,
-            dropdownExists: !!dropdown,
-            explorerTabExists: !!explorerTab,
-            isExplorerActive: isExplorerActive,
-            explorerTabActive: explorerTab ? explorerTab.classList.contains('active') : false,
-            explorerTabDisplay: explorerTab ? explorerTab.style.display : 'N/A',
-            dropdownDisplay: dropdown ? dropdown.style.display : 'N/A',
-            dropdownVisibility: dropdown ? dropdown.style.visibility : 'N/A'
-          });
-          
           if (!button || !dropdown) {
-            console.log('  Early return: missing button or dropdown');
             return;
           }
           

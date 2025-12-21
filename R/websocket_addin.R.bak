@@ -16,6 +16,7 @@ safe_ls <- function(envir) {
 safe_get <- function(name, envir) {
   # First check if object exists and is accessible
   if (!exists(name, envir = envir, inherits = FALSE)) {
+    cat('DEBUG: Object', name, 'does not exist\n')
     return(NULL)
   }
   
@@ -25,6 +26,7 @@ safe_get <- function(name, envir) {
     obj <- get(name, envir = envir, inherits = FALSE)
     return(obj)
   }, error = function(e) {
+    cat('DEBUG: Error getting object', name, ':', e$message, '\n')
     return(NULL)
   })
 }
@@ -64,6 +66,7 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
   stream_env$chunk_count <- 0
   stream_env$total_bytes <- 0
   
+  cat("DEBUG: Starting stream_httr_post\n")
   
   # Create write_stream callback that processes chunks as they arrive
   write_stream_callback <- function(x) {
@@ -72,12 +75,17 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
     stream_env$total_bytes <- stream_env$total_bytes + length(x)
     stream_env$chunk_count <- stream_env$chunk_count + 1
     
+    cat("DEBUG: write_stream_callback called - chunk #", stream_env$chunk_count, 
+        ", bytes:", length(x), ", total bytes:", stream_env$total_bytes, "\n")
+    
     # Store bytes processed - must always return this value
     bytes_processed <- length(x)
     
     # Convert raw bytes to text
     tryCatch({
       chunk_text <- rawToChar(x)
+      cat("DEBUG: Converted chunk to text, length:", nchar(chunk_text), "\n")
+      cat("DEBUG: Chunk preview (first 200 chars):", substr(chunk_text, 1, 200), "\n")
       
       stream_env$line_buffer <- paste0(stream_env$line_buffer, chunk_text)
       
@@ -90,13 +98,17 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
         line <- substr(stream_env$line_buffer, 1, newline_pos - 1)
         stream_env$line_buffer <- substr(stream_env$line_buffer, newline_pos + 1, nchar(stream_env$line_buffer))
         
+        cat("DEBUG: Processing line:", substr(line, 1, 100), "\n")
         
         # Process SSE format lines
         if (grepl("^data: ", line)) {
           json_data <- substring(line, 7)  # Remove "data: " prefix
+          cat("DEBUG: Found SSE data line, json_data length:", nchar(json_data), "\n")
+          cat("DEBUG: json_data preview:", substr(json_data, 1, 200), "\n")
           
           if (json_data != "[DONE]") {
             # Call the chunk callback
+            cat("DEBUG: Calling chunk_callback with json_data\n")
             result <- tryCatch({
               chunk_callback(json_data)
             }, error = function(e) {
@@ -105,19 +117,24 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
               NULL
             })
             
+            cat("DEBUG: chunk_callback returned:", if(is.null(result)) "NULL" else class(result), "\n")
             
             # Check if callback wants to stop
             if (!is.null(result) && is.list(result) && identical(result$stop, TRUE)) {
+              cat("DEBUG: Callback requested stop\n")
               return(0)  # Return 0 to stop reading
             }
           } else {
             # [DONE] signal received
+            cat("DEBUG: [DONE] signal received\n")
             return(0)  # Stop reading
           }
         } else {
+          cat("DEBUG: Line does not match SSE format (not starting with 'data: ')\n")
         }
       }
       
+      cat("DEBUG: Remaining buffer length:", nchar(stream_env$line_buffer), "\n")
     }, error = function(e) {
       # If conversion fails, try to handle partial UTF-8
       cat("ERROR: Error converting chunk to text:", e$message, "\n")
@@ -132,6 +149,8 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
   
   # Make POST request with streaming
   # write_stream() must be passed directly as a parameter, not in config
+  cat("DEBUG: Making POST request to:", url, "\n")
+  cat("DEBUG: Headers:", if(!is.null(headers)) paste(names(headers), headers, sep = "=", collapse = ", ") else "NULL", "\n")
   
   tryCatch({
     # Build the POST call with write_stream and other options
@@ -156,26 +175,41 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
     # Call POST with all arguments
     response <- do.call(httr::POST, post_args)
     
+    cat("DEBUG: POST request completed\n")
+    cat("DEBUG: Status code:", httr::status_code(response), "\n")
+    cat("DEBUG: Callback called:", stream_env$callback_called, "\n")
+    cat("DEBUG: Total chunks received:", stream_env$chunk_count, "\n")
+    cat("DEBUG: Total bytes received:", stream_env$total_bytes, "\n")
+    cat("DEBUG: Remaining buffer length:", nchar(stream_env$line_buffer), "\n")
     
     # Debug: Check if callback was called
     if (!stream_env$callback_called) {
       cat("WARNING: write_stream callback was not called. Response may have been buffered.\n")
+      cat("DEBUG: Attempting fallback processing...\n")
       
       # Fallback: process response content directly
       if (httr::status_code(response) == 200) {
+        cat("DEBUG: Reading full response content for fallback\n")
         response_text <- httr::content(response, "text", encoding = "UTF-8")
+        cat("DEBUG: Response text length:", nchar(response_text), "\n")
+        cat("DEBUG: Response text preview (first 500 chars):", substr(response_text, 1, 500), "\n")
         
         lines <- strsplit(response_text, "\n")[[1]]
+        cat("DEBUG: Total lines in response:", length(lines), "\n")
         
         chunk_count <- 0
         for (line in lines) {
           if (grepl("^data: ", line)) {
             chunk_count <- chunk_count + 1
             json_data <- substring(line, 7)
+            cat("DEBUG: Fallback processing chunk #", chunk_count, ", json_data length:", nchar(json_data), "\n")
+            cat("DEBUG: json_data preview:", substr(json_data, 1, 200), "\n")
             
             if (json_data != "[DONE]") {
               tryCatch({
+                cat("DEBUG: Calling chunk_callback from fallback\n")
                 chunk_callback(json_data)
+                cat("DEBUG: chunk_callback completed\n")
                 
                 # Small delay to simulate streaming (only in fallback mode)
                 # This helps the frontend receive chunks incrementally
@@ -187,16 +221,21 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
             }
           }
         }
+        cat("DEBUG: Fallback processed", chunk_count, "chunks\n")
       }
     } else {
+      cat("DEBUG: Callback was called, processing remaining buffer\n")
     }
     
     # Process any remaining buffer
     if (nchar(stream_env$line_buffer) > 0) {
+      cat("DEBUG: Processing remaining buffer, length:", nchar(stream_env$line_buffer), "\n")
+      cat("DEBUG: Buffer content:", substr(stream_env$line_buffer, 1, 200), "\n")
       
       if (grepl("^data: ", stream_env$line_buffer)) {
         json_data <- substring(stream_env$line_buffer, 7)
         if (json_data != "[DONE]") {
+          cat("DEBUG: Processing final chunk from buffer\n")
           tryCatch({
             chunk_callback(json_data)
           }, error = function(e) {
@@ -206,6 +245,7 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
       }
     }
     
+    cat("DEBUG: stream_httr_post returning success:", httr::status_code(response) == 200, "\n")
     
     return(list(
       success = httr::status_code(response) == 200,
@@ -1398,20 +1438,28 @@ start_websocket_server <- function() {
             
             # Define chunk callback for streaming
             chunk_callback <- function(json_data) {
+              cat("DEBUG chunk_callback: Called with json_data length:", nchar(json_data), "\n")
+              cat("DEBUG chunk_callback: json_data preview:", substr(json_data, 1, 200), "\n")
               
               tryCatch({
                 chunk_data <- jsonlite::fromJSON(json_data)
+                cat("DEBUG chunk_callback: Parsed JSON successfully\n")
+                cat("DEBUG chunk_callback: chunk_data keys:", paste(names(chunk_data), collapse = ", "), "\n")
                 
                 if (!is.null(chunk_data$chunk)) {
+                  cat("DEBUG chunk_callback: Found chunk, length:", nchar(chunk_data$chunk), "\n")
+                  cat("DEBUG chunk_callback: Chunk content preview:", substr(chunk_data$chunk, 1, 100), "\n")
                   
                   full_response <<- paste0(full_response, chunk_data$chunk)
                   current_chunk_buffer <<- paste0(current_chunk_buffer, chunk_data$chunk)
                   
+                  cat("DEBUG chunk_callback: current_chunk_buffer length:", nchar(current_chunk_buffer), "\n")
                   
                   # Check if we're in the middle of a code block
                   code_block_open <- grepl("```[^`]*$", current_chunk_buffer)
                   incomplete_function <- grepl("^[a-zA-Z_][a-zA-Z0-9_]*\\([^)]*$", current_chunk_buffer)
                   
+                  cat("DEBUG chunk_callback: code_block_open:", code_block_open, ", incomplete_function:", incomplete_function, "\n")
                   
                   # Send chunks immediately for true streaming effect
                   # Only buffer if we're in the middle of a code block or incomplete function
@@ -1424,6 +1472,7 @@ start_websocket_server <- function() {
                     should_send <- TRUE
                   }
                   
+                  cat("DEBUG chunk_callback: should_send:", should_send, "\n")
                   
                   if (should_send) {
                     chunk_response <- list(
@@ -1431,19 +1480,25 @@ start_websocket_server <- function() {
                       streaming = TRUE,
                       chunk = current_chunk_buffer
                     )
+                    cat("DEBUG chunk_callback: Sending chunk to frontend, length:", nchar(current_chunk_buffer), "\n")
                     ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                    cat("DEBUG chunk_callback: Chunk sent successfully\n")
                     
                     # Reset buffer
                     current_chunk_buffer <<- ""
                   } else {
+                    cat("DEBUG chunk_callback: Not sending yet (buffering), buffer length:", nchar(current_chunk_buffer), "\n")
                   }
                 } else {
+                  cat("DEBUG chunk_callback: No chunk in chunk_data\n")
                 }
                 
                 # Check if this is the final chunk
                 if (!is.null(chunk_data$done) && chunk_data$done) {
+                  cat("DEBUG chunk_callback: Final chunk detected (done = TRUE)\n")
                   # Send any remaining buffer
                   if (nchar(current_chunk_buffer) > 0) {
+                    cat("DEBUG chunk_callback: Sending final buffer, length:", nchar(current_chunk_buffer), "\n")
                     chunk_response <- list(
                       action = "ai_response",
                       streaming = TRUE,
@@ -1454,6 +1509,7 @@ start_websocket_server <- function() {
                   return(list(stop = TRUE))
                 }
                 
+                cat("DEBUG chunk_callback: Returning NULL (continuing)\n")
                 return(NULL)
               }, error = function(e) {
                 cat("ERROR chunk_callback: Error parsing chunk:", e$message, "\n")
