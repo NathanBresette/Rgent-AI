@@ -34,30 +34,48 @@ get_dataframe_info <- function(dataframe_name) {
       # Determine column type
       if (is.numeric(col_data)) {
         numeric_cols <- c(numeric_cols, col)
-        # Check for skewness and distribution
-        if (length(na.omit(col_data)) > 3) {
-          skewness <- mean((col_data - mean(col_data, na.rm = TRUE))^3, na.rm = TRUE) / 
-                     (sd(col_data, na.rm = TRUE)^3)
-          column_info[[col]] <- list(
-            type = "numeric",
-            missing = sum(is.na(col_data)),
-            unique = length(unique(col_data)),
-            min = min(col_data, na.rm = TRUE),
-            max = max(col_data, na.rm = TRUE),
-            mean = mean(col_data, na.rm = TRUE),
-            median = median(col_data, na.rm = TRUE),
-            skewness = round(skewness, 3),
-            needs_transformation = abs(skewness) > 1
-          )
+        non_na_data <- na.omit(col_data)
+        
+        # Check if there are any non-NA values
+        if (length(non_na_data) > 0) {
+          # Check for skewness and distribution
+          if (length(non_na_data) > 3) {
+            skewness <- mean((col_data - mean(col_data, na.rm = TRUE))^3, na.rm = TRUE) / 
+                       (sd(col_data, na.rm = TRUE)^3)
+            column_info[[col]] <- list(
+              type = "numeric",
+              missing = sum(is.na(col_data)),
+              unique = length(unique(col_data)),
+              min = min(col_data, na.rm = TRUE),
+              max = max(col_data, na.rm = TRUE),
+              mean = mean(col_data, na.rm = TRUE),
+              median = median(col_data, na.rm = TRUE),
+              skewness = round(skewness, 3),
+              needs_transformation = abs(skewness) > 1
+            )
+          } else {
+            column_info[[col]] <- list(
+              type = "numeric",
+              missing = sum(is.na(col_data)),
+              unique = length(unique(col_data)),
+              min = min(col_data, na.rm = TRUE),
+              max = max(col_data, na.rm = TRUE),
+              mean = mean(col_data, na.rm = TRUE),
+              median = median(col_data, na.rm = TRUE),
+              skewness = NA,
+              needs_transformation = FALSE
+            )
+          }
         } else {
+          # All values are NA
           column_info[[col]] <- list(
             type = "numeric",
             missing = sum(is.na(col_data)),
-            unique = length(unique(col_data)),
-            min = min(col_data, na.rm = TRUE),
-            max = max(col_data, na.rm = TRUE),
-            mean = mean(col_data, na.rm = TRUE),
-            median = median(col_data, na.rm = TRUE),
+            unique = 0,
+            min = NA,
+            max = NA,
+            mean = NA,
+            median = NA,
             skewness = NA,
             needs_transformation = FALSE
           )
@@ -74,13 +92,26 @@ get_dataframe_info <- function(dataframe_name) {
         )
       } else if (inherits(col_data, "Date") || inherits(col_data, "POSIXt")) {
         date_cols <- c(date_cols, col)
-        column_info[[col]] <- list(
-          type = "date",
-          missing = sum(is.na(col_data)),
-          unique = length(unique(col_data)),
-          min_date = as.character(min(col_data, na.rm = TRUE)),
-          max_date = as.character(max(col_data, na.rm = TRUE))
-        )
+        non_na_data <- na.omit(col_data)
+        
+        if (length(non_na_data) > 0) {
+          column_info[[col]] <- list(
+            type = "date",
+            missing = sum(is.na(col_data)),
+            unique = length(unique(col_data)),
+            min_date = as.character(min(col_data, na.rm = TRUE)),
+            max_date = as.character(max(col_data, na.rm = TRUE))
+          )
+        } else {
+          # All values are NA
+          column_info[[col]] <- list(
+            type = "date",
+            missing = sum(is.na(col_data)),
+            unique = 0,
+            min_date = NA,
+            max_date = NA
+          )
+        }
       } else {
         column_info[[col]] <- list(
           type = "other",

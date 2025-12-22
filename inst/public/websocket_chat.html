@@ -27,6 +27,20 @@
         transition: all 0.3s ease;
       }
       
+      /* Header Title */
+      .app-header {
+        text-align: left;
+        margin-bottom: 15px;
+        padding: 5px 0;
+      }
+      
+      .app-header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+      }
+      
       /* Tab Navigation */
       .tab-navigation {
         display: flex;
@@ -2722,6 +2736,9 @@
     
     <!-- Main Interface with Tabs -->
     <div id="main-interface" style="display: none;">
+      <div class="app-header">
+        <h1>Rgent - Your AI Assistant</h1>
+      </div>
       <!-- Tab Navigation -->
       <div class="tab-navigation">
         <button class="tab-btn active" onclick="switchTab('chat')">Chat</button>
@@ -5501,6 +5518,31 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     setTimeout(() => {
                       requestNextVisualizationStep();
                     }, 1000);
+                  } else {
+                    // Regular chat plot execution - reset button after plot is displayed
+                    // Check if this is cleaning code execution
+                    if (cleaningCodeExecuting) {
+                      console.log('🔍 Cleaning code executed successfully with plot!');
+                      // Code executed successfully, no need to check for errors
+                      
+                      // Reset cleaning code state
+                      cleaningCodeIterationCount = 0;
+                      cleaningCodeExecuting = false;
+                      
+                      // Clear the stored agent type
+                      window.completedAgentType = null;
+                      window.currentActiveAgentType = null;
+                      
+                      // Reset button after code execution completes (for auto-execute)
+                      if (isAIResponding) {
+                        isAIResponding = false;
+                        transformToSendButton();
+                      }
+                    } else if (isAIResponding) {
+                      // Regular code execution with plot - reset button
+                      isAIResponding = false;
+                      transformToSendButton();
+                    }
                   }
                   
                   break;
@@ -5613,8 +5655,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     window.completedAgentType = null;
                     window.currentActiveAgentType = null;
                     
-                    // Don't reset button yet - wait for AI response streaming to complete
-                    // The button will be reset in finishStreaming() when streaming is done
+                    // Reset button after code execution completes (for auto-execute)
+                    // Streaming has already completed, so we need to reset here
+                    if (isAIResponding) {
+                      isAIResponding = false;
+                      transformToSendButton();
+                    }
                   } else {
                     // Regular code execution, not agent
                     addMessage("Code executed successfully! Output: " + outputText, "ai");
