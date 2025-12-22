@@ -6773,21 +6773,69 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
         const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
         
+        // Helper function to check if a position is inside HTML tags
+        function isInsideHTMLTags(text, position) {
+          const beforePos = text.substring(0, position);
+          
+          // Simple check: if there's a <table or <div tag that hasn't been closed, we're inside HTML
+          // Find the last opening tag before this position
+          const lastTableOpen = beforePos.lastIndexOf('<table');
+          const lastDivOpen = beforePos.lastIndexOf('<div');
+          const lastOpen = Math.max(lastTableOpen, lastDivOpen);
+          
+          if (lastOpen === -1) {
+            return false; // No HTML tags before this position
+          }
+          
+          // Check if this opening tag has been closed
+          const afterOpen = text.substring(lastOpen);
+          const firstTableClose = afterOpen.indexOf('</table>');
+          const firstDivClose = afterOpen.indexOf('</div>');
+          
+          // Find which tag was opened
+          if (lastTableOpen > lastDivOpen) {
+            // Table tag was opened last
+            if (firstTableClose === -1 || firstTableClose > (position - lastOpen)) {
+              return true; // Table tag not closed yet, we're inside it
+            }
+          } else if (lastDivOpen > -1) {
+            // Div tag was opened last
+            if (firstDivClose === -1 || firstDivClose > (position - lastOpen)) {
+              return true; // Div tag not closed yet, we're inside it
+            }
+          }
+          
+          return false;
+        }
+        
         // Find all matches with their positions
         const matches = [];
         let match;
+        // Reset regex lastIndex to ensure we start from the beginning
+        tableRegex.lastIndex = 0;
         while ((match = tableRegex.exec(text)) !== null) {
           const matchStart = match.index;
           const matchEnd = matchStart + match[0].length;
           
-          // Check if this match is already inside a formatted table
-          const beforeMatch = text.substring(0, matchStart);
-          const lastTableOpen = beforeMatch.lastIndexOf('<table');
-          const lastTableClose = beforeMatch.lastIndexOf('</table>');
+          // Skip if this match is inside HTML tags (already formatted)
+          if (isInsideHTMLTags(text, matchStart)) {
+            continue;
+          }
           
-          // If there's an unclosed <table> tag before this match, skip it
-          if (lastTableOpen > lastTableClose) {
-            continue; // Skip this match - it's already inside a formatted table
+          // Also check if the match content itself contains HTML tags (shouldn't happen, but safety check)
+          const matchContent = match[0];
+          if (matchContent.includes('<table') || matchContent.includes('<TABLE') || 
+              matchContent.includes('</table') || matchContent.includes('</TABLE') ||
+              matchContent.includes('<div') || matchContent.includes('</div') ||
+              matchContent.includes('<td') || matchContent.includes('<th') ||
+              matchContent.includes('<tr') || matchContent.includes('</tr')) {
+            continue;
+          }
+          
+          // Additional safety: check if there's any HTML tag character in the match area
+          // This catches cases where HTML might be embedded in the match
+          if (/<[a-z]/i.test(matchContent)) {
+            continue;
           }
           
           matches.push({
@@ -6843,7 +6891,23 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           html += '</tbody></table></div>';
           
           // Replace the match in the result string
-          result = result.substring(0, start) + html + result.substring(end);
+          // IMPORTANT: Since we process from end to start, positions from original text should still be valid
+          // But double-check that the content at this position is still markdown (not already HTML)
+          if (start < result.length && end <= result.length) {
+            // Verify the content at this position is still the original markdown table
+            const currentContent = result.substring(start, Math.min(end, start + 100));
+            // If it already contains HTML tags, skip it (already formatted)
+            if (currentContent.includes('<table') || currentContent.includes('<div') || 
+                currentContent.includes('</table') || currentContent.includes('</div')) {
+              // This content has already been formatted, skip
+              continue;
+            }
+            
+            // Verify it still looks like a markdown table
+            if (currentContent.startsWith('|') || currentContent.trim().startsWith('|')) {
+              result = result.substring(0, start) + html + result.substring(end);
+            }
+          }
         }
         
         // FALLBACK: If regex didn't match but we have table-like content, try manual parsing
