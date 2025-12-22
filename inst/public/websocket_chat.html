@@ -6772,9 +6772,18 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         console.log('📊 [TABLE FORMAT] Starting table formatting, text length:', text.length);
         console.log('📊 [TABLE FORMAT] Text preview (first 500 chars):', text.substring(0, 500));
         
+        // If text already contains <table> tags, it's already formatted - skip processing
+        if (text.includes('<table') || text.includes('<TABLE')) {
+          console.log('📊 [TABLE FORMAT] ⏭️ Text already contains formatted tables, skipping');
+          return text;
+        }
+        
         // More flexible regex: allows blank lines between header, separator, and data rows
         // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
-        const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
+        // Updated to handle multi-column tables - separator can have multiple pipe-separated segments
+        // Separator pattern: |---| or |:---:| or |---|---| etc.
+        // The separator can have multiple segments like: |---------|------|---------|-------------|
+        const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|(?:[\s\-:]*\|[\s\-:]+\|)*)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
         
         // Helper function to check if a position is inside HTML tags
         function isInsideHTMLTags(text, position) {
