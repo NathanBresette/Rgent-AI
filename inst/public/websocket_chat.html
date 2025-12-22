@@ -6778,273 +6778,91 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           return text;
         }
         
-        // More flexible regex: allows blank lines between header, separator, and data rows
-        // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
-        // Updated to handle multi-column tables - separator can have multiple pipe-separated segments
-        // Separator pattern: |---| or |:---:| or |---|---| etc.
-        // The separator can have multiple segments like: |---------|------|---------|-------------|
-        const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|(?:[\s\-:]*\|[\s\-:]+\|)*)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
-        
-        // Helper function to check if a position is inside HTML tags
-        function isInsideHTMLTags(text, position) {
-          const beforePos = text.substring(0, position);
-          
-          // Simple check: if there's a <table or <div tag that hasn't been closed, we're inside HTML
-          // Find the last opening tag before this position
-          const lastTableOpen = beforePos.lastIndexOf('<table');
-          const lastDivOpen = beforePos.lastIndexOf('<div');
-          const lastOpen = Math.max(lastTableOpen, lastDivOpen);
-          
-          if (lastOpen === -1) {
-            return false; // No HTML tags before this position
-          }
-          
-          // Check if this opening tag has been closed
-          const afterOpen = text.substring(lastOpen);
-          const firstTableClose = afterOpen.indexOf('</table>');
-          const firstDivClose = afterOpen.indexOf('</div>');
-          
-          // Find which tag was opened
-          if (lastTableOpen > lastDivOpen) {
-            // Table tag was opened last
-            if (firstTableClose === -1 || firstTableClose > (position - lastOpen)) {
-              return true; // Table tag not closed yet, we're inside it
-            }
-          } else if (lastDivOpen > -1) {
-            // Div tag was opened last
-            if (firstDivClose === -1 || firstDivClose > (position - lastOpen)) {
-              return true; // Div tag not closed yet, we're inside it
-            }
-          }
-          
-          return false;
-        }
-        
-        // Find all matches with their positions
-        const matches = [];
+        // Split text by <table> tags - only process parts that aren't already formatted
+        const parts = [];
+        let lastIndex = 0;
+        const tableTagRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
         let match;
-        // Reset regex lastIndex to ensure we start from the beginning
-        tableRegex.lastIndex = 0;
-        let matchCount = 0;
-        while ((match = tableRegex.exec(text)) !== null) {
-          matchCount++;
-          const matchStart = match.index;
-          const matchEnd = matchStart + match[0].length;
-          const matchContent = match[0];
-          const matchPreview = matchContent.substring(0, 150).replace(/\n/g, '\\n');
-          
-          console.log(`📊 [TABLE FORMAT] Found potential table #${matchCount} at position ${matchStart}-${matchEnd}`);
-          console.log(`📊 [TABLE FORMAT] Match preview:`, matchPreview);
-          
-          // Skip if this match is inside HTML tags (already formatted)
-          const insideHTML = isInsideHTMLTags(text, matchStart);
-          if (insideHTML) {
-            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - already inside HTML tags`);
-            continue;
+        
+        while ((match = tableTagRegex.exec(text)) !== null) {
+          // Add text before the table tag
+          if (match.index > lastIndex) {
+            parts.push({
+              text: text.substring(lastIndex, match.index),
+              isFormatted: false
+            });
           }
-          
-          // Also check if the match content itself contains HTML tags (shouldn't happen, but safety check)
-          if (matchContent.includes('<table') || matchContent.includes('<TABLE') || 
-              matchContent.includes('</table') || matchContent.includes('</TABLE') ||
-              matchContent.includes('<div') || matchContent.includes('</div') ||
-              matchContent.includes('<td') || matchContent.includes('<th') ||
-              matchContent.includes('<tr') || matchContent.includes('</tr')) {
-            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - contains HTML tags`);
-            continue;
-          }
-          
-          // Additional safety: check if there's any HTML tag character in the match area
-          // This catches cases where HTML might be embedded in the match
-          if (/<[a-z]/i.test(matchContent)) {
-            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - contains HTML-like content`);
-            continue;
-          }
-          
-          console.log(`📊 [TABLE FORMAT] ✅ Adding table #${matchCount} to processing queue`);
-          matches.push({
-            match: match,
-            start: matchStart,
-            end: matchEnd,
-            index: matchCount
+          // Add the formatted table
+          parts.push({
+            text: match[0],
+            isFormatted: true
+          });
+          lastIndex = match.index + match[0].length;
+        }
+        
+        // Add remaining text
+        if (lastIndex < text.length) {
+          parts.push({
+            text: text.substring(lastIndex),
+            isFormatted: false
           });
         }
         
-        console.log(`📊 [TABLE FORMAT] Found ${matches.length} tables to process (out of ${matchCount} potential matches)`);
-        
-        // Process matches from end to start to preserve positions
-        let result = text;
-        console.log(`📊 [TABLE FORMAT] Processing ${matches.length} tables from end to start`);
-        for (let i = matches.length - 1; i >= 0; i--) {
-          const { match: matchData, start, end, index } = matches[i];
-          const headerRow = matchData[1];
-          const separatorRow = matchData[2];
-          const dataRows = matchData[3];
-          
-          console.log(`📊 [TABLE FORMAT] Processing table #${index} (match ${i + 1}/${matches.length}) at position ${start}-${end}`);
-          
-          // Parse header
-          const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
-          if (headers.length === 0) {
-            console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - no valid headers`);
-            continue;
+        // Process only unformatted parts
+        const processedParts = parts.map(part => {
+          if (part.isFormatted) {
+            return part.text; // Already formatted, return as-is
           }
           
-          console.log(`📊 [TABLE FORMAT] Table #${index} has ${headers.length} headers:`, headers);
-          
-          // Parse data rows
-          const rows = dataRows.trim().split('\n').filter(r => r.includes('|'));
-          
-          // Build table HTML with inline formatting applied to cells
-          let html = '<div style="overflow-x: auto; margin: 10px 0;"><table style="border-collapse: collapse; width: 100%; font-size: 0.9em;">';
-          
-          // Header
-          html += '<thead><tr>';
-          headers.forEach(h => {
-            const formatted = formatTableCell(h);
-            html += `<th style="border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; background: var(--bg-secondary); font-weight: 600;">${formatted}</th>`;
-          });
-          html += '</tr></thead>';
-          
-          // Body
-          html += '<tbody>';
-          rows.forEach(row => {
-            const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1 || c.length > 0);
-            // Clean up - remove empty first/last from pipe split
-            if (cells[0] === '') cells.shift();
-            if (cells[cells.length - 1] === '') cells.pop();
+          // Process markdown tables in this part
+          // Simple regex: header row, separator (any dashes/pipes/colons), data rows
+          // Separator can be: |---| or |---|---| or |---------|------|---------|-------------|
+          const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|(?:[\s\-:]*\|[\s\-:]+\|)*)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
+          return part.text.replace(tableRegex, (match, headerRow, separatorRow, dataRows) => {
+            console.log('📊 [TABLE FORMAT] Found markdown table, converting to HTML');
             
-            if (cells.length > 0) {
-              html += '<tr>';
-              cells.forEach(cell => {
-                const formatted = formatTableCell(cell);
-                html += `<td style="border: 1px solid var(--border-color); padding: 6px 10px;">${formatted}</td>`;
-              });
-              html += '</tr>';
-            }
-          });
-          html += '</tbody></table></div>';
-          
-          // Replace the match in the result string
-          // IMPORTANT: Since we process from end to start, positions from original text should still be valid
-          // But double-check that the content at this position is still markdown (not already HTML)
-          if (start < result.length && end <= result.length) {
-            // Verify the content at this position is still the original markdown table
-            const currentContent = result.substring(start, Math.min(end, start + 100));
-            console.log(`📊 [TABLE FORMAT] Table #${index} - checking content at position ${start}:`, currentContent.substring(0, 50));
+            // Parse header
+            const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
+            if (headers.length === 0) return match;
             
-            // If it already contains HTML tags, skip it (already formatted)
-            if (currentContent.includes('<table') || currentContent.includes('<div') || 
-                currentContent.includes('</table') || currentContent.includes('</div')) {
-              // This content has already been formatted, skip
-              console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - content already contains HTML`);
-              continue;
-            }
+            // Parse data rows
+            const rows = dataRows.trim().split('\n').filter(r => r.includes('|'));
             
-            // Verify it still looks like a markdown table
-            if (currentContent.startsWith('|') || currentContent.trim().startsWith('|')) {
-              const beforeLength = result.length;
-              result = result.substring(0, start) + html + result.substring(end);
-              const afterLength = result.length;
-              console.log(`📊 [TABLE FORMAT] ✅ Replaced table #${index} - length changed from ${beforeLength} to ${afterLength}`);
-            } else {
-              console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - content doesn't look like markdown table`);
-            }
-          } else {
-            console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - invalid positions (start: ${start}, end: ${end}, result.length: ${result.length})`);
-          }
-        }
-        
-        const hasFormattedTables = result.includes('<table');
-        console.log(`📊 [TABLE FORMAT] Finished processing. Result has formatted tables: ${hasFormattedTables}, result length: ${result.length}`);
-        
-        // FALLBACK: If regex didn't match but we have table-like content, try manual parsing
-        const hasTableContent = text.includes('|') && text.includes('---');
-        const hasTableTag = result.includes('<table') || result.includes('<TABLE');
-        
-        if (!hasTableTag && hasTableContent) {
-          
-          // Find all lines that look like table rows
-          const lines = text.split('\n');
-          const tableStartIndices = [];
-          
-          // Find potential table starts (header row followed by separator)
-          for (let i = 0; i < lines.length - 1; i++) {
-            const line = lines[i].trim();
-            const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+            // Build table HTML
+            let html = '<div style="overflow-x: auto; margin: 10px 0;"><table style="border-collapse: collapse; width: 100%; font-size: 0.9em;">';
             
-            // Check if this looks like a header row (starts and ends with |)
-            if (line.startsWith('|') && line.endsWith('|') && line.includes('|') && line.split('|').length >= 3) {
-              // Check if next line is a separator
-              if (nextLine.startsWith('|') && nextLine.match(/^[\|\s\-:]+$/)) {
-                tableStartIndices.push(i);
-              }
-            }
-          }
-          
-          // Process tables from bottom to top to preserve indices
-          for (let idx = tableStartIndices.length - 1; idx >= 0; idx--) {
-            const startLine = tableStartIndices[idx];
-            let endLine = startLine + 1; // Start after separator
+            // Header
+            html += '<thead><tr>';
+            headers.forEach(h => {
+              const formatted = formatTableCell(h);
+              html += `<th style="border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; background: var(--bg-secondary); font-weight: 600;">${formatted}</th>`;
+            });
+            html += '</tr></thead>';
             
-            // Collect all data rows
-            while (endLine < lines.length) {
-              const line = lines[endLine].trim();
-              if (line.startsWith('|') && line.endsWith('|') && line.includes('|')) {
-                endLine++;
-              } else {
-                break;
-              }
-            }
-            
-            // Extract table content
-            const tableLines = lines.slice(startLine, endLine);
-            const headerRow = tableLines[0];
-            const dataRows = tableLines.slice(2); // Skip header and separator
-            
-            if (dataRows.length > 0) {
-              // Parse header
-              const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
+            // Body
+            html += '<tbody>';
+            rows.forEach(row => {
+              const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1 || c.length > 0);
+              if (cells[0] === '') cells.shift();
+              if (cells[cells.length - 1] === '') cells.pop();
               
-              if (headers.length > 0) {
-                // Build table HTML
-                let html = '<div style="overflow-x: auto; margin: 10px 0;"><table style="border-collapse: collapse; width: 100%; font-size: 0.9em;">';
-                
-                // Header
-                html += '<thead><tr>';
-                headers.forEach(h => {
-                  const formatted = formatTableCell(h);
-                  html += `<th style="border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; background: var(--bg-secondary); font-weight: 600;">${formatted}</th>`;
+              if (cells.length > 0) {
+                html += '<tr>';
+                cells.forEach(cell => {
+                  const formatted = formatTableCell(cell);
+                  html += `<td style="border: 1px solid var(--border-color); padding: 6px 10px;">${formatted}</td>`;
                 });
-                html += '</tr></thead>';
-                
-                // Body
-                html += '<tbody>';
-                dataRows.forEach(row => {
-                  const cells = row.split('|').map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1 || c.length > 0);
-                  if (cells[0] === '') cells.shift();
-                  if (cells[cells.length - 1] === '') cells.pop();
-                  
-                  if (cells.length > 0) {
-                    html += '<tr>';
-                    cells.forEach(cell => {
-                      const formatted = formatTableCell(cell);
-                      html += `<td style="border: 1px solid var(--border-color); padding: 6px 10px;">${formatted}</td>`;
-                    });
-                    html += '</tr>';
-                  }
-                });
-                html += '</tbody></table></div>';
-                
-                // Replace the table in the text
-                const beforeTable = lines.slice(0, startLine).join('\n');
-                const afterTable = lines.slice(endLine).join('\n');
-                result = beforeTable + '\n' + html + '\n' + afterTable;
-                break; // Only process first table found
+                html += '</tr>';
               }
-            }
-          }
-        }
+            });
+            html += '</tbody></table></div>';
+            
+            return html;
+          });
+        });
         
+        const result = processedParts.join('');
+        console.log(`📊 [TABLE FORMAT] Finished processing. Result has formatted tables: ${result.includes('<table')}, result length: ${result.length}`);
         return result;
       }
       
