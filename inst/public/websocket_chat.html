@@ -6772,16 +6772,13 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         console.log('📊 [TABLE FORMAT] Starting table formatting, text length:', text.length);
         console.log('📊 [TABLE FORMAT] Text preview (first 500 chars):', text.substring(0, 500));
         
-        // If text already contains <table> tags, it's already formatted - skip processing
-        if (text.includes('<table') || text.includes('<TABLE')) {
-          console.log('📊 [TABLE FORMAT] ⏭️ Text already contains formatted tables, skipping');
-          return text;
-        }
-        
         // Split text by <table> tags - only process parts that aren't already formatted
+        // This allows us to handle streaming where some tables are already formatted and new markdown tables are being added
         const parts = [];
         let lastIndex = 0;
-        const tableTagRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
+        // Match our formatted tables: <div style="overflow-x: auto; margin: 10px 0;"><table>...</table></div>
+        // Use non-greedy matching to handle multiple tables
+        const tableTagRegex = /<div[^>]*style="overflow-x: auto[^"]*"[^>]*>\s*<table[^>]*>[\s\S]*?<\/table>\s*<\/div>/gi;
         let match;
         
         while ((match = tableTagRegex.exec(text)) !== null) {
@@ -6792,7 +6789,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               isFormatted: false
             });
           }
-          // Add the formatted table
+          // Add the formatted table (including wrapper div if present)
           parts.push({
             text: match[0],
             isFormatted: true
@@ -6807,6 +6804,8 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
             isFormatted: false
           });
         }
+        
+        console.log(`📊 [TABLE FORMAT] Split text into ${parts.length} parts (${parts.filter(p => p.isFormatted).length} already formatted, ${parts.filter(p => !p.isFormatted).length} to process)`);
         
         // Process only unformatted parts
         const processedParts = parts.map(part => {
