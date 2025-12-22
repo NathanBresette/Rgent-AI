@@ -6474,6 +6474,10 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           console.log('🚀 Streaming started');
           
           // Start new streaming message with streaming class
+          // Clear processed table signatures for new message
+          if (window.processedTableSignatures) {
+            window.processedTableSignatures.clear();
+          }
           currentStreamingMessage = document.createElement("div");
           currentStreamingMessage.className = "message ai-message streaming";
           
@@ -6767,6 +6771,12 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         return result;
       }
       
+      // Track processed tables to avoid re-processing during streaming
+      // Use a Set to store table signatures (normalized header row)
+      if (!window.processedTableSignatures) {
+        window.processedTableSignatures = new Set();
+      }
+      
       // Format tables with inline formatting support
       function formatStreamingTablesWithInlineFormatting(text) {
         console.log('📊 [TABLE FORMAT] Starting table formatting, text length:', text.length);
@@ -6818,7 +6828,19 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           // Separator can be: |---| or |---|---| or |---------|------|---------|-------------|
           const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|(?:[\s\-:]*\|[\s\-:]+\|)*)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
           return part.text.replace(tableRegex, (match, headerRow, separatorRow, dataRows) => {
-            console.log('📊 [TABLE FORMAT] Found markdown table, converting to HTML');
+            // Create a signature from the normalized header row to track processed tables
+            const headerSignature = headerRow.trim().toLowerCase();
+            
+            // Check if we've already processed this table
+            if (window.processedTableSignatures.has(headerSignature)) {
+              console.log('📊 [TABLE FORMAT] ⏭️ Skipping already processed table:', headerSignature.substring(0, 50));
+              return match; // Return original markdown, don't convert again
+            }
+            
+            console.log('📊 [TABLE FORMAT] Found new markdown table, converting to HTML');
+            
+            // Mark this table as processed
+            window.processedTableSignatures.add(headerSignature);
             
             // Parse header
             const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
