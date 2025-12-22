@@ -6773,12 +6773,41 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
         const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
         
+        // Find all matches with their positions
+        const matches = [];
+        let match;
+        while ((match = tableRegex.exec(text)) !== null) {
+          const matchStart = match.index;
+          const matchEnd = matchStart + match[0].length;
+          
+          // Check if this match is already inside a formatted table
+          const beforeMatch = text.substring(0, matchStart);
+          const lastTableOpen = beforeMatch.lastIndexOf('<table');
+          const lastTableClose = beforeMatch.lastIndexOf('</table>');
+          
+          // If there's an unclosed <table> tag before this match, skip it
+          if (lastTableOpen > lastTableClose) {
+            continue; // Skip this match - it's already inside a formatted table
+          }
+          
+          matches.push({
+            match: match,
+            start: matchStart,
+            end: matchEnd
+          });
+        }
         
-        // Try the regex replacement
-        let result = text.replace(tableRegex, (match, headerRow, separatorRow, dataRows) => {
+        // Process matches from end to start to preserve positions
+        let result = text;
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const { match: matchData, start, end } = matches[i];
+          const headerRow = matchData[1];
+          const separatorRow = matchData[2];
+          const dataRows = matchData[3];
+          
           // Parse header
           const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
-          if (headers.length === 0) return match;
+          if (headers.length === 0) continue;
           
           // Parse data rows
           const rows = dataRows.trim().split('\n').filter(r => r.includes('|'));
@@ -6813,8 +6842,9 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           });
           html += '</tbody></table></div>';
           
-          return html;
-        });
+          // Replace the match in the result string
+          result = result.substring(0, start) + html + result.substring(end);
+        }
         
         // FALLBACK: If regex didn't match but we have table-like content, try manual parsing
         const hasTableContent = text.includes('|') && text.includes('---');
