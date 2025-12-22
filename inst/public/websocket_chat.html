@@ -6769,6 +6769,9 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       // Format tables with inline formatting support
       function formatStreamingTablesWithInlineFormatting(text) {
+        console.log('📊 [TABLE FORMAT] Starting table formatting, text length:', text.length);
+        console.log('📊 [TABLE FORMAT] Text preview (first 500 chars):', text.substring(0, 500));
+        
         // More flexible regex: allows blank lines between header, separator, and data rows
         // Pattern: header row (with pipes), optional whitespace/newlines, separator row, optional whitespace/newlines, data rows
         const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
@@ -6813,49 +6816,71 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         let match;
         // Reset regex lastIndex to ensure we start from the beginning
         tableRegex.lastIndex = 0;
+        let matchCount = 0;
         while ((match = tableRegex.exec(text)) !== null) {
+          matchCount++;
           const matchStart = match.index;
           const matchEnd = matchStart + match[0].length;
+          const matchContent = match[0];
+          const matchPreview = matchContent.substring(0, 150).replace(/\n/g, '\\n');
+          
+          console.log(`📊 [TABLE FORMAT] Found potential table #${matchCount} at position ${matchStart}-${matchEnd}`);
+          console.log(`📊 [TABLE FORMAT] Match preview:`, matchPreview);
           
           // Skip if this match is inside HTML tags (already formatted)
-          if (isInsideHTMLTags(text, matchStart)) {
+          const insideHTML = isInsideHTMLTags(text, matchStart);
+          if (insideHTML) {
+            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - already inside HTML tags`);
             continue;
           }
           
           // Also check if the match content itself contains HTML tags (shouldn't happen, but safety check)
-          const matchContent = match[0];
           if (matchContent.includes('<table') || matchContent.includes('<TABLE') || 
               matchContent.includes('</table') || matchContent.includes('</TABLE') ||
               matchContent.includes('<div') || matchContent.includes('</div') ||
               matchContent.includes('<td') || matchContent.includes('<th') ||
               matchContent.includes('<tr') || matchContent.includes('</tr')) {
+            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - contains HTML tags`);
             continue;
           }
           
           // Additional safety: check if there's any HTML tag character in the match area
           // This catches cases where HTML might be embedded in the match
           if (/<[a-z]/i.test(matchContent)) {
+            console.log(`📊 [TABLE FORMAT] ⏭️ Skipping table #${matchCount} - contains HTML-like content`);
             continue;
           }
           
+          console.log(`📊 [TABLE FORMAT] ✅ Adding table #${matchCount} to processing queue`);
           matches.push({
             match: match,
             start: matchStart,
-            end: matchEnd
+            end: matchEnd,
+            index: matchCount
           });
         }
         
+        console.log(`📊 [TABLE FORMAT] Found ${matches.length} tables to process (out of ${matchCount} potential matches)`);
+        
         // Process matches from end to start to preserve positions
         let result = text;
+        console.log(`📊 [TABLE FORMAT] Processing ${matches.length} tables from end to start`);
         for (let i = matches.length - 1; i >= 0; i--) {
-          const { match: matchData, start, end } = matches[i];
+          const { match: matchData, start, end, index } = matches[i];
           const headerRow = matchData[1];
           const separatorRow = matchData[2];
           const dataRows = matchData[3];
           
+          console.log(`📊 [TABLE FORMAT] Processing table #${index} (match ${i + 1}/${matches.length}) at position ${start}-${end}`);
+          
           // Parse header
           const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
-          if (headers.length === 0) continue;
+          if (headers.length === 0) {
+            console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - no valid headers`);
+            continue;
+          }
+          
+          console.log(`📊 [TABLE FORMAT] Table #${index} has ${headers.length} headers:`, headers);
           
           // Parse data rows
           const rows = dataRows.trim().split('\n').filter(r => r.includes('|'));
@@ -6896,19 +6921,32 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           if (start < result.length && end <= result.length) {
             // Verify the content at this position is still the original markdown table
             const currentContent = result.substring(start, Math.min(end, start + 100));
+            console.log(`📊 [TABLE FORMAT] Table #${index} - checking content at position ${start}:`, currentContent.substring(0, 50));
+            
             // If it already contains HTML tags, skip it (already formatted)
             if (currentContent.includes('<table') || currentContent.includes('<div') || 
                 currentContent.includes('</table') || currentContent.includes('</div')) {
               // This content has already been formatted, skip
+              console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - content already contains HTML`);
               continue;
             }
             
             // Verify it still looks like a markdown table
             if (currentContent.startsWith('|') || currentContent.trim().startsWith('|')) {
+              const beforeLength = result.length;
               result = result.substring(0, start) + html + result.substring(end);
+              const afterLength = result.length;
+              console.log(`📊 [TABLE FORMAT] ✅ Replaced table #${index} - length changed from ${beforeLength} to ${afterLength}`);
+            } else {
+              console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - content doesn't look like markdown table`);
             }
+          } else {
+            console.log(`📊 [TABLE FORMAT] ⚠️ Skipping table #${index} - invalid positions (start: ${start}, end: ${end}, result.length: ${result.length})`);
           }
         }
+        
+        const hasFormattedTables = result.includes('<table');
+        console.log(`📊 [TABLE FORMAT] Finished processing. Result has formatted tables: ${hasFormattedTables}, result length: ${result.length}`);
         
         // FALLBACK: If regex didn't match but we have table-like content, try manual parsing
         const hasTableContent = text.includes('|') && text.includes('---');
