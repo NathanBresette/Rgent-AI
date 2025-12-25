@@ -80,9 +80,16 @@ execute_code_in_session <- function(code, settings = NULL) {
       num_base_plots <- 0
     }
     
-    # If we have base R plots, parse and execute them separately to capture each one
-    # This works even when mixed with ggplot plots
-    if (num_base_plots > 0) {
+    # Count ggplot expressions in the code
+    ggplot_pattern <- "\\bggplot\\s*\\("
+    num_ggplot_plots <- length(gregexpr(ggplot_pattern, code, ignore.case = TRUE)[[1]])
+    if (num_ggplot_plots > 0 && gregexpr(ggplot_pattern, code, ignore.case = TRUE)[[1]][1] == -1) {
+      num_ggplot_plots <- 0
+    }
+    
+    # If we have base R plots OR multiple ggplot plots, parse and execute them separately
+    # This ensures we capture all plots, not just the last one
+    if (num_base_plots > 0 || (num_ggplot_plots > 0 && grepl("ggplot", code, ignore.case = TRUE))) {
       # Parse code into expressions and execute each plot separately
       plot_files_multi <- c()
       all_output <- c()
@@ -101,11 +108,12 @@ execute_code_in_session <- function(code, settings = NULL) {
         while (i <= length(parsed_code)) {
           expr <- parsed_code[[i]]
           expr_str <- paste(deparse(expr), collapse = " ")
-          is_plot_expr <- any(sapply(base_plot_functions, function(f) {
+          is_base_plot_expr <- any(sapply(base_plot_functions, function(f) {
             grepl(paste0("\\b", f, "\\s*\\("), expr_str, ignore.case = TRUE)
           }))
+          is_ggplot_expr <- grepl("\\bggplot\\s*\\(", expr_str, ignore.case = TRUE)
           
-          if (is_plot_expr) {
+          if (is_base_plot_expr) {
             # This is a plot expression - collect it and any following drawing commands
             plot_exprs <- list(expr)
             # Look ahead for drawing commands that should be grouped with this plot
@@ -168,6 +176,53 @@ execute_code_in_session <- function(code, settings = NULL) {
             
             # Skip the expressions we just processed
             i <- j
+          } else if (is_ggplot_expr) {
+            # This is a ggplot expression - execute it separately and capture the plot
+            plot_file_single <- tempfile(fileext = ".png")
+            tryCatch({
+              # Execute the ggplot expression and capture the plot object
+              expr_result <- withVisible(eval(expr, envir = env))
+              
+              # If it's a ggplot object, print it to a graphics device
+              if (!is.null(expr_result$value) && inherits(expr_result$value, "ggplot")) {
+                grDevices::png(filename = plot_file_single, width = 800, height = 600)
+                print(expr_result$value)
+                grDevices::dev.off()
+                
+                # Ensure all devices are closed
+                while (grDevices::dev.cur() != 1) {
+                  grDevices::dev.off()
+                }
+                
+                # Check if plot was created
+                if (file.exists(plot_file_single)) {
+                  file_size <- file.info(plot_file_single)$size
+                  if (!is.null(file_size) && length(file_size) == 1 && file_size > 100) {
+                    plot_files_multi <- c(plot_files_multi, plot_file_single)
+                  } else {
+                    unlink(plot_file_single)
+                  }
+                }
+              }
+              
+              # Capture any output from the expression (but don't print the plot object again)
+              expr_output <- utils::capture.output({
+                # Don't print ggplot objects, they're already captured
+                if (expr_result$visible && !is.null(expr_result$value) && !inherits(expr_result$value, "ggplot")) {
+                  print(expr_result$value)
+                }
+              })
+              all_output <- c(all_output, expr_output)
+            }, error = function(e) {
+              # Ensure device is closed on error
+              tryCatch({
+                while (grDevices::dev.cur() != 1) {
+                  grDevices::dev.off()
+                }
+              }, error = function(e) {})
+              all_output <- c(all_output, paste("Error:", e$message))
+            })
+            i <- i + 1
           } else {
             # Regular expression - execute normally
             tryCatch({
@@ -288,16 +343,112 @@ execute_code_in_session <- function(code, settings = NULL) {
     plot_files <- c()
     has_plotly <- grepl("plot_ly|ggplotly|plotly::", code, ignore.case = TRUE)
     if (is_plot_command && (grepl("ggplot", code, ignore.case = TRUE) || has_plotly)) {
-      # Parse code to find plot variable names that were printed (e.g., plot1, plot2, p1, p2)
-      code_lines <- strsplit(code, "\n")[[1]]
-      # Look for lines that are just variable names (likely plot prints)
-      # Pattern: lines that are just a variable name, possibly with print()
+      # Parse code to find all ggplot/plotly expressions (assigned or not)
+      # This is necessary because direct ggplot() calls aren't stored in variables
+      parsed_code <- tryCatch({
+        parse(text = code)
+      }, error = function(e) {
+        NULL
+      })
+      
+      if (!is.null(parsed_code)) {
+        # Find all ggplot/plotly expressions in the parsed code
+        ggplot_exprs <- list()
+        for (expr in parsed_code) {
+          expr_str <- paste(deparse(expr), collapse = " ")
+          # Check if this expression contains ggplot() or plot_ly() call
+          is_ggplot_expr <- grepl("\\bggplot\\s*\\(", expr_str, ignore.case = TRUE) ||
+                           grepl("\\bplot_ly\\s*\\(", expr_str, ignore.case = TRUE) ||
+                           grepl("\\bggplotly\\s*\\(", expr_str, ignore.case = TRUE)
+          
+          if (is_ggplot_expr) {
+            ggplot_exprs <- c(ggplot_exprs, list(expr))
+          }
+        }
+        
+        # If we found ggplot expressions, execute each one separately to capture all plots
+        if (length(ggplot_exprs) > 0) {
+          for (ggplot_expr in ggplot_exprs) {
+            tryCatch({
+              # Execute the expression in a temporary environment to capture the plot object
+              expr_result <- withVisible(eval(ggplot_expr, envir = env))
+              
+              # Check if the result is a ggplot or plotly object
+              if (!is.null(expr_result$value)) {
+                is_plotly_obj <- inherits(expr_result$value, "plotly") || 
+                                (is.list(expr_result$value) && !is.null(expr_result$value$x) && inherits(expr_result$value$x, "plotly")) ||
+                                (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(expr_result$value, "htmlwidget"))
+                
+                if (inherits(expr_result$value, "ggplot")) {
+                  # Capture ggplot object
+                  plot_file_single <- tempfile(fileext = ".png")
+                  grDevices::png(filename = plot_file_single, width = 800, height = 600)
+                  print(expr_result$value)
+                  grDevices::dev.off()
+                  
+                  if (file.exists(plot_file_single)) {
+                    file_size <- tryCatch(file.info(plot_file_single)$size, error = function(e) 0)
+                    if (length(file_size) == 1 && file_size > 100) {
+                      plot_files <- c(plot_files, plot_file_single)
+                    } else {
+                      unlink(plot_file_single)
+                    }
+                  } else {
+                    unlink(plot_file_single)
+                  }
+                } else if (is_plotly_obj) {
+                  # Capture plotly object
+                  plot_file_single <- tempfile(fileext = ".png")
+                  tryCatch({
+                    if (requireNamespace("htmlwidgets", quietly = TRUE) && 
+                        requireNamespace("webshot", quietly = TRUE)) {
+                      html_file <- tempfile(fileext = ".html")
+                      lib_dir <- tempfile("lib")
+                      dir.create(lib_dir)
+                      htmlwidgets::saveWidget(expr_result$value, html_file, selfcontained = TRUE, libdir = lib_dir)
+                      webshot::webshot(html_file, plot_file_single, vwidth = 800, vheight = 600)
+                      unlink(html_file)
+                      unlink(lib_dir, recursive = TRUE)
+                      
+                      if (file.exists(plot_file_single)) {
+                        file_size <- tryCatch(file.info(plot_file_single)$size, error = function(e) 0)
+                        if (length(file_size) == 1 && file_size > 100) {
+                          plot_files <- c(plot_files, plot_file_single)
+                        } else {
+                          unlink(plot_file_single)
+                        }
+                      }
+                    }
+                  }, error = function(e) {
+                    if (file.exists(plot_file_single)) unlink(plot_file_single)
+                  })
+                }
+              }
+            }, error = function(e) {
+              # Skip if we can't capture this plot
+            })
+          }
+        }
+      }
+      
+      # Also check for assigned plot variables (backup method)
       plot_prints <- character(0)
+      
+      # Pattern 1: Look for assignments with ggplot/plot_ly/ggplotly
+      assignment_pattern <- "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(<-|=)\\s*(ggplot|plot_ly|ggplotly)"
+      assignment_matches <- regmatches(code, gregexpr(assignment_pattern, code, ignore.case = TRUE, perl = TRUE))[[1]]
+      for (match in assignment_matches) {
+        var_match <- regmatches(match, regexec("([a-zA-Z_][a-zA-Z0-9_]*)\\s*(<-|=)\\s*(ggplot|plot_ly|ggplotly)", match, ignore.case = TRUE, perl = TRUE))[[1]]
+        if (length(var_match) > 1) {
+          plot_prints <- c(plot_prints, var_match[2])
+        }
+      }
+      
+      # Pattern 2: Look for variables that are printed (just the variable name on its own line)
+      code_lines <- strsplit(code, "\n")[[1]]
       for (line in code_lines) {
         line_trimmed <- trimws(line)
-        # Skip empty lines and comments
         if (line_trimmed == "" || grepl("^#", line_trimmed)) next
-        # Match: just a variable name (this captures cases like "plot1" or "p2" on their own line)
         if (grepl("^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*$", line_trimmed, perl = TRUE)) {
           var_match <- regmatches(line_trimmed, regexec("^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*$", line_trimmed, perl = TRUE))[[1]]
           if (length(var_match) > 1) {
@@ -405,14 +556,14 @@ execute_code_in_session <- function(code, settings = NULL) {
           })
         }
         
-        # If we captured ggplot plots, merge them with any base R plots we already captured
+        # If we captured ggplot plots from direct expressions or assigned variables, merge with base R plots
         if (length(plot_files) > 0) {
-          if (length(plot_file) > 0 && is.character(plot_file)) {
+          if (length(plot_file) > 0 && is.character(plot_file) && !is.list(plot_file)) {
             # Merge base R plots (already captured) with ggplot plots
             plot_file <- c(plot_file, plot_files)
           } else {
             # Only ggplot plots
-          plot_file <- plot_files
+            plot_file <- plot_files
           }
           has_plot <- TRUE
         }
