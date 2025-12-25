@@ -33,6 +33,15 @@ execute_code_in_session <- function(code, settings = NULL) {
     log_code_to_file(code, settings$log_file_path)
   }
 
+  # Suppress RStudio viewer for all outputs during auto-execute
+  # Save current viewer option and set to NULL to prevent viewer from opening
+  original_viewer <- getOption("viewer")
+  on.exit({
+    # Restore original viewer option after execution
+    options(viewer = original_viewer)
+  }, add = TRUE)
+  options(viewer = NULL)
+
   # Create a temporary environment for evaluation
   env <- .GlobalEnv
 
@@ -57,8 +66,174 @@ execute_code_in_session <- function(code, settings = NULL) {
       })
     }
 
-    # Execute code and capture plots
-    # For multiple plots, we'll check the environment after execution
+    # Check for base R plot calls (may be mixed with ggplot)
+    base_plot_functions <- c("plot", "boxplot", "hist", "barplot", "pie", "qqnorm", "qqplot", 
+                             "pairs", "image", "contour", "persp", "matplot", "curve")
+    # Drawing commands that add to plots (should be grouped with the plot)
+    plot_drawing_commands <- c("abline", "lines", "points", "legend", "text", "title", "axis", 
+                               "grid", "rug", "segments", "arrows", "rect", "polygon", "curve")
+    
+    # Count plot function calls in the code
+    plot_pattern <- paste0("\\b(", paste(base_plot_functions, collapse = "|"), ")\\s*\\(")
+    num_base_plots <- length(gregexpr(plot_pattern, code, ignore.case = TRUE)[[1]])
+    if (num_base_plots > 0 && gregexpr(plot_pattern, code, ignore.case = TRUE)[[1]][1] == -1) {
+      num_base_plots <- 0
+    }
+    
+    # If we have base R plots, parse and execute them separately to capture each one
+    # This works even when mixed with ggplot plots
+    if (num_base_plots > 0) {
+      # Parse code into expressions and execute each plot separately
+      plot_files_multi <- c()
+      all_output <- c()
+      result <- NULL
+      
+      # Parse the code into a list of expressions
+      parsed_code <- tryCatch({
+        parse(text = code)
+      }, error = function(e) {
+        NULL
+      })
+      
+      if (!is.null(parsed_code)) {
+        # Execute expressions, grouping plot expressions with their drawing commands
+        i <- 1
+        while (i <= length(parsed_code)) {
+          expr <- parsed_code[[i]]
+          expr_str <- paste(deparse(expr), collapse = " ")
+          is_plot_expr <- any(sapply(base_plot_functions, function(f) {
+            grepl(paste0("\\b", f, "\\s*\\("), expr_str, ignore.case = TRUE)
+          }))
+          
+          if (is_plot_expr) {
+            # This is a plot expression - collect it and any following drawing commands
+            plot_exprs <- list(expr)
+            # Look ahead for drawing commands that should be grouped with this plot
+            j <- i + 1
+            while (j <= length(parsed_code)) {
+              next_expr <- parsed_code[[j]]
+              next_expr_str <- paste(deparse(next_expr), collapse = " ")
+              # Check if this is a drawing command
+              is_drawing_cmd <- any(sapply(plot_drawing_commands, function(f) {
+                grepl(paste0("\\b", f, "\\s*\\("), next_expr_str, ignore.case = TRUE)
+              }))
+              # Also check if it's another plot expression (if so, stop grouping)
+              is_next_plot <- any(sapply(base_plot_functions, function(f) {
+                grepl(paste0("\\b", f, "\\s*\\("), next_expr_str, ignore.case = TRUE)
+              }))
+              
+              if (is_drawing_cmd && !is_next_plot) {
+                plot_exprs <- c(plot_exprs, list(next_expr))
+                j <- j + 1
+              } else {
+                break
+              }
+            }
+            
+            # Execute all plot expressions and drawing commands together
+            plot_file_single <- tempfile(fileext = ".png")
+            tryCatch({
+              # Use png device to capture plot (suppress RStudio graphics pane)
+              grDevices::png(filename = plot_file_single, width = 800, height = 600)
+              # Suppress any messages/output from plot execution
+              suppressMessages({
+                for (plot_expr in plot_exprs) {
+                  eval(plot_expr, envir = env)
+                }
+              })
+              # Ensure device is properly closed
+              dev_num <- grDevices::dev.off()
+              # If there are any open devices, close them to prevent RStudio tracking
+              while (grDevices::dev.cur() != 1) {
+                grDevices::dev.off()
+              }
+              
+              # Check if plot was created
+              if (file.exists(plot_file_single)) {
+                file_size <- file.info(plot_file_single)$size
+                if (!is.null(file_size) && length(file_size) == 1 && file_size > 100) {
+                  plot_files_multi <- c(plot_files_multi, plot_file_single)
+                } else {
+                  unlink(plot_file_single)
+                }
+              }
+            }, error = function(e) {
+              # Ensure device is closed on error
+              tryCatch({
+                while (grDevices::dev.cur() != 1) {
+                  grDevices::dev.off()
+                }
+              }, error = function(e) {})
+            })
+            
+            # Skip the expressions we just processed
+            i <- j
+          } else {
+            # Regular expression - execute normally
+            tryCatch({
+              expr_output <- utils::capture.output({
+                result <- withVisible(eval(expr, envir = env))
+                if (result$visible && !is.null(result$value)) {
+                  # Suppress plotly and kable viewer display
+                  is_plotly_result <- inherits(result$value, "plotly") || 
+                                     (is.list(result$value) && !is.null(result$value$x) && inherits(result$value$x, "plotly")) ||
+                                     (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(result$value, "htmlwidget"))
+                  is_kable_result <- inherits(result$value, "knitr_kable") || 
+                                    (is.character(result$value) && requireNamespace("knitr", quietly = TRUE) && 
+                                     !is.null(attr(result$value, "format")) && attr(result$value, "format") %in% c("html", "latex"))
+                  if (!inherits(result$value, "ggplot") && !is_plotly_result && !is_kable_result) {
+                    print(result$value)
+                  } else if (is_plotly_result || is_kable_result) {
+                    # Suppress viewer - don't print it, just capture silently
+                    invisible(result$value)
+                  }
+                }
+              })
+              all_output <- c(all_output, expr_output)
+            }, error = function(e) {
+              all_output <- c(all_output, paste("Error:", e$message))
+            })
+            i <- i + 1
+          }
+        }
+        
+        # If we captured multiple plots, use those
+        if (length(plot_files_multi) > 0) {
+          plot_file <- plot_files_multi
+          has_plot <- TRUE
+          output <- all_output
+        } else {
+          # Fall back to regular execution
+          output <- utils::capture.output({
+            result <- withVisible(eval(parse(text = code), envir = env))
+            if (result$visible && !is.null(result$value)) {
+              # Suppress plotly and kable viewer display
+              is_plotly_result <- inherits(result$value, "plotly") || 
+                                 (is.list(result$value) && !is.null(result$value$x) && inherits(result$value$x, "plotly")) ||
+                                 (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(result$value, "htmlwidget"))
+              is_kable_result <- inherits(result$value, "knitr_kable") || 
+                                (is.character(result$value) && requireNamespace("knitr", quietly = TRUE) && 
+                                 !is.null(attr(result$value, "format")) && attr(result$value, "format") %in% c("html", "latex"))
+              if (!inherits(result$value, "ggplot") && !is_plotly_result && !is_kable_result) {
+                print(result$value)
+              } else if (is_plotly_result || is_kable_result) {
+                # Suppress viewer - don't print it
+                invisible(result$value)
+              }
+            }
+          })
+        }
+      } else {
+        # Parsing failed, fall back to regular execution
+        output <- utils::capture.output({
+          result <- withVisible(eval(parse(text = code), envir = env))
+          if (result$visible && !is.null(result$value) && !inherits(result$value, "ggplot")) {
+            print(result$value)
+          }
+        })
+      }
+    } else {
+      # Execute code and capture plots (original logic for single plots or ggplot)
     output <- utils::capture.output({
       # Open the graphics device
       grDevices::png(filename = plot_file, width = 800, height = 600)
@@ -67,6 +242,7 @@ execute_code_in_session <- function(code, settings = NULL) {
       result <- withVisible(eval(parse(text = code), envir = env))
 
       # If result is a ggplot object, print it while device is open
+        # Note: plotly objects are handled separately after execution
       if (result$visible && !is.null(result$value) && inherits(result$value, "ggplot")) {
         print(result$value)
       }
@@ -87,23 +263,41 @@ execute_code_in_session <- function(code, settings = NULL) {
       })
 
       # Print the result if it's visible (for non-plot objects)
-      if (result$visible && (is.null(result$value) || !inherits(result$value, "ggplot"))) {
+        # Skip plotly and kable objects - they should not open viewer
+        is_result_plotly <- !is.null(result$value) && 
+                           (inherits(result$value, "plotly") || 
+                            (is.list(result$value) && !is.null(result$value$x) && inherits(result$value$x, "plotly")) ||
+                            (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(result$value, "htmlwidget")))
+        is_result_kable <- !is.null(result$value) && 
+                          (inherits(result$value, "knitr_kable") || 
+                           (is.character(result$value) && requireNamespace("knitr", quietly = TRUE) && 
+                            !is.null(attr(result$value, "format")) && attr(result$value, "format") %in% c("html", "latex")))
+        if (result$visible && (is.null(result$value) || (!inherits(result$value, "ggplot") && !is_result_plotly && !is_result_kable))) {
         print(result$value)
-      }
-    })
+        } else if (is_result_plotly || is_result_kable) {
+          # Suppress plotly/kable viewer - don't print it
+          invisible(result$value)
+        }
+      })
+    }
     
-    # After execution, check for multiple ggplot objects that were just printed
-    # Only look for plots that were explicitly printed in this code execution
+    # After execution, ALWAYS check for multiple ggplot objects when ggplot is used
+    # Also check for plotly objects (plot_ly, ggplotly, etc.)
+    # This is critical because when multiple plots are printed, only the last one is captured
+    # by the single graphics device, so we need to re-print each plot separately
     plot_files <- c()
-    if (is_plot_command && has_plot) {
-      # Parse code to find plot variable names that were printed (e.g., p1, p2, p3)
+    has_plotly <- grepl("plot_ly|ggplotly|plotly::", code, ignore.case = TRUE)
+    if (is_plot_command && (grepl("ggplot", code, ignore.case = TRUE) || has_plotly)) {
+      # Parse code to find plot variable names that were printed (e.g., plot1, plot2, p1, p2)
       code_lines <- strsplit(code, "\n")[[1]]
       # Look for lines that are just variable names (likely plot prints)
       # Pattern: lines that are just a variable name, possibly with print()
       plot_prints <- character(0)
       for (line in code_lines) {
         line_trimmed <- trimws(line)
-        # Match: just a variable name, or print(variable_name)
+        # Skip empty lines and comments
+        if (line_trimmed == "" || grepl("^#", line_trimmed)) next
+        # Match: just a variable name (this captures cases like "plot1" or "p2" on their own line)
         if (grepl("^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*$", line_trimmed, perl = TRUE)) {
           var_match <- regmatches(line_trimmed, regexec("^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*$", line_trimmed, perl = TRUE))[[1]]
           if (length(var_match) > 1) {
@@ -117,14 +311,18 @@ execute_code_in_session <- function(code, settings = NULL) {
         }
       }
       
-      # Remove duplicates and check if variables exist and are ggplot objects
+      # Remove duplicates and check if variables exist and are plot objects (ggplot or plotly)
       plot_prints <- unique(plot_prints)
       valid_plot_vars <- character(0)
       for (var_name in plot_prints) {
         tryCatch({
           if (exists(var_name, envir = env)) {
             obj <- get(var_name, envir = env)
-            if (inherits(obj, "ggplot")) {
+            # Check for ggplot or plotly objects
+            is_plotly <- inherits(obj, "plotly") || 
+                        (is.list(obj) && !is.null(obj$x) && inherits(obj$x, "plotly")) ||
+                        (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(obj, "htmlwidget"))
+            if (inherits(obj, "ggplot") || is_plotly) {
               valid_plot_vars <- c(valid_plot_vars, var_name)
             }
           }
@@ -133,13 +331,59 @@ execute_code_in_session <- function(code, settings = NULL) {
         })
       }
       
-      # If we found multiple plot objects that were printed, capture each one
-      if (length(valid_plot_vars) > 1) {
+      # If we found plot objects (even just one), capture each one separately
+      # This ensures we get all plots, not just the last one
+      if (length(valid_plot_vars) > 0) {
         for (plot_var in valid_plot_vars) {
           tryCatch({
             plot_obj <- get(plot_var, envir = env)
-            if (inherits(plot_obj, "ggplot")) {
-              # Create separate file for this plot
+            
+            # Check if this is a plotly object
+            is_plotly_obj <- inherits(plot_obj, "plotly") || 
+                            (is.list(plot_obj) && !is.null(plot_obj$x) && inherits(plot_obj$x, "plotly")) ||
+                            (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(plot_obj, "htmlwidget") && 
+                             !is.null(plot_obj$x) && !is.null(plot_obj$x$config) && 
+                             !is.null(plot_obj$x$config$modeBarButtonsToAdd))
+            
+            if (is_plotly_obj) {
+              # Convert plotly to static PNG image
+              # Suppress viewer display by using saveWidget with libdir to avoid viewer
+              plot_file_single <- tempfile(fileext = ".png")
+              tryCatch({
+                # Try using webshot to convert HTML widget to PNG
+                if (requireNamespace("htmlwidgets", quietly = TRUE) && 
+                    requireNamespace("webshot", quietly = TRUE)) {
+                  # Save as HTML first, then convert to PNG
+                  # Use libdir parameter to avoid viewer display
+                  html_file <- tempfile(fileext = ".html")
+                  lib_dir <- tempfile("lib")
+                  dir.create(lib_dir)
+                  # Suppress viewer by using saveWidget with libdir
+                  htmlwidgets::saveWidget(plot_obj, html_file, selfcontained = TRUE, libdir = lib_dir)
+                  webshot::webshot(html_file, plot_file_single, vwidth = 800, vheight = 600)
+                  unlink(html_file)
+                  unlink(lib_dir, recursive = TRUE)
+                } else {
+                  # If webshot not available, skip plotly capture
+                  plot_file_single <- NULL
+                }
+                
+                if (!is.null(plot_file_single) && file.exists(plot_file_single)) {
+                  file_size <- tryCatch(file.info(plot_file_single)$size, error = function(e) 0)
+                  if (length(file_size) == 1 && file_size > 100) {
+                    plot_files <- c(plot_files, plot_file_single)
+                  } else {
+                    unlink(plot_file_single)
+                  }
+                }
+              }, error = function(e) {
+                # If plotly export fails, skip this plot
+                if (!is.null(plot_file_single) && file.exists(plot_file_single)) {
+                  unlink(plot_file_single)
+                }
+              })
+            } else if (inherits(plot_obj, "ggplot")) {
+              # Handle ggplot objects
               plot_file_single <- tempfile(fileext = ".png")
               grDevices::png(filename = plot_file_single, width = 800, height = 600)
               print(plot_obj)
@@ -157,13 +401,20 @@ execute_code_in_session <- function(code, settings = NULL) {
               }
             }
           }, error = function(e) {
+            # Skip if we can't capture this plot
           })
         }
         
-        # If we captured multiple plots, use those instead of the single plot_file
+        # If we captured ggplot plots, merge them with any base R plots we already captured
         if (length(plot_files) > 0) {
+          if (length(plot_file) > 0 && is.character(plot_file)) {
+            # Merge base R plots (already captured) with ggplot plots
+            plot_file <- c(plot_file, plot_files)
+          } else {
+            # Only ggplot plots
           plot_file <- plot_files
-          has_plot <- as.logical(length(plot_files) > 0)  # Ensure single logical value
+          }
+          has_plot <- TRUE
         }
       }
     }

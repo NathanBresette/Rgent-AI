@@ -626,6 +626,39 @@
       .insert-button:hover { 
         background-color: #218838; 
       }
+      
+      .output-block { 
+        background-color: var(--code-bg); 
+        border: 1px solid var(--border-color); 
+        border-left: 4px solid var(--rgent-accent);
+        border-radius: 8px; 
+        padding: 15px; 
+        margin: 15px 0; 
+        font-family: 'Courier New', monospace;
+        white-space: pre-wrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        color: var(--text-primary);
+        position: relative;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        max-width: 100%;
+      }
+      
+      .output-block-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: var(--bg-secondary);
+        margin: -15px -15px 10px -15px;
+        padding: 8px 15px;
+        border-radius: 8px 8px 0 0;
+        color: var(--text-primary);
+        font-size: 12px;
+        font-weight: 600;
+        width: 100%;
+        border-bottom: 1px solid var(--border-color);
+      }
+      
       #chat-tab {
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
@@ -5423,6 +5456,42 @@
                   outputText = "No output";
                 }
                 
+                // ALWAYS check for plots FIRST, regardless of other content
+                const plotMatches = outputText.match(/PLOT_DATA:\s*([A-Za-z0-9+/=]+)/g);
+                const analyzeMatch = outputText.match(/ANALYZE_PLOT:TRUE/);
+                let cleanOutputText = outputText;
+                let hasPlots = false;
+                
+                console.log('🔍 Plot detection - plotMatches:', plotMatches ? plotMatches.length : 0, 'outputText length:', outputText.length);
+                
+                if (plotMatches && plotMatches.length > 0) {
+                  hasPlots = true;
+                  console.log('🔍 Plots detected, displaying', plotMatches.length, 'plot(s)');
+                  // Remove all PLOT_DATA markers from the output text
+                  cleanOutputText = outputText.replace(/PLOT_DATA:\s*[A-Za-z0-9+/=]+\s*/g, '');
+                  cleanOutputText = cleanOutputText.replace(/ANALYZE_PLOT:TRUE\s*/g, '');
+                  cleanOutputText = cleanOutputText.trim();
+                  
+                  // Display each plot found
+                  plotMatches.forEach((match, index) => {
+                    // Extract just the base64 data part
+                    const plotDataMatch = match.match(/PLOT_DATA:\s*([A-Za-z0-9+/=]+)/);
+                    const plotData = plotDataMatch ? plotDataMatch[1] : '';
+                    const plotNumber = plotMatches.length > 1 ? ` (${index + 1}/${plotMatches.length})` : '';
+                    
+                    // Determine if this is from visualization agent or regular chat
+                    const isVisualizationAgent = currentAgentWorkflow && currentAgentWorkflow.type === 'visualization';
+                    const plotTitle = isVisualizationAgent ? `**Plot from Visualization Agent${plotNumber}**` : `**Generated Plot${plotNumber}**`;
+                    
+                    const message = `${plotTitle}\n\n` +
+                                   `data:image/png;base64,${plotData}`;
+                    addVisualizationMessage(message, 'ai');
+                  });
+                  
+                  // Update outputText to cleaned version for subsequent processing
+                  outputText = cleanOutputText;
+                }
+                
                 // Check if this is a custom transformation request (before checking agent output)
                 if (outputText.includes('Custom Transformation Request') && outputText.includes('Sending custom transformation request to Claude')) {
                   console.log('🔍 Detected custom transformation request in executed output, sending to Claude');
@@ -5475,33 +5544,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                   break;
                 }
                 
-                // Check for plot data in the output (for visualization agent and regular chat)
-                // This will detect multiple plots since we use global matching
-                const plotMatches = outputText.match(/PLOT_DATA:\s*([A-Za-z0-9+/=]+)/g);
-                const analyzeMatch = outputText.match(/ANALYZE_PLOT:TRUE/);
-                
-                if (plotMatches && plotMatches.length > 0) {
-                  // Display each plot found
-                  plotMatches.forEach((match, index) => {
-                    // Extract just the base64 data part
-                    const plotDataMatch = match.match(/PLOT_DATA:\s*([A-Za-z0-9+/=]+)/);
-                    const plotData = plotDataMatch ? plotDataMatch[1] : '';
-                    const plotNumber = plotMatches.length > 1 ? ` (${index + 1}/${plotMatches.length})` : '';
-                    
-                    // Determine if this is from visualization agent or regular chat
-                    const isVisualizationAgent = currentAgentWorkflow && currentAgentWorkflow.type === 'visualization';
-                    const plotTitle = isVisualizationAgent ? `**Plot from Visualization Agent${plotNumber}**` : `**Generated Plot${plotNumber}**`;
-                    
-                    const message = `${plotTitle}\n\n` +
-                                   `data:image/png;base64,${plotData}`;
-                    addVisualizationMessage(message, 'ai');
-                  });
-                  
-                  // Note: Analysis will be triggered after all plots are complete
-                  // to provide better multi-plot analysis
-                  
-                  // Handle visualization step completion for workflow progression
-                  if (currentAgentWorkflow && currentAgentWorkflow.type === 'visualization') {
+                // Handle visualization step completion for workflow progression (plots already displayed above)
+                if (hasPlots && currentAgentWorkflow && currentAgentWorkflow.type === 'visualization') {
                     console.log('🎨 Processing visualization step completion for workflow progression');
                     
                     // Store result for final summary (without displaying again)
@@ -5518,34 +5562,6 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     setTimeout(() => {
                       requestNextVisualizationStep();
                     }, 1000);
-                  } else {
-                    // Regular chat plot execution - reset button after plot is displayed
-                    // Check if this is cleaning code execution
-                    if (cleaningCodeExecuting) {
-                      console.log('🔍 Cleaning code executed successfully with plot!');
-                      // Code executed successfully, no need to check for errors
-                      
-                      // Reset cleaning code state
-                      cleaningCodeIterationCount = 0;
-                      cleaningCodeExecuting = false;
-                      
-                      // Clear the stored agent type
-                      window.completedAgentType = null;
-                      window.currentActiveAgentType = null;
-                      
-                      // Reset button after code execution completes (for auto-execute)
-                      if (isAIResponding) {
-                        isAIResponding = false;
-                        transformToSendButton();
-                      }
-                    } else if (isAIResponding) {
-                      // Regular code execution with plot - reset button
-                      isAIResponding = false;
-                      transformToSendButton();
-                    }
-                  }
-                  
-                  break;
                 }
                 
                 // Check if this is agent output
@@ -5638,11 +5654,18 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     // Check if this is a normal chat auto-execute (not an agent workflow)
                     if (window.currentActiveAgentType === null && window.completedAgentType === null) {
                       // Normal chat auto-execute
-                      addMessage(`**Code Executed Successfully!**`, 'ai');
-                      addMessage(`**Next Steps:**\n- Check your environment for the results\n- Verify the output meets your expectations\n- Continue with your analysis`, 'ai');
+                      let successMessage = `**Code Executed Successfully!**`;
+                      if (outputText && outputText.trim() && outputText !== "No output") {
+                        successMessage += `\n\n@@output\n${outputText}\n@@`;
+                      }
+                      addMessage(successMessage, 'ai');
                     } else {
                       // Agent workflow auto-execute
-                      addMessage(`**${agentType} Code Executed Successfully!**\n\nThe data has been ${operationType} according to Claude's recommendations.`, 'ai');
+                      let successMessage = `**${agentType} Code Executed Successfully!**\n\nThe data has been ${operationType} according to Claude's recommendations.`;
+                      if (outputText && outputText.trim() && outputText !== "No output") {
+                        successMessage += `\n\n@@output\n${outputText}\n@@`;
+                      }
+                      addMessage(successMessage, 'ai');
                       addMessage(`**Next Steps:**\n- ${nextSteps}\n- Verify the results meet your expectations\n- The ${agentType.toLowerCase()} agent workflow is now complete!`, 'ai');
                     }
                     
@@ -5663,7 +5686,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     }
                   } else {
                     // Regular code execution, not agent
-                    addMessage("Code executed successfully! Output: " + outputText, "ai");
+                    // If we already displayed plots, make sure we show text output too
+                    let successMessage = "**Code executed successfully!**";
+                    if (outputText && outputText.trim() && outputText !== "No output") {
+                      successMessage += `\n\n@@output\n${outputText}\n@@`;
+                    }
+                    addMessage(successMessage, "ai");
                     
                     // Reset AI responding flag and transform button back
                     if (isAIResponding) {
@@ -5693,7 +5721,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
             case "execute_and_fix":
               if (data.status === "success") {
-                addMessage("Code executed successfully! Output: " + (data.output || "No output"), "ai");
+                let successMessage = "**Code executed successfully!**";
+                const outputText = data.output || "No output";
+                if (outputText && outputText.trim() && outputText !== "No output") {
+                  successMessage += `\n\n@@output\n${outputText}\n@@`;
+                }
+                addMessage(successMessage, "ai");
               } else if (data.status === "error_fixed") {
                 addMessage("Code failed but AI provided a fix:\n\nOriginal error: " + data.original_error + "\n\nFixed code:\n```r\n" + data.fixed_code + "\n```", "ai");
               } else {
@@ -7811,6 +7844,71 @@ Include comments explaining each step. Code only. Minimal chat.`;
         messageDiv.className = "message " + role + "-message";
         
         if (role === "ai") {
+          // Check for output blocks first - format: @@output\n...content...\n@@
+          // Process all output blocks in the message
+          const outputBlockRegex = /@@output\n([\s\S]*?)\n@@/g;
+          const outputMatches = [];
+          let match;
+          
+          // Collect all output block matches
+          while ((match = outputBlockRegex.exec(content)) !== null) {
+            outputMatches.push({
+              index: match.index,
+              length: match[0].length,
+              content: match[1]
+            });
+          }
+          
+          if (outputMatches.length > 0) {
+            // Process content with output blocks
+            let lastIndex = 0;
+            
+            outputMatches.forEach((outputMatch, idx) => {
+              // Add text before this output block
+              const beforeOutput = content.substring(lastIndex, outputMatch.index);
+              if (beforeOutput.trim()) {
+                const textDiv = document.createElement("div");
+                textDiv.innerHTML = beforeOutput;
+                processMarkdownFormatting(textDiv);
+                messageDiv.appendChild(textDiv);
+              }
+              
+              // Add output block
+              const outputDiv = document.createElement("div");
+              outputDiv.className = "output-block";
+              
+              // Create header
+              const headerDiv = document.createElement("div");
+              headerDiv.className = "output-block-header";
+              const outputLabel = document.createElement("span");
+              outputLabel.textContent = "Output";
+              headerDiv.appendChild(outputLabel);
+              outputDiv.appendChild(headerDiv);
+              
+              // Add output content
+              const outputContentDiv = document.createElement("div");
+              outputContentDiv.textContent = outputMatch.content;
+              outputDiv.appendChild(outputContentDiv);
+              
+              messageDiv.appendChild(outputDiv);
+              
+              lastIndex = outputMatch.index + outputMatch.length;
+            });
+            
+            // Add remaining text after last output block
+            const afterOutput = content.substring(lastIndex);
+            if (afterOutput.trim()) {
+              const textDiv = document.createElement("div");
+              textDiv.innerHTML = afterOutput;
+              processMarkdownFormatting(textDiv);
+              messageDiv.appendChild(textDiv);
+            }
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            return;
+          }
+          
           // More precise code block detection - only for actual R code blocks
           // Check for code blocks - handles ```r, ```R, ```{r}, ```{R}, or plain ```
           if (content.includes("```r") || content.includes("```R") || /```[\s\S]*?```/.test(content)) {
