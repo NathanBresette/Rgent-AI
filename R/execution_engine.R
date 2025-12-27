@@ -62,13 +62,28 @@ execute_code_in_session <- function(code, settings = NULL) {
     }
 
     # Base R plot functions and drawing commands
-    base_plot_functions <- c("plot", "boxplot", "hist", "barplot", "pie", "qqnorm", "qqplot", 
-                             "pairs", "image", "contour", "persp", "matplot", "curve")
+    base_plot_functions <- c(
+      # Core base R plots
+      "plot", "boxplot", "hist", "barplot", "pie", "qqnorm", "qqplot", 
+      "pairs", "image", "contour", "persp", "matplot", "curve",
+      # Additional base R plots
+      "dotchart", "stripchart", "heatmap", "filled.contour", "mosaicplot",
+      "fourfoldplot", "assocplot", "spineplot", "cdplot", "sunflowerplot",
+      "symbols", "stars", "coplot", "interaction.plot", "termplot",
+      # Specialized packages that draw directly
+      "corrplot", "pheatmap", "Heatmap", "superheat",
+      # lattice plots
+      "xyplot", "bwplot", "densityplot", "histogram", "levelplot", 
+      "contourplot", "wireframe", "splom", "cloud", "parallel",
+      "dotplot", "barchart", "stripplot", "qq"
+    )
     plot_drawing_commands <- c("abline", "lines", "points", "legend", "text", "title", "axis", 
-                               "grid", "rug", "segments", "arrows", "rect", "polygon")
+                               "grid", "rug", "segments", "arrows", "rect", "polygon",
+                               "mtext", "box", "locator", "identify")
     
-    # Grid-based multi-plot functions (gridExtra, cowplot, patchwork)
-    grid_plot_functions <- c("grid.arrange", "arrangeGrob", "plot_grid", "wrap_plots")
+    # Grid-based multi-plot functions (gridExtra, cowplot, patchwork, ggpubr, egg)
+    grid_plot_functions <- c("grid.arrange", "arrangeGrob", "plot_grid", "wrap_plots",
+                             "ggarrange", "marrangeGrob", "grid.draw")
     
     # Helper: Check if object is a plot type
     is_ggplot_obj <- function(x) inherits(x, "ggplot")
@@ -192,15 +207,16 @@ execute_code_in_session <- function(code, settings = NULL) {
     
     # Helper: Execute expression and capture plotly WITHOUT opening browser
     execute_and_capture_plotly <- function(expr, env) {
-      # Temporarily suppress all browser/viewer output
+      # Temporarily suppress all browser/viewer/htmlwidgets output
       old_browser <- getOption("browser")
       old_viewer <- getOption("viewer")
+      old_htmlwidgets_viewer <- getOption("htmlwidgets.viewer")
       
-      # Set browser to a no-op function
+      # Set all viewers to no-op functions
       options(browser = function(url) invisible(NULL))
       options(viewer = function(url, ...) invisible(NULL))
+      options(htmlwidgets.viewer = function(url, ...) invisible(NULL))
       
-      # Also suppress htmlwidgets' browsable behavior
       result <- tryCatch({
         # Evaluate without triggering print
         val <- eval(expr, envir = env)
@@ -208,9 +224,10 @@ execute_code_in_session <- function(code, settings = NULL) {
       }, error = function(e) {
         list(value = NULL, success = FALSE, error = e$message)
       }, finally = {
-        # Restore browser/viewer
+        # Restore all options
         options(browser = old_browser)
         options(viewer = old_viewer)
+        options(htmlwidgets.viewer = old_htmlwidgets_viewer)
       })
       
       return(result)
@@ -319,11 +336,16 @@ execute_code_in_session <- function(code, settings = NULL) {
           })
           i <- i + 1
           
-        } else {
+                } else {
           # EXECUTE EXPRESSION and check result type at runtime
           # Capture ALL console output (cat, print, message, str, etc.)
+          # Suppress browser, viewer, AND htmlwidgets viewer for ALL expressions
           old_browser <- getOption("browser")
+          old_viewer <- getOption("viewer")
+          old_htmlwidgets_viewer <- getOption("htmlwidgets.viewer")
           options(browser = function(url) invisible(NULL))
+          options(viewer = function(url, ...) invisible(NULL))
+          options(htmlwidgets.viewer = function(url, ...) invisible(NULL))
           
           tryCatch({
             # Wrap evaluation in capture.output to get ALL console output
@@ -331,6 +353,7 @@ execute_code_in_session <- function(code, settings = NULL) {
               expr_result <- withVisible(eval(expr, envir = env))
               
               # Auto-print visible results (like typing a variable name)
+              # But SKIP plotly objects to prevent them from trying to open viewer
               if (expr_result$visible && !is.null(expr_result$value) &&
                   !is_ggplot_obj(expr_result$value) && 
                   !is_plotly_obj(expr_result$value) &&
@@ -346,7 +369,7 @@ execute_code_in_session <- function(code, settings = NULL) {
               all_output <- c(all_output, expr_output)
             }
             
-            # Handle plot objects
+            # Handle plot objects detected at RUNTIME
             is_assign <- is_assignment(expr)
             is_print <- is_print_call(expr)
             
@@ -358,6 +381,8 @@ execute_code_in_session <- function(code, settings = NULL) {
                 if (!is.null(pf)) plot_files <- c(plot_files, pf)
                 
               } else if (is_plotly_obj(expr_result$value) && should_capture_plot) {
+                # Plotly detected at runtime (e.g., typing variable name)
+                # Browser/viewer already suppressed above, just try to capture
                 pf <- capture_plotly(expr_result$value)
                 if (!is.null(pf)) plot_files <- c(plot_files, pf)
               }
@@ -366,6 +391,8 @@ execute_code_in_session <- function(code, settings = NULL) {
             all_output <- c(all_output, paste("Error:", e$message))
           }, finally = {
             options(browser = old_browser)
+            options(viewer = old_viewer)
+            options(htmlwidgets.viewer = old_htmlwidgets_viewer)
           })
           i <- i + 1
         }
@@ -446,19 +473,19 @@ execute_code_in_session <- function(code, settings = NULL) {
     # Include plot(s) if available
     if (has_plot && length(plot_files) > 0) {
       # Convert plots to base64 and add to output
-      tryCatch({
-        if (requireNamespace("base64enc", quietly = TRUE)) {
+        tryCatch({
+          if (requireNamespace("base64enc", quietly = TRUE)) {
           for (pf in plot_files) {
-            if (file.exists(pf)) {
-              plot_base64 <- base64enc::base64encode(pf)
-              output <- c(output, paste0("PLOT_DATA:", plot_base64))
+              if (file.exists(pf)) {
+                plot_base64 <- base64enc::base64encode(pf)
+                output <- c(output, paste0("PLOT_DATA:", plot_base64))
             }
           }
           response$output <- paste(output, collapse = "\n")
-        }
-      }, error = function(e) {
-        cat("Warning: Error encoding plot -", e$message, "\n")
-      })
+          }
+        }, error = function(e) {
+          cat("Warning: Error encoding plot -", e$message, "\n")
+        })
       
       response$plot <- list(
         created = TRUE,
@@ -476,7 +503,7 @@ execute_code_in_session <- function(code, settings = NULL) {
   }, finally = {
     # Clean up temporary plot files
     if (length(plot_files) > 0) {
-      tryCatch({
+        tryCatch({
         while (grDevices::dev.cur() != 1) grDevices::dev.off()
         suppressWarnings(unlink(plot_files[sapply(plot_files, file.exists)], force = TRUE))
       }, error = function(e) {})
