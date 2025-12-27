@@ -4829,7 +4829,7 @@
       let isAIResponding = false;
       let currentRequestId = null;
       let pendingTimeouts = [];
-      let operationStopped = false; // Flag to track if operation was stopped
+      let operationStopped = false;
       
       // Store last output for context in follow-up messages
       let lastCodeOutput = null;
@@ -5419,33 +5419,20 @@
           
           switch(data.action) {
             case "ai_response":
-              // Check if operation was stopped before processing AI response
+              // Check if operation was stopped
               if (operationStopped) {
-                console.log('🛑 Operation was stopped, ignoring AI response');
                 return;
               }
               
-              // Check if agent was stopped before processing AI response
+              // Check if agent was stopped
               if (currentAgentWorkflow && currentAgentWorkflow.stopped) {
-                console.log('🛑 Agent was stopped, ignoring AI response');
                 return;
               }
               
               if (data.streaming) {
-                // Handle streaming response
                 if (data.chunk) {
-                  // Check if stopped before adding chunk
-                  if (operationStopped) {
-                    console.log('🛑 Operation was stopped, ignoring chunk');
-                    return;
-                  }
                   addStreamingChunk(data.chunk);
                 } else if (data.finished) {
-                  // Check if stopped before finishing
-                  if (operationStopped) {
-                    console.log('🛑 Operation was stopped, ignoring finish');
-                    return;
-                  }
                   finishStreaming();
                 }
               } else {
@@ -5469,8 +5456,6 @@
               }
               break;
             case "stop_response":
-              // Handle stop response confirmation
-              console.log('🛑 Stop response confirmed by backend');
               break;
             case "inserted":
               addMessage("Code inserted successfully!", "ai");
@@ -6219,8 +6204,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               }
               break;
             case "stop_response":
-              // Handle stop response confirmation
-              console.log('🛑 Stop response confirmed by backend');
               break;
 
           }
@@ -6344,6 +6327,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         const message = input.value.trim();
         if (!message || !isConnected) return;
         
+        
         // Clear any tab completion suggestion
         hideCompletionSuggestion();
         
@@ -6417,16 +6401,11 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       // Transform send button to stop button (generic, for chat/auto-execute/debug)
       function transformToStopButton() {
-        console.log('🔄 Transforming send button to stop button...');
         const sendBtn = document.getElementById('send-button');
-        
         if (sendBtn) {
           sendBtn.textContent = 'Stop';
           sendBtn.className = 'send-button stop-mode';
           sendBtn.onclick = stopCurrentOperation;
-          console.log('✅ Button transformed to stop button');
-        } else {
-          console.error('❌ Send button not found!');
         }
       }
       
@@ -6444,8 +6423,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       // Stop current operation (chat/auto-execute/debug)
       function stopCurrentOperation() {
-        console.log('🛑 Stopping current operation...');
-        
         // Set stop flag to ignore incoming chunks
         operationStopped = true;
         
@@ -6508,15 +6485,12 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
       // Stop agent workflow and reset everything
       function stopAgentWorkflow() {
-        console.log('🛑 Stopping agent workflow...');
-        
         // Clear all pending timeouts
         pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
         pendingTimeouts = [];
         
         // Clear pending agent code requests to prevent race condition
         if (window.pendingAgentCodeRequest) {
-          console.log('🛑 Clearing pending agent code request');
           window.pendingAgentCodeRequest = null;
         }
         
@@ -6571,11 +6545,6 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       function addStreamingChunk(chunk) {
-        // Check if operation was stopped
-        if (operationStopped) {
-          return;
-        }
-        
         if (!currentStreamingMessage) {
           // Remove all animated placeholders when streaming starts
           removeAnimatedPlaceholder("ai-thinking");
