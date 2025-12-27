@@ -1380,7 +1380,8 @@ start_websocket_server <- function() {
                 workspace_objects = workspace_objects_array,
                 file_info = current_context$file_info,
                 environment_info = current_context$environment_info,
-                timestamp = current_context$timestamp
+                timestamp = current_context$timestamp,
+                last_output = if (!is.null(request$last_output)) request$last_output else NULL
               )
             )
             

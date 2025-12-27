@@ -4831,6 +4831,65 @@
       let pendingTimeouts = [];
       let operationStopped = false; // Flag to track if operation was stopped
       
+      // Store last output for context in follow-up messages
+      let lastCodeOutput = null;
+      
+      // Context extraction - full output up to ~1500 tokens (~4500 chars), smart extraction above
+      function extractSmartContext(output, maxChars = 4500) {
+        if (!output) return null;
+        
+        // Remove PLOT_DATA base64 strings (always)
+        let cleaned = output.replace(/PLOT_DATA:\s*[A-Za-z0-9+/=]+\s*/g, '[plot]');
+        cleaned = cleaned.replace(/ANALYZE_PLOT:TRUE\s*/g, '');
+        cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+        
+        // If under limit, return full cleaned output
+        if (cleaned.length <= maxChars) {
+          return cleaned;
+        }
+        
+        // Over limit: smart extraction - keep everything except numbered data rows
+        const lines = cleaned.split('\n');
+        const keptLines = [];
+        let skippedDataRows = 0;
+        
+        // Pattern for numbered data rows (like "1  Player_1  QB  49...")
+        const dataRowPattern = /^\s*\d+\s+\S+/;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Always keep first 10 and last 10 lines
+          if (i < 10 || i >= lines.length - 10) {
+            keptLines.push(line);
+            continue;
+          }
+          
+          // Skip numbered data rows in the middle
+          if (dataRowPattern.test(line)) {
+            skippedDataRows++;
+            continue;
+          }
+          
+          // Keep everything else
+          keptLines.push(line);
+        }
+        
+        let result = keptLines.join('\n');
+        
+        // Add data row summary if we skipped any
+        if (skippedDataRows > 0) {
+          result = result.replace(/\n{2,}/, `\n[${skippedDataRows} data rows omitted]\n`);
+        }
+        
+        // Final length limit
+        if (result.length > maxChars) {
+          result = result.substring(0, maxChars) + '\n[truncated]';
+        }
+        
+        return result || null;
+      }
+      
       // Access validation
       window.validateAccess = async function(isAutoLogin = false) {
         const code = document.getElementById('access-code').value.trim();
@@ -5461,6 +5520,13 @@
                   outputText = data.output;
                 } else {
                   outputText = "No output";
+                }
+                
+                // Store last output for context - smart extraction for token efficiency
+                if (outputText && outputText !== "No output" && outputText.trim()) {
+                  lastCodeOutput = extractSmartContext(outputText);
+                } else {
+                  lastCodeOutput = null;
                 }
                 
                 // ALWAYS check for plots FIRST, regardless of other content
@@ -6324,11 +6390,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Transform send button to stop button
         transformToStopButton();
         
-        // Send to R via WebSocket
-        ws.send(JSON.stringify({
+        // Send to R via WebSocket (include last output for context if available)
+        const chatPayload = {
           action: "chat_with_ai",
           message: message
-        }));
+        };
+        if (lastCodeOutput) {
+          chatPayload.last_output = lastCodeOutput;
+        }
+        ws.send(JSON.stringify(chatPayload));
         
 
       }
