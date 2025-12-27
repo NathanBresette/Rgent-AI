@@ -67,6 +67,9 @@ execute_code_in_session <- function(code, settings = NULL) {
     plot_drawing_commands <- c("abline", "lines", "points", "legend", "text", "title", "axis", 
                                "grid", "rug", "segments", "arrows", "rect", "polygon")
     
+    # Grid-based multi-plot functions (gridExtra, cowplot, patchwork)
+    grid_plot_functions <- c("grid.arrange", "arrangeGrob", "plot_grid", "wrap_plots")
+    
     # Helper: Check if object is a plot type
     is_ggplot_obj <- function(x) inherits(x, "ggplot")
     is_plotly_obj <- function(x) {
@@ -179,6 +182,14 @@ execute_code_in_session <- function(code, settings = NULL) {
       grepl("plot_ly|ggplotly|plotly::", expr_str, ignore.case = TRUE)
     }
     
+    # Helper: Check if expression is a grid-based multi-plot function
+    is_grid_plot_expr <- function(expr_str) {
+      any(sapply(grid_plot_functions, function(f) {
+        grepl(paste0("(\\b", f, "\\s*\\()|(gridExtra::", f, ")|(cowplot::", f, ")|(patchwork::", f, ")"), 
+              expr_str, ignore.case = TRUE)
+      }))
+    }
+    
     # Helper: Execute expression and capture plotly WITHOUT opening browser
     execute_and_capture_plotly <- function(expr, env) {
       # Temporarily suppress all browser/viewer output
@@ -253,6 +264,33 @@ execute_code_in_session <- function(code, settings = NULL) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
           })
           i <- j
+          
+        } else if (is_grid_plot_expr(expr_str) && !is_assignment(expr)) {
+          # GRID-BASED PLOT (grid.arrange, plot_grid, etc.): Capture to PNG
+          plot_file <- tempfile(fileext = ".png")
+          tryCatch({
+            grid_output <- utils::capture.output({
+              grDevices::png(filename = plot_file, width = 1000, height = 800)
+              eval(expr, envir = env)
+              grDevices::dev.off()
+            })
+            while (grDevices::dev.cur() != 1) grDevices::dev.off()
+            
+            # Capture any text output
+            if (length(grid_output) > 0) {
+              all_output <- c(all_output, grid_output)
+            }
+            
+            if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
+              plot_files <- c(plot_files, plot_file)
+            } else {
+              unlink(plot_file)
+            }
+          }, error = function(e) {
+            tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
+            all_output <- c(all_output, paste("Error:", e$message))
+          })
+          i <- i + 1
           
         } else if (is_plotly_expr(expr_str) && !is_assignment(expr)) {
           # PLOTLY EXPRESSION: Handle specially to prevent browser opening
