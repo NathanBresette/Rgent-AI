@@ -362,12 +362,13 @@
         background-color: #27ae60 !important;
         color: white !important;
         border: none !important;
-        padding: 8px 16px !important;
+        padding: 8px 12px !important;
         border-radius: 4px !important;
         cursor: pointer !important;
         transition: all 0.3s ease !important;
-        flex: 0 0 auto;
+        flex: 0 0 auto !important;
         font-size: 12px !important;
+        min-width: fit-content !important;
       }
       
       .send-button:hover {
@@ -388,9 +389,9 @@
         display: flex !important;
         align-items: stretch !important;
         justify-content: stretch !important;
-        flex: 23.8 !important;
-        min-width: 0 !important;
-        width: 100% !important;
+        flex: 0 0 100px !important;
+        min-width: 100px !important;
+        max-width: 100px !important;
       }
       
       .mode-selector-button {
@@ -447,7 +448,9 @@
       
       /* Ensure input-row doesn't override */
       .input-row .auto-execute-toggle {
-        flex: 23.8 !important;
+        flex: 0 0 100px !important;
+        min-width: 100px !important;
+        max-width: 100px !important;
       }
       
       .input-row .mode-selector-button {
@@ -484,8 +487,9 @@
       }
       
       .tab-content .input-row .auto-execute-toggle {
-        flex: 23.8 !important;
-        width: 100% !important;
+        flex: 0 0 100px !important;
+        min-width: 100px !important;
+        max-width: 100px !important;
       }
       
       .tab-content .input-row #mode-selector-button {
@@ -729,7 +733,9 @@
       }
       
       #new-conversation-button {
-        flex: 20;
+        flex: 0 0 100px !important;
+        min-width: 100px !important;
+        max-width: 100px !important;
       }
       input[type="text"] { 
         flex: 1;
@@ -741,7 +747,8 @@
       }
       
       #user-input {
-        flex: 75;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
         padding: 8px; 
         border: 1px solid var(--border-color);
         border-radius: 4px;
@@ -5686,7 +5693,6 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     }
                   } else {
                     // Regular code execution, not agent
-                    // If we already displayed plots, make sure we show text output too
                     let successMessage = "**Code executed successfully!**";
                     if (outputText && outputText.trim() && outputText !== "No output") {
                       successMessage += `\n\n@@output\n${outputText}\n@@`;
@@ -6272,6 +6278,9 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         const message = input.value.trim();
         if (!message || !isConnected) return;
         
+        // Clear any tab completion suggestion
+        hideCompletionSuggestion();
+        
         // Add user message
         addMessage(message, "user");
         input.value = "";
@@ -6290,7 +6299,11 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         thinkingDots.className = "thinking-dots";
         thinking.appendChild(thinkingText);
         thinking.appendChild(thinkingDots);
-        document.getElementById("chat-container").appendChild(thinking);
+        const chatContainer = document.getElementById("chat-container");
+        chatContainer.appendChild(thinking);
+        
+        // Smooth scroll to show "Thinking..." indicator
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
         
         // Animate the dots
         let dotCount = 0;
