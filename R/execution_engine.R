@@ -89,7 +89,7 @@ execute_code_in_session <- function(code, settings = NULL) {
     is_ggplot_obj <- function(x) inherits(x, "ggplot")
     is_plotly_obj <- function(x) {
       inherits(x, "plotly") || 
-      (is.list(x) && !is.null(x$x) && inherits(x$x, "plotly")) ||
+      (is.list(x) && !is.data.frame(x) && "x" %in% names(x) && inherits(x[["x"]], "plotly")) ||
       (requireNamespace("htmlwidgets", quietly = TRUE) && inherits(x, "htmlwidget"))
     }
     is_kable_obj <- function(x) {
