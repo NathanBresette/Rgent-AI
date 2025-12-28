@@ -50,6 +50,8 @@ execute_code_in_session <- function(code, settings = NULL) {
   all_output <- c()
   has_plot <- FALSE
   result <- NULL
+  execution_had_error <- FALSE  # Track if any expression had an error
+  last_error_message <- NULL    # Store the last error message
 
   tryCatch({
     # Store plot command for analysis if applicable
@@ -305,7 +307,9 @@ execute_code_in_session <- function(code, settings = NULL) {
             }
           }, error = function(e) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
-            all_output <- c(all_output, paste("Error:", e$message))
+            all_output <<- c(all_output, paste("Error:", e$message))
+            execution_had_error <<- TRUE
+            last_error_message <<- e$message
           })
           i <- i + 1
           
@@ -329,10 +333,14 @@ execute_code_in_session <- function(code, settings = NULL) {
                 if (!is.null(pf)) plot_files <- c(plot_files, pf)
               }
             } else if (!plotly_result$success) {
-              all_output <- c(all_output, paste("Error:", plotly_result$error))
+              all_output <<- c(all_output, paste("Error:", plotly_result$error))
+              execution_had_error <<- TRUE
+              last_error_message <<- plotly_result$error
             }
           }, error = function(e) {
-            all_output <- c(all_output, paste("Error:", e$message))
+            all_output <<- c(all_output, paste("Error:", e$message))
+            execution_had_error <<- TRUE
+            last_error_message <<- e$message
           })
           i <- i + 1
           
@@ -388,7 +396,9 @@ execute_code_in_session <- function(code, settings = NULL) {
               }
             }
           }, error = function(e) {
-            all_output <- c(all_output, paste("Error:", e$message))
+            all_output <<- c(all_output, paste("Error:", e$message))
+            execution_had_error <<- TRUE
+            last_error_message <<- e$message
           }, finally = {
             options(browser = old_browser)
             options(viewer = old_viewer)
@@ -401,6 +411,11 @@ execute_code_in_session <- function(code, settings = NULL) {
       # Set output and plot status
       output <- all_output
       has_plot <- length(plot_files) > 0
+      
+      # If any expression had an error, return failure
+      if (execution_had_error) {
+        return(list(success = FALSE, error = last_error_message, output = paste(output, collapse = "\n")))
+      }
       
     } else {
       # Parsing failed - simple fallback execution
