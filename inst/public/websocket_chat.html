@@ -5454,12 +5454,13 @@
           }
           
           
-          // Helper function to detect code blocks - used by multiple cases
+          // Helper function to detect R code blocks - used by multiple cases
+          // ONLY detects R code blocks (```r, ```R, ```{r}, ```{R}), NOT generic ``` or other languages
           const hasCodeBlock = (text) => {
             if (!text) return false;
-            // Only return true if we have BOTH opening and closing backticks
-            // This prevents triggering on incomplete/truncated code blocks
-            return /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?[\s\S]+?```/.test(text);
+            // Only return true if we have BOTH opening and closing backticks AND it's R code
+            // This prevents triggering on incomplete/truncated code blocks or output blocks
+            return /```(?:\{[rR]\}|[rR])(?:\n|\s+)[\s\S]+?```/.test(text);
           };
           
           
@@ -6715,13 +6716,19 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
               // Complete code block
               const codeStart = afterOpening !== -1 && afterOpening < closePos ? afterOpening + 1 : pos + 3 + lang.length;
               const code = remaining.substring(codeStart, closePos);
-              segments.push({ type: 'code-block', lang: lang || 'r', content: code, complete: true });
+              // Only treat as R if explicitly marked as r/R/{r}/{R}, otherwise keep original lang
+              const isRLang = /^[rR]$|^\{[rR]\}$/.test(lang);
+              const normalizedLang = isRLang ? 'r' : lang;
+              segments.push({ type: 'code-block', lang: normalizedLang, content: code, complete: true });
               pos = closePos + 3;
             } else {
               // Incomplete code block (still being typed)
               const codeStart = afterOpening !== -1 ? afterOpening + 1 : pos + 3;
               const code = remaining.substring(codeStart);
-              segments.push({ type: 'code-block', lang: lang || 'r', content: code, complete: false });
+              // Only treat as R if explicitly marked as r/R/{r}/{R}, otherwise keep original lang
+              const isRLang = /^[rR]$|^\{[rR]\}$/.test(lang);
+              const normalizedLang = isRLang ? 'r' : lang;
+              segments.push({ type: 'code-block', lang: normalizedLang, content: code, complete: false });
               pos = remaining.length;
             }
             continue;
@@ -6767,12 +6774,22 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         const codeDiv = document.createElement("div");
         codeDiv.className = "code-block";
         
+        // Determine if this is R code (only if explicitly marked)
+        const isRCode = segment.lang === 'r';
+        
         // Create header
         const headerDiv = document.createElement("div");
         headerDiv.className = "code-block-header";
         
         const languageLabel = document.createElement("span");
-        languageLabel.textContent = "R Code";
+        // Show appropriate label based on language
+        if (isRCode) {
+          languageLabel.textContent = "R Code";
+        } else if (segment.lang) {
+          languageLabel.textContent = segment.lang.charAt(0).toUpperCase() + segment.lang.slice(1);
+        } else {
+          languageLabel.textContent = "Output";
+        }
         
         const actionsDiv = document.createElement("div");
         actionsDiv.className = "code-block-actions";
@@ -6944,7 +6961,8 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           
           // Process markdown tables in this part
           // Regex: header row, separator (any dashes/pipes/colons), data rows
-          const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+\|(?:[\s\-:]*\|[\s\-:]+\|)*)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
+          // Fixed: separator pattern now correctly matches multi-column tables like |---|---|
+          const tableRegex = /(\|[^\n]+\|)\s*\n\s*(\|[\s\-:]+(?:\|[\s\-:]+)*\|)\s*\n\s*((?:\|[^\n]+\|\s*\n?)+)/g;
           return part.text.replace(tableRegex, (match, headerRow, separatorRow, dataRows) => {
             // Parse header
             const headers = headerRow.split('|').map(h => h.trim()).filter(h => h.length > 0);
@@ -7039,15 +7057,18 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Find all code blocks in the message
         const codeBlocks = messageDiv.querySelectorAll('.code-block');
         
-        // Extract code from raw content for button actions
-        const codeBlockRegex = /```(?:\{?[rR]\}?|[a-zA-Z]*)?[\s\n]*([\s\S]*?)```/g;
-        const codeContents = [];
+        // Extract code blocks with their language info from raw content
+        const codeBlockRegex = /```(\{?[rR]\}?|[a-zA-Z]*)?[\s\n]*([\s\S]*?)```/g;
+        const codeInfos = [];
         let match;
         while ((match = codeBlockRegex.exec(rawContent)) !== null) {
-          let code = match[1];
+          let lang = (match[1] || '').trim();
+          let code = match[2];
+          // Check if this is R code (r, R, {r}, {R})
+          const isRCode = /^[rR]$|^\{[rR]\}$/.test(lang);
           // Clean up the code
           code = code.replace(/^\{[rR]\}\s*\n?/, '').replace(/^[rR]\s+/, '').trim();
-          codeContents.push(code);
+          codeInfos.push({ code, isRCode });
         }
         
         codeBlocks.forEach((codeBlock, index) => {
@@ -7064,11 +7085,10 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           // Clear existing content (like "streaming..." label)
           actionsDiv.innerHTML = '';
           
-          // Get the code for this block
-          const cleanCode = codeContents[index] || codeBlock.textContent || '';
-          
-          // Replace "streaming..." with actual buttons
-          actionsDiv.innerHTML = '';
+          // Get the code and language info for this block
+          const codeInfo = codeInfos[index] || { code: codeBlock.textContent || '', isRCode: false };
+          const cleanCode = codeInfo.code;
+          const isRCode = codeInfo.isRCode;
           
           const copyButton = document.createElement("button");
           copyButton.className = "copy-button";
@@ -7077,15 +7097,18 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
             copyToClipboard(cleanCode, copyButton);
           };
           
-          const insertButton = document.createElement("button");
-          insertButton.className = "copy-button";
-          insertButton.textContent = "Insert at Cursor";
-          insertButton.onclick = function() {
-            insertCode(cleanCode);
-          };
-          
           actionsDiv.appendChild(copyButton);
-          actionsDiv.appendChild(insertButton);
+          
+          // Only add Insert button for R code blocks
+          if (isRCode) {
+            const insertButton = document.createElement("button");
+            insertButton.className = "copy-button";
+            insertButton.textContent = "Insert at Cursor";
+            insertButton.onclick = function() {
+              insertCode(cleanCode);
+            };
+            actionsDiv.appendChild(insertButton);
+          }
         });
       }
       
@@ -7548,15 +7571,18 @@ Include comments explaining each step. Code only. Minimal chat.`;
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             
-            // Check if this is a code block - handles ```r, ```R, ```{r}, ```{R}, plain ```, and variations with whitespace
-            const isCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
+            // Check if this is an R code block specifically
+            const isRCodeBlock = (part.startsWith("```{r}") || part.startsWith("```{R}") ||
                                 part.startsWith("```{r}\n") || part.startsWith("```{R}\n") ||
                                 part.startsWith("```{r} ") || part.startsWith("```{R} ") ||
                                 part.startsWith("```r\n") || part.startsWith("```R\n") ||
                                 part.startsWith("```r ") || part.startsWith("```R ") ||
                                 (part.startsWith("```r") && part.endsWith("```")) ||
-                                (part.startsWith("```R") && part.endsWith("```")) ||
-                                (part.startsWith("```") && part.endsWith("```") && part.length > 6)) ||
+                                (part.startsWith("```R") && part.endsWith("```")));
+            
+            // Check if this is any code block (including non-R)
+            const isCodeBlock = isRCodeBlock ||
+                                (part.startsWith("```") && part.endsWith("```") && part.length > 6) ||
                                 (part.includes("<code") && part.includes("</code>"));
             
             if (isCodeBlock) {
@@ -7569,7 +7595,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
               headerDiv.className = "code-block-header";
               
               const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
+              // Determine appropriate label
+              if (isRCodeBlock) {
+                languageLabel.textContent = "R Code";
+              } else if (part.startsWith("```")) {
+                // Extract language from ```language format
+                const langMatch = part.match(/^```([a-zA-Z]+)/);
+                if (langMatch && langMatch[1]) {
+                  languageLabel.textContent = langMatch[1].charAt(0).toUpperCase() + langMatch[1].slice(1);
+                } else {
+                  languageLabel.textContent = "Output";
+                }
+              } else {
+                languageLabel.textContent = "Code";
+              }
               
               const actionsDiv = document.createElement("div");
               actionsDiv.className = "code-block-actions";
@@ -7582,16 +7621,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
                 copyToClipboard(cleanCode, copyButton);
               };
               
-              const insertButton = document.createElement("button");
-              insertButton.className = "copy-button";
-              insertButton.textContent = "Insert at Cursor";
-              insertButton.onclick = function() {
-                insertCode(cleanCode);
-              };
-              
               headerDiv.appendChild(languageLabel);
               actionsDiv.appendChild(copyButton);
-              actionsDiv.appendChild(insertButton);
+              
+              // Only add Insert button for R code blocks
+              if (isRCodeBlock) {
+                const insertButton = document.createElement("button");
+                insertButton.className = "copy-button";
+                insertButton.textContent = "Insert at Cursor";
+                insertButton.onclick = function() {
+                  insertCode(cleanCode);
+                };
+                actionsDiv.appendChild(insertButton);
+              }
+              
               headerDiv.appendChild(actionsDiv);
               codeDiv.appendChild(headerDiv);
               
@@ -8816,14 +8859,22 @@ Include comments explaining each step. Code only. Minimal chat.`;
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             
-            if ((part.startsWith("```r\n") && part.endsWith("```")) || 
+            // Check if this is specifically R code
+            const isRCodeBlock = (part.startsWith("```r\n") && part.endsWith("```")) || 
                 (part.startsWith("```R\n") && part.endsWith("```")) ||
                 (part.startsWith("```r ") && part.endsWith("```")) ||
                 (part.startsWith("```R ") && part.endsWith("```")) ||
                 (part.startsWith("```r") && part.endsWith("```")) ||
                 (part.startsWith("```R") && part.endsWith("```")) ||
+                (part.startsWith("```{r}") && part.endsWith("```")) ||
+                (part.startsWith("```{R}") && part.endsWith("```"));
+            
+            // Check if this is any code block
+            const isCodeBlock = isRCodeBlock ||
                 (part.startsWith("```") && part.endsWith("```") && part.length > 6) ||
-                (part.includes("<code") && part.includes("</code>"))) {
+                (part.includes("<code") && part.includes("</code>"));
+            
+            if (isCodeBlock) {
               // This is a code block - style it with only Copy/Insert buttons
               const codeDiv = document.createElement("div");
               codeDiv.className = "code-block";
@@ -8833,7 +8884,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
               headerDiv.className = "code-block-header";
               
               const languageLabel = document.createElement("span");
-              languageLabel.textContent = "R Code";
+              // Determine appropriate label
+              if (isRCodeBlock) {
+                languageLabel.textContent = "R Code";
+              } else if (part.startsWith("```")) {
+                // Extract language from ```language format
+                const langMatch = part.match(/^```([a-zA-Z]+)/);
+                if (langMatch && langMatch[1]) {
+                  languageLabel.textContent = langMatch[1].charAt(0).toUpperCase() + langMatch[1].slice(1);
+                } else {
+                  languageLabel.textContent = "Output";
+                }
+              } else {
+                languageLabel.textContent = "Code";
+              }
               
               const actionsDiv = document.createElement("div");
               actionsDiv.className = "code-block-actions";
@@ -8845,16 +8909,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
                 copyToClipboard(cleanCode, copyButton);
               };
               
-              const insertButton = document.createElement("button");
-              insertButton.className = "copy-button";
-              insertButton.textContent = "Insert at Cursor";
-              insertButton.onclick = function() {
-                insertCode(cleanCode);
-              };
-              
               headerDiv.appendChild(languageLabel);
               actionsDiv.appendChild(copyButton);
-              actionsDiv.appendChild(insertButton);
+              
+              // Only add Insert button for R code blocks
+              if (isRCodeBlock) {
+                const insertButton = document.createElement("button");
+                insertButton.className = "copy-button";
+                insertButton.textContent = "Insert at Cursor";
+                insertButton.onclick = function() {
+                  insertCode(cleanCode);
+                };
+                actionsDiv.appendChild(insertButton);
+              }
+              
               headerDiv.appendChild(actionsDiv);
               codeDiv.appendChild(headerDiv);
               
@@ -14020,7 +14088,7 @@ cat("\\nModeling workflow completed successfully!\\n")
         copyToClipboard(originalCode, tempButton);
       }
       
-      // Extract R code blocks from Claude's message
+      // Extract R code blocks from Claude's message (ONLY R blocks, not output/other languages)
       function extractRCodeBlocks(message) {
         
         // Decode HTML entities first - messages from streaming may be HTML-encoded
@@ -14043,9 +14111,9 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         console.log('🔍 Decoded message preview:', decodedMessage.substring(0, 200) + '...');
         
-        // More flexible regex to catch different code block formats
-        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
-        const codeBlockRegex = /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/gi;
+        // ONLY match R code blocks - NOT plain ``` or other languages
+        // Matches: ```r, ```R, ```{r}, ```{R} followed by newline/whitespace then content then closing ```
+        const codeBlockRegex = /```(?:\{[rR]\}|[rR])(?:\n|\s+)([\s\S]*?)```/g;
         const codeBlocks = [];
         let match;
         
@@ -14105,10 +14173,10 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/&nbsp;/g, ' ');
         }
         
-        // Find ALL code blocks and extract them with original formatting
-        // Handles: ```r, ```R, ```r\n, ```R\n, ```{r}, ```{R}, ```{r}\n, ```{R}\n, or plain ``` with optional whitespace
+        // Find ONLY R code blocks and extract them with original formatting
+        // Matches: ```r, ```R, ```{r}, ```{R} - NOT plain ``` or other languages
         // ONLY matches COMPLETE blocks with both opening and closing ```
-        const codeBlockRegex = /```(?:\{[rR]\}|[rR]|\s*[a-zA-Z]*)?(?:\n|\s*)([\s\S]*?)```/gi;
+        const codeBlockRegex = /```(?:\{[rR]\}|[rR])(?:\n|\s+)([\s\S]*?)```/g;
         const allMatches = [...decodedMessage.matchAll(codeBlockRegex)];
         
         if (allMatches.length > 0) {
