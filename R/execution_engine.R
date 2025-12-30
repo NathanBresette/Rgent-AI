@@ -268,12 +268,12 @@ execute_code_in_session <- function(code, settings = NULL) {
               grDevices::dev.off()
             })
             while (grDevices::dev.cur() != 1) grDevices::dev.off()
-            
+
             # Capture any text output from plot commands
             if (length(plot_output) > 0) {
               all_output <- c(all_output, plot_output)
             }
-            
+
             if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
               plot_files <- c(plot_files, plot_file)
             } else {
@@ -281,6 +281,9 @@ execute_code_in_session <- function(code, settings = NULL) {
             }
           }, error = function(e) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
+            all_output <<- c(all_output, paste("Error:", e$message))
+            execution_had_error <<- TRUE
+            last_error_message <<- e$message
           })
           i <- j
           
@@ -294,12 +297,12 @@ execute_code_in_session <- function(code, settings = NULL) {
               grDevices::dev.off()
             })
             while (grDevices::dev.cur() != 1) grDevices::dev.off()
-            
+
             # Capture any text output
             if (length(grid_output) > 0) {
               all_output <- c(all_output, grid_output)
             }
-            
+
             if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
               plot_files <- c(plot_files, plot_file)
             } else {
@@ -307,9 +310,11 @@ execute_code_in_session <- function(code, settings = NULL) {
             }
           }, error = function(e) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
-            all_output <<- c(all_output, paste("Error:", e$message))
-            execution_had_error <<- TRUE
-            last_error_message <<- e$message
+            if (!execution_had_error) {
+              all_output <<- c(all_output, paste("Error:", e$message))
+              execution_had_error <<- TRUE
+              last_error_message <<- e$message
+            }
           })
           i <- i + 1
           
@@ -320,27 +325,31 @@ execute_code_in_session <- function(code, settings = NULL) {
             plotly_output <- utils::capture.output({
               plotly_result <- execute_and_capture_plotly(expr, env)
             })
-            
+
             if (length(plotly_output) > 0) {
               all_output <- c(all_output, plotly_output)
             }
-            
+
             if (plotly_result$success && !is.null(plotly_result$value)) {
               result <- list(value = plotly_result$value, visible = TRUE)
-              
+
               if (is_plotly_obj(plotly_result$value)) {
                 pf <- capture_plotly(plotly_result$value)
                 if (!is.null(pf)) plot_files <- c(plot_files, pf)
               }
             } else if (!plotly_result$success) {
-              all_output <<- c(all_output, paste("Error:", plotly_result$error))
-              execution_had_error <<- TRUE
-              last_error_message <<- plotly_result$error
+              if (!execution_had_error) {
+                all_output <<- c(all_output, paste("Error:", plotly_result$error))
+                execution_had_error <<- TRUE
+                last_error_message <<- plotly_result$error
+              }
             }
           }, error = function(e) {
-            all_output <<- c(all_output, paste("Error:", e$message))
-            execution_had_error <<- TRUE
-            last_error_message <<- e$message
+            if (!execution_had_error) {
+              all_output <<- c(all_output, paste("Error:", e$message))
+              execution_had_error <<- TRUE
+              last_error_message <<- e$message
+            }
           })
           i <- i + 1
           
@@ -386,13 +395,31 @@ execute_code_in_session <- function(code, settings = NULL) {
               
               if (is_ggplot_obj(expr_result$value) && should_capture_plot) {
                 pf <- capture_ggplot(expr_result$value)
-                if (!is.null(pf)) plot_files <- c(plot_files, pf)
+                if (!is.null(pf)) {
+                  plot_files <- c(plot_files, pf)
+                } else {
+                  # Plot capture failed - treat as execution error for consistency
+                  if (!execution_had_error) {
+                    all_output <<- c(all_output, "Error: Plot rendering failed")
+                    execution_had_error <<- TRUE
+                    last_error_message <<- "Plot rendering failed"
+                  }
+                }
                 
               } else if (is_plotly_obj(expr_result$value) && should_capture_plot) {
                 # Plotly detected at runtime (e.g., typing variable name)
                 # Browser/viewer already suppressed above, just try to capture
                 pf <- capture_plotly(expr_result$value)
-                if (!is.null(pf)) plot_files <- c(plot_files, pf)
+                if (!is.null(pf)) {
+                  plot_files <- c(plot_files, pf)
+                } else {
+                  # Plot capture failed - treat as execution error for consistency
+                  if (!execution_had_error) {
+                    all_output <<- c(all_output, "Error: Plotly rendering failed")
+                    execution_had_error <<- TRUE
+                    last_error_message <<- "Plotly rendering failed"
+                  }
+                }
               }
             }
           }, error = function(e) {
