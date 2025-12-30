@@ -13952,7 +13952,7 @@ cat("\\nModeling workflow completed successfully!\\n")
       
       // Global iteration counter for error handling
       let cleaningCodeIterationCount = 0;
-      const MAX_CLEANING_ITERATIONS = 3;
+      const MAX_CLEANING_ITERATIONS = 1;
       let cleaningCodeExecuting = false; // Flag to prevent duplicate handling
       
 
@@ -14289,7 +14289,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         // Check if we've exceeded the maximum iterations
         if (cleaningCodeIterationCount >= MAX_CLEANING_ITERATIONS) {
-          addMessage(`🛑 **Maximum Iterations Reached**\n\nThe code has failed ${MAX_CLEANING_ITERATIONS} times. Stopping automatic iteration to prevent infinite loops.\n\n**Last Error:**\n\`${error}\`\n\n**Recommendation:**\nPlease manually review and fix the code, or try a different approach.`, 'ai');
+          const timesText = MAX_CLEANING_ITERATIONS === 1 ? 'time' : 'times';
+          addMessage(`🛑 **Maximum Iterations Reached**\n\nThe code has failed ${MAX_CLEANING_ITERATIONS} ${timesText}. Stopping automatic iteration to prevent infinite loops.\n\n**Last Error:**\n\`${error}\`\n\n**Recommendation:**\nPlease manually review and fix the code, or try a different approach.`, 'ai');
           
           // Reset counter for future attempts
           cleaningCodeIterationCount = 0;
