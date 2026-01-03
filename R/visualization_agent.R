@@ -220,7 +220,7 @@ is_plot_appropriate <- function(plot_type, variables, data_info) {
 #' @param data_info Data structure information
 #' @return List of workflow steps
 create_visualization_workflow <- function(plot_types, variables, data_info) {
-  cat("📋 Creating visualization workflow\n")
+  cat("[INFO] Creating visualization workflow\n")
   
   steps <- list()
   step_num <- 1

@@ -12,7 +12,7 @@ ai_insert_code <- function(code, context_context = NULL) {
     # Get current document context
     doc_context <- rstudioapi::getActiveDocumentContext()
     if (is.null(doc_context)) {
-      cat("❌ No active document found\n")
+      cat("[ERROR] No active document found\n")
       return(FALSE)
     }
     
@@ -36,11 +36,11 @@ ai_insert_code <- function(code, context_context = NULL) {
     rstudioapi::setCursorPosition(rstudioapi::document_position(insertion_line, 1))
     rstudioapi::insertText(paste0(code, "\n"))
     
-    cat("✅ AI inserted code at line", insertion_line, "\n")
+    cat("[OK] AI inserted code at line", insertion_line, "\n")
     return(TRUE)
     
   }, error = function(e) {
-    cat("❌ Failed to insert code:", e$message, "\n")
+    cat("[ERROR] Failed to insert code:", e$message, "\n")
     return(FALSE)
   })
 }
@@ -59,7 +59,7 @@ ai_replace_code <- function(old_code_pattern, new_code) {
     # Get current document context
     doc_context <- rstudioapi::getActiveDocumentContext()
     if (is.null(doc_context)) {
-      cat("❌ No active document found\n")
+      cat("[ERROR] No active document found\n")
       return(FALSE)
     }
     
@@ -84,7 +84,7 @@ ai_replace_code <- function(old_code_pattern, new_code) {
     }
     
     if (is.null(start_line)) {
-      cat("❌ Could not find code matching pattern:", old_code_pattern, "\n")
+      cat("[ERROR] Could not find code matching pattern:", old_code_pattern, "\n")
       return(FALSE)
     }
     
@@ -97,11 +97,11 @@ ai_replace_code <- function(old_code_pattern, new_code) {
       paste0(new_code, "\n")
     )
     
-    cat("✅ AI replaced code from line", start_line, "to", end_line, "\n")
+    cat("[OK] AI replaced code from line", start_line, "to", end_line, "\n")
     return(TRUE)
     
   }, error = function(e) {
-    cat("❌ Failed to replace code:", e$message, "\n")
+    cat("[ERROR] Failed to replace code:", e$message, "\n")
     return(FALSE)
   })
 }
@@ -120,7 +120,7 @@ ai_smart_insert <- function(code, location_hint = NULL) {
     # Get current document context
     doc_context <- rstudioapi::getActiveDocumentContext()
     if (is.null(doc_context)) {
-      cat("❌ No active document found\n")
+      cat("[ERROR] No active document found\n")
       return(FALSE)
     }
     
@@ -154,11 +154,11 @@ ai_smart_insert <- function(code, location_hint = NULL) {
     rstudioapi::setCursorPosition(rstudioapi::document_position(insertion_line, 1))
     rstudioapi::insertText(paste0(code, "\n"))
     
-    cat("✅ AI smart-inserted code at line", insertion_line, "\n")
+    cat("[OK] AI smart-inserted code at line", insertion_line, "\n")
     return(TRUE)
     
   }, error = function(e) {
-    cat("❌ Failed to smart-insert code:", e$message, "\n")
+    cat("[ERROR] Failed to smart-insert code:", e$message, "\n")
     return(FALSE)
   })
 }
@@ -177,11 +177,11 @@ execute_code <- function(code) {
       print(result)
     }
     
-    cat("✅ Code executed successfully\n")
+    cat("[OK] Code executed successfully\n")
     return(TRUE)
     
   }, error = function(e) {
-    cat("❌ Error executing code:", e$message, "\n")
+    cat("[ERROR] Error executing code:", e$message, "\n")
     return(FALSE)
   })
 }
@@ -196,7 +196,7 @@ execute_r_function <- function(function_name, param1, param2 = NULL) {
     # Validate function name
     valid_functions <- c("ai_smart_insert", "ai_replace_code", "ai_insert_code")
     if (!function_name %in% valid_functions) {
-      cat("❌ Invalid function name:", function_name, "\n")
+      cat("[ERROR] Invalid function name:", function_name, "\n")
       return(FALSE)
     }
     
@@ -212,7 +212,7 @@ execute_r_function <- function(function_name, param1, param2 = NULL) {
     return(result)
     
   }, error = function(e) {
-    cat("❌ Error executing R function:", e$message, "\n")
+    cat("[ERROR] Error executing R function:", e$message, "\n")
     return(FALSE)
   })
 } 

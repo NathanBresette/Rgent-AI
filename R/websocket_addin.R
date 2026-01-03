@@ -359,7 +359,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     if (!requireNamespace("remotes", quietly = TRUE)) {
       if (!requireNamespace("devtools", quietly = TRUE)) {
         if (!isTRUE(quiet)) {
-          cat("⚠️  remotes or devtools package required for auto-updates.\n")
+          cat("[WARN]  remotes or devtools package required for auto-updates.\n")
           cat("   Install with: install.packages(c('remotes', 'devtools'))\n")
         }
         return(invisible(FALSE))
@@ -409,13 +409,13 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     }, error = function(e) {
       # Error getting version - latest_version stays NULL
       if (!isTRUE(quiet)) {
-        cat("⚠️  Error fetching version from GitHub:", conditionMessage(e), "\n")
+        cat("[WARN]  Error fetching version from GitHub:", conditionMessage(e), "\n")
       }
     })
     
     if (is.null(latest_version) || !is.character(latest_version) || length(latest_version) != 1L) {
       if (!isTRUE(quiet)) {
-        cat("ℹ️  Could not determine latest version. Continuing with current version.\n")
+        cat("  Could not determine latest version. Continuing with current version.\n")
       }
       return(invisible(FALSE))
     }
@@ -427,7 +427,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     # Compare versions - ensure both are character strings
     if (!is.character(installed_version) || length(installed_version) != 1L) {
       if (!isTRUE(quiet)) {
-        cat("⚠️  Invalid installed version format. Skipping update check.\n")
+        cat("[WARN]  Invalid installed version format. Skipping update check.\n")
       }
       return(invisible(FALSE))
     }
@@ -436,7 +436,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       utils::compareVersion(installed_version, latest_version)
     }, error = function(e) {
       if (!isTRUE(quiet)) {
-        cat("⚠️  Error comparing versions:", conditionMessage(e), "\n")
+        cat("[WARN]  Error comparing versions:", conditionMessage(e), "\n")
       }
       return(NA_integer_)
     })
@@ -447,14 +447,14 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     
     if (version_comparison >= 0) {
       if (!isTRUE(quiet)) {
-        cat("✅ You're running the latest version!\n")
+        cat("[OK] You're running the latest version!\n")
       }
       return(invisible(FALSE))
     }
     
     # Update available
     if (!isTRUE(quiet)) {
-      cat("🔄 Update available! (", installed_version, " -> ", latest_version, ")\n", sep = "")
+      cat("[UPDATE] Update available! (", installed_version, " -> ", latest_version, ")\n", sep = "")
     }
     
     if (isTRUE(auto_update)) {
@@ -470,12 +470,12 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       }
       
       if (!isTRUE(quiet)) {
-        cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+        cat("[OK] Update installed! Please restart RStudio to use the new version.\n")
       }
       return(invisible(TRUE))
     } else {
       if (!isTRUE(quiet)) {
-        cat("💡 To update, run: check_and_update_package(auto_update = TRUE)\n")
+        cat("[TIP] To update, run: check_and_update_package(auto_update = TRUE)\n")
         cat("   Or install manually: devtools::install_github('NathanBresette/Rgent-AI', force = TRUE)\n")
       }
       return(invisible(FALSE))
@@ -484,9 +484,9 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
   }, error = function(e) {
     # Always show error message, but use safe error handling
     tryCatch({
-      cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
+      cat("[WARN]  Error checking for updates:", conditionMessage(e), "\n")
     }, error = function(e2) {
-      cat("⚠️  Error checking for updates (unable to display details)\n")
+      cat("[WARN]  Error checking for updates (unable to display details)\n")
     })
     return(invisible(FALSE))
   })
@@ -504,13 +504,13 @@ run_rgent <- function() {
       
       if (update_performed) {
         cat("\n")
-        cat("═══════════════════════════════════════════════════════════\n")
-        cat("✅ RgentAI has been updated!\n")
-        cat("═══════════════════════════════════════════════════════════\n")
+        cat("\n")
+        cat("[OK] RgentAI has been updated!\n")
+        cat("\n")
         cat("Please restart RStudio to use the new version.\n")
         cat("You can continue using the current session, but new features\n")
         cat("will be available after restarting.\n")
-        cat("═══════════════════════════════════════════════════════════\n")
+        cat("\n")
         cat("\n")
       }
       
@@ -518,7 +518,7 @@ run_rgent <- function() {
       assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
     }, error = function(e) {
       # Show error but don't block usage
-      cat("⚠️  Could not check for updates:", conditionMessage(e), "\n")
+      cat("[WARN]  Could not check for updates:", conditionMessage(e), "\n")
       cat("   Continuing with current version...\n")
     })
   }
@@ -1508,7 +1508,7 @@ start_websocket_server <- function() {
               # Send "One moment..." message to user
               retry_message <- list(
                 action = "ai_response", 
-                message = "⏳ One moment, processing your request...",
+                message = " One moment, processing your request...",
                 streaming = FALSE
               )
               ws$send(jsonlite::toJSON(retry_message, auto_unbox = TRUE))
@@ -1580,13 +1580,13 @@ start_websocket_server <- function() {
                   tips_message <- list(
                     action = "ai_response", 
                     message = paste(
-                      "❌ Still experiencing delays. Try reducing your environment size:\n\n",
-                      "💡 **Tips to reduce environment size:**\n",
-                      "• Remove unused variables: `rm(unused_var)`\n", 
-                      "• Clear large data frames: `rm(large_df)`\n",
-                      "• Remove functions: `rm(function_name)`\n",
-                      "• Clear workspace: `rm(list = ls())`\n",
-                      "• Restart R session: `Session > Restart R`\n\n",
+                      "[ERROR] Still experiencing delays. Try reducing your environment size:\n\n",
+                      "[TIP] **Tips to reduce environment size:**\n",
+                      " Remove unused variables: `rm(unused_var)`\n", 
+                      " Clear large data frames: `rm(large_df)`\n",
+                      " Remove functions: `rm(function_name)`\n",
+                      " Clear workspace: `rm(list = ls())`\n",
+                      " Restart R session: `Session > Restart R`\n\n",
                       "After cleaning up, try your request again!"
                     ),
                     streaming = FALSE
@@ -1600,11 +1600,11 @@ start_websocket_server <- function() {
                 tips_message <- list(
                   action = "ai_response", 
                   message = paste(
-                    "❌ Request timed out. Your environment has too much data.\n\n",
-                    "💡 **Quick fixes:**\n",
-                    "• `rm(list = ls())` - Clear all variables\n",
-                    "• `Session > Restart R` - Fresh start\n",
-                    "• Remove large objects: `rm(large_dataframe)`\n\n",
+                    "[ERROR] Request timed out. Your environment has too much data.\n\n",
+                    "[TIP] **Quick fixes:**\n",
+                    " `rm(list = ls())` - Clear all variables\n",
+                    " `Session > Restart R` - Fresh start\n",
+                    " Remove large objects: `rm(large_dataframe)`\n\n",
                     "Try again after cleaning up your environment!"
                   ),
                   streaming = FALSE
@@ -3252,7 +3252,7 @@ auto_capture_error <- function() {
       )
       
       # Show notification with exact error
-      cat("\n🐛 Error detected:", last_error, "\n")
+      cat("\n Error detected:", last_error, "\n")
       cat("Click the debug button to fix it!\n\n")
       
           }
@@ -3282,7 +3282,7 @@ toggle_auto_fix <- function() {
 #' Test auto-capture system
 #' @export
 test_auto_capture <- function() {
-  cat("🧪 Testing auto-capture system...\n")
+  cat(" Testing auto-capture system...\n")
   cat("Current error handler:", toString(options("error")), "\n")
   cat("Auto-fix mode:", get_auto_fix_status(), "\n")
   
@@ -3356,7 +3356,7 @@ capture_last_error <- function() {
 remove_error_monitoring <- function() {
   tryCatch({
     removeTaskCallback("error_monitor")
-    cat("✅ Error monitoring removed\n")
+    cat("[OK] Error monitoring removed\n")
   }, error = function(e) {
     cat("No error monitoring to remove\n")
   })
@@ -3784,7 +3784,7 @@ assemble_simple_context <- function(query) {
       df_info <- sapply(df_names, function(name) {
         info <- workspace_index$data_frames[[name]]
         if (!is.null(info$dimensions)) {
-          paste(name, ":", info$dimensions[1], "rows ×", info$dimensions[2], "cols")
+          paste(name, ":", info$dimensions[1], "rows ", info$dimensions[2], "cols")
         } else {
           paste(name, ": data frame")
         }
@@ -4353,7 +4353,7 @@ estimate_tokens_accurately <- function(text) {
   # Count actual tokens (rough approximation)
   words <- strsplit(text, "\\s+")[[1]]
   
-  # Estimate: 1 token ≈ 4 characters for English code
+  # Estimate: 1 token  4 characters for English code
   char_estimate <- nchar(text) / 4
   
   # Word-based estimate
@@ -6368,7 +6368,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
         if (utils::compareVersion(installed_version, latest_version) < 0) {
           # Update available - install it
           if (!isTRUE(quiet)) {
-            cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
+            cat("[UPDATE] RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
           }
           if (requireNamespace("remotes", quietly = TRUE)) {
             remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
@@ -6376,16 +6376,16 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
             devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
           }
           if (!isTRUE(quiet)) {
-            cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+            cat("[OK] Update installed! Please restart RStudio to use the new version.\n")
           }
         } else {
           if (!isTRUE(quiet)) {
-            cat("✅ You're running the latest version (", installed_version, ").\n", sep = "")
+            cat("[OK] You're running the latest version (", installed_version, ").\n", sep = "")
           }
         }
       } else {
         if (!isTRUE(quiet)) {
-          cat("⚠️  Could not check for updates (network issue?). Continuing...\n")
+          cat("[WARN]  Could not check for updates (network issue?). Continuing...\n")
         }
       }
     }
@@ -6393,7 +6393,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
     # Silently ignore update check errors during package load
     if (!isTRUE(quiet)) {
       tryCatch({
-        cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
+        cat("[WARN]  Error checking for updates:", conditionMessage(e), "\n")
       }, error = function(e2) {
         # Ignore display errors
       })
