@@ -800,7 +800,7 @@ calculate_automatic_effect_sizes <- function(df, variables) {
         effect_sizes$eta_squared <- list(
           value = round(eta_squared, 3),
           magnitude = magnitude,
-          interpretation = paste("η² =", round(eta_squared, 3), "(", magnitude, "effect )"),
+          interpretation = paste("eta^2 =", round(eta_squared, 3), "(", magnitude, "effect )"),
           variance_explained = paste(round(eta_squared * 100, 1), "% of variance explained")
         )
       }, error = function(e) {
@@ -963,7 +963,7 @@ execute_custom_statistical_analysis <- function(df, variables, method_options, c
       "**Custom Analysis Request:**\n", custom_analysis, "\n\n",
       "**Dataset Information:**\n",
       "- Dataset: ", data_context$dataframe_name, "\n",
-      "- Dimensions: ", data_context$n_rows, " rows × ", data_context$n_cols, " columns\n",
+      "- Dimensions: ", data_context$n_rows, " rows x ", data_context$n_cols, " columns\n",
       "- Variables: ", paste(data_context$column_names, collapse = ", "), "\n",
       "- Data types: ", paste(paste(names(data_context$data_types), ":", data_context$data_types), collapse = ", "), "\n\n",
       "**Sample Data:**\n",
