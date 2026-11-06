@@ -1085,8 +1085,10 @@ start_websocket_server <- function() {
               log_file_path = file.path(path.expand("~"), "rstudioai_logs.R")
             )
             
-            # Execute the code using proven methods
-            result <- execute_code_in_session(request$code, settings)
+            # Execute the code. If it fails because the session is missing
+            # something (an object from an unrun chunk, an unattached package,
+            # a path relative to the document), fix that and re-run.
+            result <- execute_with_recovery(request$code, settings)
             
             # Return structured result
             list(
@@ -1095,7 +1097,11 @@ start_websocket_server <- function() {
               result = result$result,
               output = result$output,
               error = if(!result$success) result$error else NULL,
-              plot = result$plot
+              plot = result$plot,
+              recovery = as.list(result$recovery),
+              needs_user = isTRUE(result$needs_user),
+              user_message = result$user_message,
+              env_objects = result$env_objects
             )
           }, error = function(e) {
             list(

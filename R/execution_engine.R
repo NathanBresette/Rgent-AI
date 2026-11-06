@@ -224,7 +224,7 @@ execute_code_in_session <- function(code, settings = NULL) {
         val <- eval(expr, envir = env)
         list(value = val, success = TRUE)
       }, error = function(e) {
-        list(value = NULL, success = FALSE, error = e$message)
+        list(value = NULL, success = FALSE, error = conditionMessage(e))
       }, finally = {
         # Restore all options
         options(browser = old_browser)
@@ -241,7 +241,9 @@ execute_code_in_session <- function(code, settings = NULL) {
     if (!is.null(parsed_code) && length(parsed_code) > 0) {
       # Single-pass execution: handle each expression based on its type
       i <- 1
-      while (i <= length(parsed_code)) {
+      # Stop at the first error, like R does, so the error reported is the
+      # one that caused the failure rather than a knock-on error from a later line
+      while (i <= length(parsed_code) && !execution_had_error) {
         expr <- parsed_code[[i]]
         expr_str <- paste(deparse(expr), collapse = " ")
         
@@ -281,9 +283,9 @@ execute_code_in_session <- function(code, settings = NULL) {
             }
           }, error = function(e) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
-            all_output <<- c(all_output, paste("Error:", e$message))
+            all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
             execution_had_error <<- TRUE
-            last_error_message <<- e$message
+            last_error_message <<- conditionMessage(e)
           })
           i <- j
           
@@ -311,9 +313,9 @@ execute_code_in_session <- function(code, settings = NULL) {
           }, error = function(e) {
             tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
             if (!execution_had_error) {
-              all_output <<- c(all_output, paste("Error:", e$message))
+              all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
               execution_had_error <<- TRUE
-              last_error_message <<- e$message
+              last_error_message <<- conditionMessage(e)
             }
           })
           i <- i + 1
@@ -346,9 +348,9 @@ execute_code_in_session <- function(code, settings = NULL) {
             }
           }, error = function(e) {
             if (!execution_had_error) {
-              all_output <<- c(all_output, paste("Error:", e$message))
+              all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
               execution_had_error <<- TRUE
-              last_error_message <<- e$message
+              last_error_message <<- conditionMessage(e)
             }
           })
           i <- i + 1
@@ -423,9 +425,9 @@ execute_code_in_session <- function(code, settings = NULL) {
               }
             }
           }, error = function(e) {
-            all_output <<- c(all_output, paste("Error:", e$message))
+            all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
             execution_had_error <<- TRUE
-            last_error_message <<- e$message
+            last_error_message <<- conditionMessage(e)
           }, finally = {
             options(browser = old_browser)
             options(viewer = old_viewer)
@@ -526,7 +528,7 @@ execute_code_in_session <- function(code, settings = NULL) {
           response$output <- paste(output, collapse = "\n")
           }
         }, error = function(e) {
-          cat("Warning: Error encoding plot -", e$message, "\n")
+          cat("Warning: Error encoding plot -", conditionMessage(e), "\n")
         })
       
       response$plot <- list(
@@ -539,9 +541,9 @@ execute_code_in_session <- function(code, settings = NULL) {
     return(response)
   }, error = function(e) {
     if (settings$log_to_file && !is.null(settings$log_file_path) && settings$log_file_path != "") {
-      log_error_to_file(code, e$message, settings$log_file_path)
+      log_error_to_file(code, conditionMessage(e), settings$log_file_path)
     }
-    return(list(success = FALSE, error = e$message))
+    return(list(success = FALSE, error = conditionMessage(e)))
   }, finally = {
     # Clean up temporary plot files
     if (length(plot_files) > 0) {

@@ -4870,6 +4870,9 @@
       let agentResults = [];
       let agentCodes = [];
       let currentStepCode = null;
+      // Objects in the user's R session, sent back with failed executions so
+      // Claude's fix only uses things that exist
+      let lastExecutionEnvObjects = '';
       
       // Stop response state management
       let isAIResponding = false;
@@ -5542,6 +5545,12 @@
                 console.log('🛑 Agent was stopped, ignoring execution result');
                 return;
               }
+
+              // The R side may have fixed the session before (re)running the code,
+              // e.g. run the chunk that creates a missing object. Say what it did.
+              if (Array.isArray(data.recovery) && data.recovery.length > 0) {
+                addMessage("🔧 **Fixed automatically:**\n" + data.recovery.map(n => "- " + n).join("\n"), "ai");
+              }
               
               if (data.status === "success") {
                 // Format the output nicely for agent steps
@@ -5806,7 +5815,18 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                 }
               } else {
                 // Code execution failed
-                if (cleaningCodeExecuting) {
+                if (data.needs_user && typeof data.user_message === 'string' && data.user_message) {
+                  // Rewriting the code can't fix this (a chunk is turned off, a
+                  // package isn't installed, a file is missing), so don't ask Claude
+                  addMessage("⚠️ " + data.user_message, "ai");
+                  cleaningCodeExecuting = false;
+                  cleaningCodeIterationCount = 0;
+                  if (isAIResponding) {
+                    isAIResponding = false;
+                    transformToSendButton();
+                  }
+                } else if (cleaningCodeExecuting) {
+                  lastExecutionEnvObjects = (typeof data.env_objects === 'string') ? data.env_objects : '';
                   // This is cleaning code that failed - trigger iteration
                   console.log('🔍 Cleaning code execution failed, triggering error handling...');
                   // Pass the current step code that failed
@@ -14301,30 +14321,46 @@ cat("\\nModeling workflow completed successfully!\\n")
         
         addMessage(`❌ **Code Execution Failed (Attempt ${cleaningCodeIterationCount}/${MAX_CLEANING_ITERATIONS})**\n\nThe code encountered an error:\n\n\`${error}\`\n\nAsking Claude to fix this...`, 'ai');
         
-        // Ask Claude to fix the code
-        const fixRequest = `The R code I provided earlier failed to execute with this error:
+        // Ask Claude to fix the code. Agent workflows keep their own wording;
+        // normal chat gets a prompt about the user's request, not "cleaning goals".
+        const isAgentRun = !!currentAgentWorkflow || !!window.currentActiveAgentType;
+        const envLine = lastExecutionEnvObjects
+          ? `\n\n**Objects in my R session:** ${lastExecutionEnvObjects}`
+          : '';
+        const fixRequest = isAgentRun
+          ? `The R code I provided earlier failed to execute with this error:
 
 \`${error}\`
 
 **Original Code That Failed:**
 \`\`\`r
 ${code || "Code not available"}
-\`\`\`
+\`\`\`${envLine}
 
 Please fix the code and provide a corrected version that will work. The code should:
 
 1. Handle the specific error that occurred: \`${error}\`
 2. Be more robust and defensive
-3. Still accomplish the original cleaning goals
+3. Still accomplish the original goals
 4. Be production-ready and executable
 
-**Important:** Please analyze the original code and the specific error to provide a targeted fix, not a generic solution.`;
+**Important:** Please analyze the original code and the specific error to provide a targeted fix, not a generic solution.`
+          : `The R code you gave me failed when it ran in my R session:
+
+\`${error}\`
+
+**Code:**
+\`\`\`r
+${code || "Code not available"}
+\`\`\`${envLine}
+
+Reply with a corrected version as a single R code block, and keep the explanation to a sentence or two. Only use objects that exist in my session or that the code itself creates. If changing the code can't fix this (for example it needs data or a step I haven't run), tell me what to do in one or two sentences and don't include a code block.`;
         
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
             action: 'chat_with_ai',
             message: fixRequest,
-            conversation_context: 'data_cleaning_agent_code_fix'
+            conversation_context: isAgentRun ? 'data_cleaning_agent_code_fix' : 'chat_code_fix'
           }));
         }
       }
