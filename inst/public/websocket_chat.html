@@ -139,6 +139,13 @@
         margin-right: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
+      /* Your own messages have swapped colours (light text on a dark bubble,
+         or the reverse in dark themes); inline code there uses a see-through
+         tint of the bubble instead of the light/dark code background */
+      .user-message code {
+        background-color: rgba(127, 127, 127, 0.28) !important;
+        color: inherit !important;
+      }
       .ai-message { 
         background-color: var(--bg-card); 
         color: var(--text-primary); 
@@ -173,6 +180,68 @@
         display: inline-block;
         width: 1.2em;
         text-align: left;
+      }
+      
+      /* Live status while code runs: spinner ring + current step */
+      .exec-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-secondary);
+        font-size: 0.92em;
+      }
+      .exec-spinner {
+        flex: 0 0 auto;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--rgent-accent);
+        animation: exec-spin 0.8s linear infinite;
+      }
+      @keyframes exec-spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .exec-spinner { animation: exec-pulse 1.6s ease-in-out infinite; }
+        @keyframes exec-pulse { 50% { opacity: 0.35; } }
+      }
+      
+      /* A question the running code asked (menu/readline), answered in the chat */
+      .code-question .cq-label {
+        font-size: 0.85em;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+      }
+      .code-question .cq-context {
+        font-size: 0.9em;
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+      }
+      .code-question .cq-prompt {
+        font-weight: 600;
+        margin: 4px 0 10px;
+        white-space: pre-wrap;
+      }
+      .code-question .cq-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .code-question .cq-input {
+        flex: 1 1 180px;
+        min-width: 0;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--input-bg);
+        color: var(--text-primary);
+        font-size: 13px;
+      }
+      .code-question .cq-answered {
+        font-size: 0.9em;
+        color: var(--text-secondary);
       }
       
       /* Streaming cursor - ChatGPT/Gemini style */
@@ -576,6 +645,35 @@
         max-width: 100%;
       }
       
+      /* Proposed edits to the user's open file (```edit blocks) */
+      .edit-card { border: 1px solid var(--border-color); border-radius: 8px; margin: 15px 0;
+        background: var(--code-bg); color: var(--text-primary); overflow: hidden; white-space: normal; }
+      .edit-card-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        padding: 8px 12px; background: var(--bg-secondary); font-size: 12px; font-weight: bold; }
+      .edit-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .edit-card-status { font-weight: normal; color: var(--text-secondary); }
+      .edit-card-status.edit-error { color: #e05252; }
+      .edit-diff { font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; padding: 4px 0; }
+      .edit-line { white-space: pre; padding: 0 12px 0 0; display: flex; }
+      .edit-line .edit-ln { flex: 0 0 auto; width: 3.5em; text-align: right; padding-right: 8px;
+        color: var(--text-secondary); user-select: none; }
+      .edit-line .edit-sign { flex: 0 0 auto; width: 1.2em; user-select: none; }
+      .edit-line.edit-del { background: rgba(229, 83, 75, 0.16); }
+      .edit-line.edit-add { background: rgba(56, 161, 105, 0.18); }
+      .edit-line.edit-del .edit-sign { color: #e5534b; }
+      .edit-line.edit-add .edit-sign { color: #38a169; }
+      .edit-card.edit-rejected .edit-diff { opacity: 0.45; }
+      .edit-card.edit-applied { border-color: #38a169; }
+      .edit-actions { display: flex; gap: 6px; }
+      .edit-warning { padding: 6px 12px; font-size: 12px; line-height: 1.4; color: var(--text-primary);
+        background: rgba(230, 160, 0, 0.16); border-bottom: 1px solid rgba(230, 160, 0, 0.45); }
+      .edit-btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);
+        padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+      .edit-btn.edit-accept { background: #38a169; border-color: #38a169; color: #fff; }
+      .edit-btn:disabled { opacity: 0.5; cursor: default; }
+      .edit-all-bar { display: flex; gap: 6px; justify-content: flex-end; align-items: center;
+        font-size: 12px; color: var(--text-secondary); margin: 6px 0 12px; }
+
       .code-block-header {
         display: flex;
         justify-content: space-between;
@@ -845,12 +943,12 @@
       }
       
       /* Ensure buttons in tab content are not affected by tab hover */
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button) {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]) {
         background-color: var(--text-primary) !important;
         color: var(--bg-primary) !important;
       }
       
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):hover {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
       }
@@ -2032,6 +2130,152 @@
         color: var(--text-primary);
       }
       
+      /* ---- Data Explorer (xp-*) ---------------------------------------- */
+      .explorer-action-bar { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+      .explorer-title-section { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .explorer-title-section .dims-text { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+      .explorer-actions { align-items: center; }
+      .xp-btn { height: 30px; padding: 0 10px; border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-primary); border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+      .xp-btn:hover:not(:disabled) { background: var(--bg-secondary); }
+      .xp-btn:disabled { opacity: 0.45; cursor: default; }
+      .xp-btn.xp-icon-only { width: 30px; padding: 0; font-size: 15px; }
+      .xp-btn.xp-active { border-color: var(--rgent-accent); color: var(--rgent-accent); }
+      .xp-icon-btn { border: none; background: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; }
+      .xp-icon-btn:hover:not(:disabled) { background: var(--bg-secondary); color: var(--text-primary); }
+      .xp-icon-btn:disabled { opacity: 0.35; cursor: default; }
+      .xp-link-btn { border: none; background: none; color: var(--rgent-accent); cursor: pointer; font-size: 12px; padding: 4px 6px; }
+      .xp-search { position: relative; display: flex; align-items: center; }
+      .xp-search-icon { position: absolute; left: 8px; color: var(--text-secondary); font-size: 14px; pointer-events: none; }
+      .xp-search input { height: 30px; width: 190px; padding: 0 24px 0 26px; border: 1px solid var(--border-color); border-radius: 5px;
+        background: var(--input-bg); color: var(--text-primary); font-size: 12px; box-sizing: border-box; }
+      .xp-search input:focus { outline: none; border-color: var(--rgent-accent); }
+      .xp-search .xp-icon-btn { position: absolute; right: 2px; }
+      .explorer-filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 16px; }
+      #explorer-filters-container { display: flex; flex-wrap: wrap; gap: 6px; }
+      .xp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 14px; font-size: 12px;
+        background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; max-width: 360px; }
+      .xp-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xp-chip.xp-chip-error { border-color: #e05252; color: #e05252; }
+      .xp-chip .xp-icon-btn { font-size: 14px; padding: 0 5px; }
+      .xp-progress { height: 2px; flex-shrink: 0; overflow: hidden; background: transparent; }
+      .xp-progress div { height: 100%; width: 30%; background: var(--rgent-accent); transform: translateX(-100%); opacity: 0; }
+      .xp-progress.xp-busy div { opacity: 1; animation: xp-slide 1s ease-in-out infinite; }
+      @keyframes xp-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+      .explorer-summary-panel { width: 280px; }
+      .explorer-summary-panel.xp-hidden { display: none !important; }
+      .summary-header { padding: 8px; gap: 6px; }
+      .summary-header input, .summary-header select { height: 28px; padding: 0 6px; border: 1px solid var(--border-color); border-radius: 4px;
+        background: var(--input-bg); color: var(--text-primary); font-size: 12px; min-width: 0; }
+      .summary-header input { flex: 1; }
+      .summary-header select { width: 112px; }
+      .summary-column-item { padding: 8px 12px; }
+      .summary-column-item.xp-pinned { border-left: 3px solid var(--rgent-accent); }
+      .xp-sum-head { display: flex; align-items: baseline; gap: 6px; }
+      .xp-sum-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xp-sum-type { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+      .xp-sum-miss { margin-left: auto; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+      .xp-miss-track { height: 3px; background: var(--bg-secondary); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+      .xp-miss-track div { height: 100%; background: #e5534b; }
+      .mini-sparkline { height: 30px; margin: 6px 0 0; padding: 3px 4px; }
+      .sparkline-bar { background: var(--rgent-accent); opacity: 0.75; }
+      .xp-stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 12px; margin-top: 8px; }
+      .xp-stats dt { color: var(--text-secondary); }
+      .xp-stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xp-sum-loading { padding: 16px; font-size: 12px; color: var(--text-secondary); }
+      .explorer-grid-wrapper { outline: none; }
+      .xp-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; color: var(--text-primary); }
+      .xp-table th, .xp-table td { border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-sizing: border-box; }
+      .xp-table thead th { position: sticky; top: 0; z-index: 3; background: var(--bg-secondary); text-align: left; padding: 0;
+        height: 44px; vertical-align: top; user-select: none; }
+      .xp-table .xp-rowhead { position: sticky; left: 0; z-index: 2; background: var(--bg-secondary); color: var(--text-secondary);
+        text-align: right; padding: 0 8px; font-variant-numeric: tabular-nums; cursor: pointer; }
+      .xp-table thead .xp-rowhead { z-index: 4; }
+      .xp-table td { padding: 0 8px; height: 26px; background: var(--bg-card); cursor: cell; }
+      .xp-table td.xp-num { text-align: right; font-variant-numeric: tabular-nums; }
+      .xp-table td.xp-na { color: var(--text-secondary); font-style: italic; opacity: 0.7; }
+      .xp-table td.xp-sel { background: color-mix(in srgb, var(--rgent-accent) 22%, var(--bg-card)); }
+      .xp-table td.xp-cursor { box-shadow: inset 0 0 0 2px var(--rgent-accent); }
+      .xp-table tr:hover td { background: color-mix(in srgb, var(--text-primary) 4%, var(--bg-card)); }
+      .xp-table tr:hover td.xp-sel { background: color-mix(in srgb, var(--rgent-accent) 22%, var(--bg-card)); }
+      .xp-colhead { position: relative; display: flex; height: 100%; }
+      .xp-colhead-main { flex: 1; min-width: 0; padding: 5px 4px 4px 8px; cursor: pointer; }
+      .xp-colhead-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; gap: 4px; align-items: center; }
+      .xp-colhead-name .xp-sort { color: var(--rgent-accent); font-size: 11px; flex-shrink: 0; }
+      .xp-colhead-type { font-size: 11px; color: var(--text-secondary); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xp-colhead-menu { flex-shrink: 0; width: 20px; border: none; background: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; }
+      .xp-colhead-menu:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+      .xp-table th.xp-pinned-col { box-shadow: inset 0 -2px 0 var(--rgent-accent); }
+      .xp-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 5; }
+      .xp-resize:hover, .xp-resize.xp-dragging { background: var(--rgent-accent); opacity: 0.5; }
+      .xp-empty { padding: 32px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+      .explorer-object-view { flex: 1; overflow: auto; min-width: 0; }
+      .explorer-status-bar { padding: 4px 16px; gap: 12px; min-height: 30px; }
+      .explorer-status-bar #explorer-status-text { font-weight: 400; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .explorer-status-bar #explorer-status-text.xp-status-error { color: #e05252; }
+      .xp-pager { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+      .xp-pager select { height: 24px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary); font-size: 11px; margin-left: 6px; }
+      .xp-modal { max-width: 440px; width: calc(100% - 32px); }
+      .xp-code-modal { max-width: 640px; }
+      .xp-modal-x { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-secondary); }
+      .xp-label { display: block; margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: var(--text-primary); }
+      .xp-input { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--border-color); border-radius: 4px;
+        background: var(--input-bg); color: var(--text-primary); box-sizing: border-box; font-size: 13px; }
+      .xp-error { margin-top: 10px; color: #e05252; font-size: 12px; }
+      .xp-code { background: var(--code-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 12px;
+        white-space: pre; overflow-x: auto; max-height: 50vh; color: var(--text-primary); margin: 0; user-select: text; }
+      .xp-hint { font-size: 12px; color: var(--text-secondary); margin-right: auto; }
+      #xp-code-modal .modal-footer, #filter-modal .modal-footer { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+      .context-menu { position: fixed; padding: 4px 0; min-width: 190px; }
+      .context-menu-item { padding: 6px 14px; font-size: 12px; }
+      .context-menu-sep { height: 1px; margin: 4px 0; background: var(--border-color); }
+      .xp-toast { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); background: var(--text-primary); color: var(--bg-primary);
+        padding: 6px 14px; border-radius: 16px; font-size: 12px; z-index: 3000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+      .xp-toast.xp-show { opacity: 0.92; }
+      /* Object view: lists, models, vectors, functions, other objects */
+      .xp-o { padding: 12px 16px 24px; color: var(--text-primary); font-size: 13px; max-width: 1100px; }
+      .xp-o-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; margin-bottom: 6px; }
+      .xp-o-crumb { background: none; border: none; padding: 2px 4px; border-radius: 4px; color: var(--rgent-accent); cursor: pointer; font: inherit; }
+      .xp-o-crumb:hover { background: var(--bg-secondary); }
+      .xp-o-crumb.xp-o-here { color: var(--text-primary); font-weight: 600; cursor: default; background: none; }
+      .xp-o-sep { color: var(--text-secondary); padding: 0 1px; }
+      .xp-o-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; }
+      .xp-o-badge { background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 1px 8px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
+      .xp-o-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+      .xp-o-btn { height: 26px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-card); color: var(--text-primary); font-size: 12px; cursor: pointer; }
+      .xp-o-btn:hover { border-color: var(--rgent-accent); color: var(--rgent-accent); }
+      .xp-o-section { margin-top: 14px; }
+      .xp-o-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+      .xp-o-filter { margin-left: auto; height: 24px; width: 180px; max-width: 45%; padding: 0 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary); font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+      .xp-o-table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+      .xp-o-table td, .xp-o-table th { padding: 5px 10px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .xp-o-table th { background: var(--bg-secondary); font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+      .xp-o-table tr:last-child td { border-bottom: none; }
+      .xp-o-row { cursor: pointer; }
+      .xp-o-row:hover td { background: var(--bg-secondary); }
+      .xp-o-row:focus { outline: 2px solid var(--rgent-accent); outline-offset: -2px; }
+      .xp-o-name { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+      .xp-o-chev { display: inline-block; width: 12px; color: var(--text-secondary); }
+      .xp-o-desc { color: var(--text-secondary); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+      .xp-o-prev { color: var(--text-secondary); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+      .xp-o-idx { color: var(--text-secondary); font-family: ui-monospace, Menlo, monospace; font-size: 12px; text-align: right !important; }
+      .xp-o-val { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+      .xp-o-val.xp-o-num { text-align: right; }
+      .xp-o-na { color: var(--text-secondary); font-style: italic; }
+      .xp-o-pre { background: var(--code-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; white-space: pre; overflow: auto; max-height: 60vh; color: var(--text-primary); user-select: text; }
+      .xp-o-note { color: var(--text-secondary); font-size: 12px; margin-top: 6px; }
+      .xp-o-stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+      .xp-o-card { border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; background: var(--bg-card); }
+      .xp-o-card .mini-sparkline { height: 56px; }
+      .xp-o-card .xp-stats { margin: 0; }
+      .xp-o-args { display: flex; flex-wrap: wrap; gap: 6px; }
+      .xp-o-arg { font-family: ui-monospace, Menlo, monospace; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 8px; background: var(--bg-card); }
+      .xp-o-arg span { color: var(--text-secondary); }
+      .xp-o-more { margin-top: 8px; }
+      @media (max-width: 560px) { .xp-o-stats { grid-template-columns: 1fr; } .xp-o-hide-narrow { display: none; } }
+
       /* Context Menu Styles */
       .context-menu {
         position: absolute;
@@ -4347,7 +4591,7 @@
                      <!-- Individual plot configurations will be added here -->
                    </div>
                    <div class="add-plot-section">
-                     <button type="button" class="add-plot-btn" onclick="addVizPlot('timeseries')">
+                     <button type="button" class="add-plot-btn" onclick="addVizPlot('time-series')">
                        Add Plot
                      </button>
                    </div>
@@ -4538,7 +4782,7 @@
       <!-- Data Explorer Tab -->
       <div id="explorer-tab" class="tab-content">
         <div class="explorer-container">
-          <!-- Top Action Bar -->
+          <!-- Top bar: object picker, size, view controls -->
           <div class="explorer-action-bar">
             <div class="explorer-title-section">
               <div class="custom-dropdown" id="explorer-dataframe-select-wrapper" style="position: relative; min-width: 200px;">
@@ -4546,87 +4790,127 @@
                   <span id="explorer-dataframe-select-text">Select an object...</span>
                   <span class="dropdown-arrow" style="margin-left: 8px; display: inline-block;">▼</span>
                 </button>
-                <div id="explorer-dataframe-select-dropdown" class="custom-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card) !important; background-color: var(--bg-card) !important; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 4px; max-height: 400px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto;">
-                  <!-- Options will be populated here -->
-                </div>
+                <div id="explorer-dataframe-select-dropdown" class="custom-dropdown-menu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; margin-top: 4px; max-height: 400px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
               </div>
-              <span id="explorer-df-dims" class="dims-text" style="margin-left: 15px;"></span>
+              <span id="explorer-df-dims" class="dims-text"></span>
             </div>
-            <div class="explorer-actions" style="display: none; gap: 8px; align-items: center;">
-              <button id="prev-page-btn" onclick="explorerPreviousPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary) !important; cursor: pointer; font-size: 12px; font-weight: 500; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>◀ Previous 100</button>
-              <button id="next-page-btn" onclick="explorerNextPage()" class="action-btn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary) !important; cursor: pointer; font-size: 12px; font-weight: 500; width: 120px; height: 32px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;" disabled>Next 100 ▶</button>
+            <div class="explorer-actions" style="display: none;">
+              <div class="xp-search">
+                <span class="xp-search-icon">⌕</span>
+                <input type="text" id="xp-search-input" placeholder="Search values…" autocomplete="off" spellcheck="false">
+                <button id="xp-search-clear" class="xp-icon-btn" title="Clear search" style="display:none">×</button>
+              </div>
+              <button class="xp-btn" id="xp-add-filter-btn" onclick="xpOpenFilter()" title="Add a filter">＋ Filter</button>
+              <button class="xp-btn" id="xp-clear-sort-btn" onclick="xpClearSorting()" title="Clear column sorting" disabled>Clear sorting</button>
+              <button class="xp-btn" id="xp-code-btn" onclick="xpShowCode()" title="R code that reproduces this view">&lt;/&gt; Code</button>
+              <button class="xp-btn xp-icon-only" id="xp-refresh-btn" onclick="xpRefresh()" title="Reload the data">↻</button>
+              <button class="xp-btn xp-icon-only" id="xp-summary-toggle" onclick="xpToggleSummary()" title="Show or hide the column summary">◧</button>
             </div>
           </div>
-          
-          <!-- Filter Bar -->
+
+          <!-- Active filters -->
           <div id="explorer-filter-bar" class="explorer-filter-bar" style="display: none;">
             <div id="explorer-filters-container"></div>
+            <button class="xp-link-btn" onclick="xpClearFilters()">Clear filters</button>
           </div>
-          
-          <!-- Main Grid Area -->
+          <div class="xp-progress" id="xp-progress"><div></div></div>
+
           <div class="explorer-grid-container">
-            <!-- Summary Panel (Left) -->
+            <!-- Column summary -->
             <div id="explorer-summary-panel" class="explorer-summary-panel" style="display: none;">
               <div class="summary-header">
-                <input type="text" id="summary-search" placeholder="Search columns..." oninput="filterSummaryColumns()" style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; display: none;">
+                <input type="text" id="summary-search" placeholder="Search columns…" oninput="xpRenderSummary()">
+                <select id="summary-sort" onchange="xpRenderSummary()" title="Order of columns in this list">
+                  <option value="original">Original order</option>
+                  <option value="name-asc">Name A–Z</option>
+                  <option value="name-desc">Name Z–A</option>
+                  <option value="type-asc">By type</option>
+                  <option value="missing-desc">Most missing</option>
+                </select>
               </div>
               <div id="summary-columns-list" class="summary-columns-list"></div>
             </div>
-            
-            <!-- Data Grid -->
-            <div class="explorer-grid-wrapper" style="display: none;">
-              <div id="explorer-grid" class="explorer-grid">
-                <div class="grid-header">
-                  <div class="row-header-corner" id="row-header-corner" style="width: 60px; min-width: 60px; max-width: 60px; flex-shrink: 0; border-right: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color); height: 35px; box-sizing: border-box; position: sticky; left: 0; z-index: 101;"></div>
-                  <div id="grid-column-headers" class="grid-column-headers"></div>
-                </div>
-                <div class="grid-body">
-                  <div id="grid-row-headers" class="grid-row-headers"></div>
-                  <div id="grid-data-cells" class="grid-data-cells"></div>
-                </div>
-              </div>
+
+            <!-- Data grid -->
+            <div class="explorer-grid-wrapper" id="xp-grid-wrapper" style="display: none;" tabindex="0">
+              <table class="xp-table" id="xp-table"><colgroup id="xp-colgroup"></colgroup><thead id="xp-thead"></thead><tbody id="xp-tbody"></tbody></table>
+              <div class="xp-empty" id="xp-empty" style="display:none"></div>
+            </div>
+
+            <!-- Lists, vectors, functions and other objects -->
+            <div class="explorer-object-view" id="explorer-object-view" style="display: none;">
+              <div class="xp-o" id="xp-o"></div>
+              <div class="row-header-corner" style="display:none"></div>
+              <div id="grid-column-headers" style="display:none"></div>
+              <div id="grid-row-headers" style="display:none"></div>
+              <div class="explorer-grid-wrapper-legacy" style="display:none"><div id="grid-data-cells" class="grid-data-cells"></div></div>
             </div>
           </div>
-          
-          <!-- Status Bar -->
+
+          <!-- Status and paging -->
           <div class="explorer-status-bar">
             <span id="explorer-status-text"></span>
+            <div class="xp-pager" id="xp-pager" style="display:none">
+              <button id="prev-page-btn" class="xp-icon-btn" onclick="xpPage(-1)" title="Previous page" disabled>◀</button>
+              <span id="xp-page-text"></span>
+              <button id="next-page-btn" class="xp-icon-btn" onclick="xpPage(1)" title="Next page" disabled>▶</button>
+              <select id="xp-page-size" onchange="xpSetPageSize(this.value)" title="Rows per page">
+                <option value="100">100 rows</option>
+                <option value="250">250 rows</option>
+                <option value="500">500 rows</option>
+                <option value="1000">1000 rows</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
-      
-      <!-- Filter Modal -->
+
+      <!-- Add / edit a filter -->
       <div id="filter-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content xp-modal">
           <div class="modal-header">
-            <h3>Add Filter</h3>
-            <button onclick="closeFilterModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+            <h3 id="xp-filter-title">Add filter</h3>
+            <button onclick="xpCloseFilter()" class="xp-modal-x" title="Close">&times;</button>
           </div>
           <div class="modal-body">
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Column:</label>
-              <select id="filter-column-select" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-primary);">
-                <option value="">Select a column...</option>
-              </select>
-            </div>
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Filter Type:</label>
-              <select id="filter-type-select" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-primary);">
-                <option value="">Select filter type...</option>
-              </select>
-            </div>
-            <div id="filter-value-container" style="margin-bottom: 15px; display: none;">
-              <label style="display: block; margin-bottom: 5px; font-weight: 500;">Value:</label>
-              <input type="text" id="filter-value-input" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-primary); box-sizing: border-box;">
-              <div id="filter-between-container" style="display: none; margin-top: 10px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">To:</label>
-                <input type="text" id="filter-value-input-2" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-primary); box-sizing: border-box;">
+            <label class="xp-label" for="filter-column-select">Column</label>
+            <select id="filter-column-select" class="xp-input"></select>
+            <label class="xp-label" for="filter-type-select">Condition</label>
+            <select id="filter-type-select" class="xp-input"></select>
+            <div id="filter-value-container">
+              <label class="xp-label" for="filter-value-input" id="xp-value-label">Value</label>
+              <input type="text" id="filter-value-input" class="xp-input" list="xp-value-suggestions" autocomplete="off">
+              <select id="filter-bool-select" class="xp-input" style="display:none"><option value="TRUE">TRUE</option><option value="FALSE">FALSE</option></select>
+              <div id="filter-between-container" style="display: none;">
+                <label class="xp-label" for="filter-value-input-2">and</label>
+                <input type="text" id="filter-value-input-2" class="xp-input" autocomplete="off">
               </div>
+              <datalist id="xp-value-suggestions"></datalist>
             </div>
+            <div id="xp-filter-error" class="xp-error" style="display:none"></div>
           </div>
           <div class="modal-footer">
-            <button onclick="closeFilterModal()" class="btn-secondary" style="margin-right: 10px;">Cancel</button>
-            <button onclick="applyFilter()" class="btn-primary">Apply Filter</button>
+            <button onclick="xpCloseFilter()" class="btn-secondary">Cancel</button>
+            <button onclick="xpApplyFilter()" class="btn-primary" id="xp-filter-apply">Apply filter</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code for the current view -->
+      <div id="xp-code-modal" class="modal" style="display: none;">
+        <div class="modal-content xp-modal xp-code-modal">
+          <div class="modal-header">
+            <h3>Code for this view</h3>
+            <button onclick="xpCloseCode()" class="xp-modal-x" title="Close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <pre id="xp-code-text" class="xp-code"></pre>
+            <div class="xp-hint" id="xp-code-hint"></div>
+          </div>
+          <div class="modal-footer">
+            <span id="xp-code-status" class="xp-hint"></span>
+            <button onclick="xpCopyCode()" class="btn-secondary" id="xp-code-copy">Copy</button>
+            <button onclick="xpInsertCode()" class="btn-primary" id="xp-code-insert">Insert into script</button>
           </div>
         </div>
       </div>
@@ -4870,9 +5154,9 @@
       let agentResults = [];
       let agentCodes = [];
       let currentStepCode = null;
-      // Objects in the user's R session, sent back with failed executions so
-      // Claude's fix only uses things that exist
-      let lastExecutionEnvObjects = '';
+      // Targeted context for the last failed execution (objects the code uses,
+      // where a missing name is defined, similar names), built in R
+      let lastExecutionFixContext = '';
       
       // Stop response state management
       let isAIResponding = false;
@@ -5463,7 +5747,7 @@
             if (!text) return false;
             // Only return true if we have BOTH opening and closing backticks AND it's R code
             // This prevents triggering on incomplete/truncated code blocks or output blocks
-            return /```(?:\{[rR]\}|[rR])(?:\n|\s+)[\s\S]+?```/.test(text);
+            return /```(?:\{[rR]\}|[rR])(?:\n|\s+)[\s\S]+?```/.test(withoutEditBlocks(text));
           };
           
           
@@ -5507,6 +5791,12 @@
               break;
             case "stop_response":
               break;
+            case "edit_previews":
+              showEditPreviews(data);
+              break;
+            case "edit_applied":
+              handleEditApplied(data);
+              break;
             case "inserted":
               addMessage("Code inserted successfully!", "ai");
               break;
@@ -5539,7 +5829,13 @@
                 addMessage(`**Plot Analysis Error:** ${data.message}`, 'ai');
               }
               break;
+            case "execution_progress":
+              if (typeof data.message === 'string' && data.message) {
+                showExecutionStatus(data.message);
+              }
+              break;
             case "executed":
+              removeAnimatedPlaceholder("exec-status");
               // Check if agent was stopped before processing execution results
               if (currentAgentWorkflow && currentAgentWorkflow.stopped) {
                 console.log('🛑 Agent was stopped, ignoring execution result');
@@ -5550,6 +5846,18 @@
               // e.g. run the chunk that creates a missing object. Say what it did.
               if (Array.isArray(data.recovery) && data.recovery.length > 0) {
                 addMessage("🔧 **Fixed automatically:**\n" + data.recovery.map(n => "- " + n).join("\n"), "ai");
+              }
+              
+              // The code asked a question: show it and wait for the answer
+              if (data.needs_input && typeof data.needs_input === 'object' && data.needs_input.kind) {
+                showCodeQuestion(data.needs_input, currentStepCode || "", Array.isArray(data.answers) ? data.answers : [],
+                                 (data.resume && typeof data.resume === 'object') ? data.resume : null);
+                cleaningCodeExecuting = false;
+                if (isAIResponding) {
+                  isAIResponding = false;
+                  transformToSendButton();
+                }
+                break;
               }
               
               if (data.status === "success") {
@@ -5826,7 +6134,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     transformToSendButton();
                   }
                 } else if (cleaningCodeExecuting) {
-                  lastExecutionEnvObjects = (typeof data.env_objects === 'string') ? data.env_objects : '';
+                  lastExecutionFixContext = (typeof data.fix_context === 'string') ? data.fix_context : '';
                   // This is cleaning code that failed - trigger iteration
                   console.log('🔍 Cleaning code execution failed, triggering error handling...');
                   // Pass the current step code that failed
@@ -5940,7 +6248,10 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             // Agent-related cases
             case "completions":
               if (data.data) {
-                completions = data.data;
+                // R sends a single name as a string and none as {}: always arrays
+                const asList = (v) => Array.isArray(v) ? v : (typeof v === 'string' ? [v] : []);
+                completions = { dataframes: asList(data.data.dataframes), functions: asList(data.data.functions),
+                                variables: asList(data.data.variables) };
                 console.log('📋 Completions received:', completions);
               }
               break;
@@ -5961,109 +6272,29 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               // If this is the first connection and we haven't shown welcome message yet
               if (window.showWelcomeMessage && !window.welcomeMessageShown) {
                 window.showWelcomeMessage = false;
+                // The file open in the editor, for the greeting
+                window.welcomeActiveFile = (data.active_file && typeof data.active_file.name === 'string') ? data.active_file : null;
                 // Get column names for dataframes using existing get_dataframe_info pattern
                 generateWelcomeWithColumns(data.data, data.objects_info);
               }
               break;
+            case "explorer_object":
+              xpOnObject(data);
+              break;
             case "dataframe_explorer_data":
-              console.log('📊 Explorer: Received explorer data:', data.data);
-              if (data.data && data.data.exists) {
-                // Determine object type - check for vectors (have values and length but no column_info)
-                let objType = data.data.type || 'dataframe';
-                if (data.data.values && data.data.length !== undefined && !data.data.column_info && !data.data.nrow) {
-                  objType = 'vector';
-                } else if (data.data.column_info && data.data.nrow && data.data.ncol) {
-                  // Could be dataframe or matrix - check type field
-                  if (data.data.type === 'matrix') {
-                    objType = 'matrix';
-                  } else {
-                    objType = 'dataframe';
-                  }
-                }
-                
-                // Handle different object types
-                if (objType === 'dataframe' || objType === 'matrix' || data.data.column_info) {
-                  // Dataframe or Matrix - show grid view
-                  const rowCount = data.data.nrow || 0;
-                  const colCount = data.data.ncol || 0;
-                  document.getElementById('explorer-df-dims').textContent = 
-                    `${rowCount} rows × ${colCount} columns`;
-                  
-                  // Show summary panel only for dataframes (not matrices)
-                  const summaryPanel = document.getElementById('explorer-summary-panel');
-                  if (summaryPanel) {
-                    if (objType === 'dataframe') {
-                      summaryPanel.style.display = 'flex';
-                    } else {
-                      summaryPanel.style.display = 'none';
-                    }
-                  }
-                  
-                  // Show row header corner and headers for dataframes and matrices
-                  const rowHeaderCorner = document.querySelector('.row-header-corner');
-                  const rowHeaders = document.getElementById('grid-row-headers');
-                  const columnHeaders = document.getElementById('grid-column-headers');
-                  if (rowHeaderCorner) {
-                    rowHeaderCorner.style.display = 'block';
-                  }
-                  if (rowHeaders) {
-                    rowHeaders.style.display = 'block';
-                  }
-                  if (columnHeaders) {
-                    columnHeaders.style.display = 'block';
-                  }
-                  
-                  try {
-                    if (data.data.column_info) {
-                    renderExplorerSummary(data.data.column_info);
-                    loadExplorerPage(1);
-                    } else {
-                      // Fallback if no column_info
-                      renderObjectExplorer(data.data);
-                    }
-                  } catch (error) {
-                    console.error('📊 Explorer: Error rendering:', error);
-                    document.getElementById('explorer-status-text').textContent = 'Error rendering data: ' + error.message;
-                  }
-                } else {
-                  // Other object types - hide summary panel
-                  const summaryPanel = document.getElementById('explorer-summary-panel');
-                  if (summaryPanel) {
-                    summaryPanel.style.display = 'none';
-                  }
-                  
-                  renderObjectExplorer(data.data);
-                }
-              } else {
-                document.getElementById('explorer-status-text').textContent = 'Error: ' + (data.data.error || 'Object not found');
-              }
+              xpOnSummary(data);
               break;
             case "dataframe_chunk_filtered":
-              console.log('📊 Explorer: Received chunk data:', data.data);
-              if (data.data && data.data.exists) {
-                try {
-                  renderExplorerGrid(data.data.data, data.data.column_order, {
-                    page: data.data.page,
-                    total_pages: data.data.total_pages,
-                    start_row: data.data.start_row,
-                    end_row: data.data.end_row,
-                    total_rows: data.data.total_rows,
-                    filtered_rows: data.data.filtered_rows
-                  });
-                } catch (error) {
-                  console.error('📊 Explorer: Error rendering grid:', error);
-                  document.getElementById('explorer-status-text').textContent = 'Error rendering grid: ' + error.message;
-                }
-              } else {
-                document.getElementById('explorer-status-text').textContent = 'Error: ' + (data.data.error || 'Failed to load data');
-              }
+              xpOnPage(data);
               break;
             case "explorer_code":
-              // Show code in modal or copy to clipboard
-              const code = data.data.code;
-              if (confirm(`Generated code:\n\n${code}\n\nCopy to clipboard?`)) {
-                navigator.clipboard.writeText(code);
-              }
+              xpOnCode(data.data || {});
+              break;
+            case "explorer_changed":
+              xpOnChanged(data.data || {});
+              break;
+            case "explorer_copied":
+              xpOnCopied(data.data || {});
               break;
             case "dataframe_info":
               console.log('Handling dataframe_info action');
@@ -6278,6 +6509,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         
         ws.onclose = function() {
           console.log("WebSocket disconnected");
+          removeAnimatedPlaceholder("exec-status");
           isConnected = false;
           document.getElementById("user-input").disabled = true;
           document.getElementById("send-button").disabled = true;
@@ -6351,6 +6583,155 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       // Helper function to remove animated placeholder
+      // Live status while code runs, e.g. "Running chunk `settings` (line 27)
+      // to create `SAMPLE_KEY`...". One bubble, updated in place; removed when
+      // the result arrives.
+      function showExecutionStatus(text) {
+        const chatContainer = document.getElementById("chat-container");
+        if (!chatContainer) return;
+        let status = document.getElementById("exec-status");
+        if (!status) {
+          status = document.createElement("div");
+          status.className = "message ai-message exec-status";
+          status.id = "exec-status";
+          status.setAttribute("role", "status");
+          status.setAttribute("aria-live", "polite");
+          const spinner = document.createElement("span");
+          spinner.className = "exec-spinner";
+          spinner.setAttribute("aria-hidden", "true");
+          const label = document.createElement("span");
+          label.className = "exec-status-text";
+          status.appendChild(spinner);
+          status.appendChild(label);
+        }
+        // Keep it as the last message while it updates
+        chatContainer.appendChild(status);
+        // Plain text, with `name` shown without the backticks
+        const label = status.querySelector(".exec-status-text");
+        label.textContent = String(text).replace(/`/g, "") + "…";
+        // If nothing changes for a while, R may be busy with a long step or
+        // waiting for an answer in the Console. Say so instead of looking stuck.
+        if (status.dataset.intervalId) clearTimeout(parseInt(status.dataset.intervalId));
+        status.dataset.intervalId = setTimeout(() => {
+          if (document.getElementById("exec-status") === status) {
+            label.textContent += " Still working. If the R Console is asking a question, answer it there.";
+          }
+        }, 20000);
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+      }
+
+      // The running code asked a question (utils::menu, readline, askYesNo,
+      // scan). R stopped before the Console could wait; ask here, then run
+      // the code again with every answer given so far.
+      // An unanswered question goes stale once other code runs: answering it
+      // later would re-run old code out of nowhere, so close it
+      function closeOpenCodeQuestions() {
+        document.querySelectorAll('.code-question[data-open="1"]').forEach((box) => {
+          box.dataset.open = "0";
+          const actions = box.querySelector('.cq-actions');
+          if (actions) {
+            actions.innerHTML = "";
+            const note = document.createElement("span");
+            note.className = "cq-answered";
+            note.textContent = "Skipped";
+            actions.appendChild(note);
+          }
+        });
+      }
+
+      function showCodeQuestion(question, code, answersSoFar, resume) {
+        const chatContainer = document.getElementById("chat-container");
+        if (!chatContainer || !question) return;
+        closeOpenCodeQuestions();
+        const box = document.createElement("div");
+        box.className = "message ai-message code-question";
+        box.dataset.open = "1";
+
+        const label = document.createElement("div");
+        label.className = "cq-label";
+        label.textContent = "Your code is asking a question";
+        box.appendChild(label);
+
+        const prompt = (typeof question.prompt === 'string') ? question.prompt.trim() : '';
+        let context = Array.isArray(question.context) ? question.context
+                    : (typeof question.context === 'string' ? [question.context] : []);
+        context = context.map(c => String(c).trim()).filter(c => c && c !== prompt);
+        // Without a prompt of its own (menu() with no title), the last message
+        // printed before it is the question
+        let promptText = prompt;
+        if (!promptText && context.length) promptText = context.pop();
+        if (context.length) {
+          const ctx = document.createElement("div");
+          ctx.className = "cq-context";
+          ctx.textContent = context.slice(-2).join("\n");
+          box.appendChild(ctx);
+        }
+        const p = document.createElement("div");
+        p.className = "cq-prompt";
+        p.textContent = promptText || "R is waiting for an answer.";
+        box.appendChild(p);
+
+        const actions = document.createElement("div");
+        actions.className = "cq-actions";
+        box.appendChild(actions);
+
+        const answer = (value, shown) => {
+          if (box.dataset.open !== "1") return;
+          box.dataset.open = "0";
+          actions.innerHTML = "";
+          const done = document.createElement("span");
+          done.className = "cq-answered";
+          done.textContent = "You answered: " + shown;
+          actions.appendChild(done);
+          const answers = (Array.isArray(answersSoFar) ? answersSoFar : []).concat([String(value)]);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            currentStepCode = code;
+            cleaningCodeExecuting = true;
+            operationStopped = false;
+            isAIResponding = true;
+            transformToStopButton();
+            showExecutionStatus("Running your code with your answer");
+            // `resume` makes R continue at the line that asked, so the lines
+            // before it don't run a second time
+            const msg = { action: "execute_code", code: code, answers: answers };
+            if (resume) msg.resume = resume;
+            ws.send(JSON.stringify(msg));
+          }
+        };
+
+        let choices = Array.isArray(question.choices) ? question.choices
+                    : (typeof question.choices === 'string' ? [question.choices] : []);
+        if (question.kind === "choice" && choices.length) {
+          // Send the 1-based position, which is what menu() returns
+          choices.forEach((c, i) => {
+            const b = document.createElement("button");
+            b.className = "action-btn";
+            b.textContent = c;
+            b.onclick = () => answer(i + 1, c);
+            actions.appendChild(b);
+          });
+        } else {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "cq-input";
+          input.placeholder = "Type your answer";
+          const send = document.createElement("button");
+          send.className = "action-btn";
+          send.textContent = "Send";
+          const submit = () => answer(input.value, input.value === "" ? "(empty)" : input.value);
+          send.onclick = submit;
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+          });
+          actions.appendChild(input);
+          actions.appendChild(send);
+          setTimeout(() => input.focus(), 0);
+        }
+
+        chatContainer.appendChild(box);
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+      }
+
       function removeAnimatedPlaceholder(id) {
         const placeholder = document.getElementById(id);
         if (placeholder) {
@@ -6492,6 +6873,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       function stopCurrentOperation() {
         // Set stop flag to ignore incoming chunks
         operationStopped = true;
+        removeAnimatedPlaceholder("exec-status");
         
         // Clear all pending timeouts
         pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
@@ -6713,72 +7095,66 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       // Parse raw text into structured segments for rendering
-      function parseStreamingContent(text) {
-        const segments = [];
-        let remaining = text;
-        let pos = 0;
-        
-        while (pos < remaining.length) {
-          // Check for code block start
-          if (remaining.substring(pos).startsWith('```')) {
-            // Find the end of code block
-            const afterOpening = remaining.indexOf('\n', pos);
-            let lang = afterOpening > pos ? remaining.substring(pos + 3, afterOpening).trim() : '';
-            
-            // Handle {r} or {R} format
-            if (lang.startsWith('{') && lang.includes('}')) {
-              lang = lang.replace(/\{([rR])\}/, '$1');
+      // Split a reply into text and fenced code blocks, line by line as in
+      // CommonMark: a fence is 3+ backticks at the start of a line, and only
+      // a bare line of at least as many backticks closes it. Inside an
+      // ```edit block, R Markdown chunk fences (```{r ...} ... ```) are part
+      // of the edit, so they nest instead of closing it.
+      function splitFencedBlocks(text) {
+        const out = [];
+        const lines = String(text || '').split('\n');
+        let buf = [], block = null, offset = 0;
+        const flushText = () => { if (buf.length) { out.push({ type: 'text', content: buf.join('\n') }); buf = []; } };
+        lines.forEach((line, k) => {
+          const last = k === lines.length - 1;
+          const nl = last ? '' : '\n';
+          if (!block) {
+            const m = line.match(/^ {0,3}(`{3,})\s*([^`]*)$/);
+            if (m) {
+              flushText();
+              let lang = m[2].trim();
+              if (/^\{[rR]\}$/.test(lang)) lang = 'r';
+              block = { fence: m[1].length, lang, body: [], depth: 0, isEdit: /^edit\b/i.test(lang) };
+            } else buf.push(line);
+            return;
+          }
+          const f = line.match(/^ {0,3}(`{3,})\s*(.*)$/);
+          if (f && f[1].length >= block.fence) {
+            const info = f[2].trim();
+            if (info && block.isEdit) { block.depth++; block.body.push(line); return; }
+            if (!info && block.depth > 0) { block.depth--; block.body.push(line); return; }
+            if (!info) {
+              const isR = /^[rR]$/.test(block.lang);
+              out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n') + (block.body.length ? '\n' : ''), complete: true });
+              block = null;
+              return;
             }
-            
-            const closePos = remaining.indexOf('```', pos + 3);
-            
-            if (closePos !== -1) {
-              // Complete code block
-              const codeStart = afterOpening !== -1 && afterOpening < closePos ? afterOpening + 1 : pos + 3 + lang.length;
-              const code = remaining.substring(codeStart, closePos);
-              // Only treat as R if explicitly marked as r/R/{r}/{R}, otherwise keep original lang
-              const isRLang = /^[rR]$|^\{[rR]\}$/.test(lang);
-              const normalizedLang = isRLang ? 'r' : lang;
-              segments.push({ type: 'code-block', lang: normalizedLang, content: code, complete: true });
-              pos = closePos + 3;
-            } else {
-              // Incomplete code block (still being typed)
-              const codeStart = afterOpening !== -1 ? afterOpening + 1 : pos + 3;
-              const code = remaining.substring(codeStart);
-              // Only treat as R if explicitly marked as r/R/{r}/{R}, otherwise keep original lang
-              const isRLang = /^[rR]$|^\{[rR]\}$/.test(lang);
-              const normalizedLang = isRLang ? 'r' : lang;
-              segments.push({ type: 'code-block', lang: normalizedLang, content: code, complete: false });
-              pos = remaining.length;
-            }
-            continue;
           }
-          
-          // Find the next special element
-          let nextSpecial = remaining.length;
-          let specialType = null;
-          
-          // Check for code block
-          const codeBlockStart = remaining.indexOf('```', pos);
-          if (codeBlockStart !== -1 && codeBlockStart < nextSpecial) {
-            nextSpecial = codeBlockStart;
-            specialType = 'code-block';
-          }
-          
-          // Extract text segment up to next special element
-          if (nextSpecial > pos) {
-            const textSegment = remaining.substring(pos, nextSpecial);
-            segments.push({ type: 'text', content: textSegment });
-            pos = nextSpecial;
-          }
-          
-          // If no special element found, we're done
-          if (specialType === null && pos >= remaining.length) break;
+          block.body.push(line);
+        });
+        if (block) {
+          const isR = /^[rR]$/.test(block.lang);
+          out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n'), complete: false });
         }
-        
-        return segments;
+        flushText();
+        return out;
       }
-      
+      function parseStreamingContent(text) {
+        // Text segments keep their line breaks between blocks
+        const segs = splitFencedBlocks(text);
+        return segs.map((sg, k) => sg.type === 'text' && k < segs.length - 1 ? { type: 'text', content: sg.content + '\n' } : sg);
+      }
+      // The reply without its ```edit blocks: auto-run and "Run" must never
+      // pick up code that is part of an edit to the file
+      function withoutEditBlocks(text) {
+        if (!text || text.indexOf('```') === -1 || !/```+\s*edit\b/i.test(text)) return text;
+        return splitFencedBlocks(text).map(sg => {
+          if (sg.type === 'text') return sg.content;
+          if (/^edit\b/i.test(sg.lang || '')) return '';
+          return '```' + (sg.lang || '') + '\n' + sg.content + (sg.complete ? '```' : '');
+        }).join('\n');
+      }
+
       // Render a single segment with appropriate formatting
       function renderStreamingSegment(segment) {
         if (segment.type === 'code-block') {
@@ -7078,18 +7454,8 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         const codeBlocks = messageDiv.querySelectorAll('.code-block');
         
         // Extract code blocks with their language info from raw content
-        const codeBlockRegex = /```(\{?[rR]\}?|[a-zA-Z]*)?[\s\n]*([\s\S]*?)```/g;
-        const codeInfos = [];
-        let match;
-        while ((match = codeBlockRegex.exec(rawContent)) !== null) {
-          let lang = (match[1] || '').trim();
-          let code = match[2];
-          // Check if this is R code (r, R, {r}, {R})
-          const isRCode = /^[rR]$|^\{[rR]\}$/.test(lang);
-          // Clean up the code
-          code = code.replace(/^\{[rR]\}\s*\n?/, '').replace(/^[rR]\s+/, '').trim();
-          codeInfos.push({ code, isRCode });
-        }
+        const codeInfos = splitFencedBlocks(rawContent).filter(sg => sg.type === 'code-block')
+          .map(sg => ({ code: (sg.content || '').trim(), isRCode: sg.lang === 'r' }));
         
         codeBlocks.forEach((codeBlock, index) => {
           const header = codeBlock.querySelector('.code-block-header');
@@ -7306,6 +7672,9 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           
           // Add Copy/Insert buttons to code blocks
           addCopyInsertButtonsToCodeBlocks(currentStreamingMessage, rawContent);
+          
+          // ```edit blocks become diffs the user accepts or rejects
+          setupFileEdits(currentStreamingMessage, rawContent);
           
           currentStreamingMessage = null;
         }
@@ -7797,10 +8166,33 @@ Include comments explaining each step. Code only. Minimal chat.`;
         });
       }
       
+      // One line about the file open in the editor, e.g.
+      // "📄 You're in Analysis.Rmd (R Markdown, 1,200 lines) at line 875, in chunk melsi-plot."
+      function describeActiveFileForWelcome() {
+        const f = window.welcomeActiveFile;
+        if (!f || !f.name) return '';
+        const details = [];
+        if (typeof f.kind === 'string' && f.kind) details.push(f.kind);
+        if (typeof f.lines === 'number' && f.lines > 0) details.push(`${f.lines.toLocaleString()} line${f.lines === 1 ? '' : 's'}`);
+        let line = `📄 You're in ${f.name}`;
+        if (details.length) line += ` (${details.join(', ')})`;
+        if (typeof f.cursor_line === 'number' && f.cursor_line > 0 && f.lines > 0) {
+          line += ` at line ${f.cursor_line.toLocaleString()}`;
+          if (typeof f.chunk === 'string' && f.chunk) {
+            line += f.chunk.startsWith('starting at') ? `, in the chunk ${f.chunk}` : `, in chunk ${f.chunk}`;
+          }
+        }
+        line += '.';
+        if (typeof f.folder === 'string' && f.folder) line += `\n📁 ${f.folder}`;
+        return line + '\n\n';
+      }
+
       // Function to generate personalized welcome message based on available objects
       function generatePersonalizedWelcome(objects, objectsInfo, columnData = {}) {
+        const greeting = "👋 Hi! I'm your RStudio AI assistant.\n\n" + describeActiveFileForWelcome();
+        const genericHelp = "I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?";
         if (!objects || objects.length === 0) {
-          return "👋 Hi! I'm your RStudio AI assistant. I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?";
+          return greeting + genericHelp;
         }
         
         // Categorize objects by type
@@ -7880,9 +8272,9 @@ Include comments explaining each step. Code only. Minimal chat.`;
         
         // Create message with bullet points
         if (selectedObjects.length === 0) {
-          return "👋 Hi! I'm your RStudio AI assistant. I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?";
+          return greeting + genericHelp;
         } else {
-          let message = `👋 Hi! I'm your RStudio AI assistant. I see you have a few ${collectionType}:\n\n`;
+          let message = greeting + `I see you have a few ${collectionType}:\n\n`;
           
           // Add bullet points for selected objects with their types and sizes
           selectedObjects.forEach((objName, index) => {
@@ -8229,6 +8621,295 @@ Include comments explaining each step. Code only. Minimal chat.`;
         container.scrollTop = container.scrollHeight;
       }
       
+      // ---- Edits Claude proposes to the open file -------------------------
+      // Claude writes ```edit 12-15 (replace) or ```edit after 12 (insert)
+      // blocks. R maps the line numbers to the file as Claude saw it and the
+      // card shows a diff. Nothing changes until the user clicks Accept, even
+      // with Auto Execute on; an accepted edit can be undone from the card.
+      const fileEdits = {};        // edit_key -> {preview, card, state, appliedAt, appliedId, appliedPath}
+      const pendingEditMessages = {};  // msg_id -> {messageDiv, blocks}
+      let editMsgCounter = 0;
+      let editBatch = null;        // Accept all: {keys, done, run}
+
+      function parseEditHeader(lang) {
+        const info = (lang || '').trim();
+        let m = info.match(/^edit\s+after\s+(?:line\s+)?(\d+)\s*$/i);
+        if (m) return { mode: 'after', start: parseInt(m[1], 10), end: parseInt(m[1], 10) };
+        m = info.match(/^edit\s+(?:lines?\s+)?(\d+)\s*(?:[-–]\s*(\d+))?\s*$/i);
+        if (m) return { mode: 'replace', start: parseInt(m[1], 10), end: parseInt(m[2] || m[1], 10) };
+        return null;
+      }
+
+      function setupFileEdits(messageDiv, rawContent) {
+        if (!messageDiv || !rawContent || rawContent.indexOf('```edit') === -1) return;
+        const segments = parseStreamingContent(rawContent).filter(s => s.type === 'code-block');
+        const blockEls = messageDiv.querySelectorAll('.code-block');
+        const blocks = [];
+        segments.forEach((seg, i) => {
+          if (!/^edit\b/i.test(seg.lang || '') || !seg.complete) return;
+          const head = parseEditHeader(seg.lang);
+          const el = blockEls[i];
+          if (!el) return;
+          if (!head) {
+            const note = document.createElement('div');
+            note.className = 'edit-card-status edit-error';
+            note.style.fontSize = '12px';
+            note.textContent = "Couldn't read this edit's line numbers, so it can't be applied.";
+            el.appendChild(note);
+            return;
+          }
+          blocks.push({ el: el, edit: { mode: head.mode, start: head.start, end: head.end,
+                                        code: (seg.content || '').replace(/\n$/, '') } });
+        });
+        if (blocks.length === 0 || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const msgId = 'em' + (++editMsgCounter);
+        pendingEditMessages[msgId] = { messageDiv: messageDiv, blocks: blocks };
+        blocks.forEach(b => {
+          const label = b.el.querySelector('.code-block-actions');
+          if (label) label.textContent = 'Preparing diff…';
+        });
+        ws.send(JSON.stringify({ action: 'preview_edits', msg_id: msgId, edits: blocks.map(b => b.edit) }));
+      }
+
+      // Line diff (longest common subsequence); edits are small
+      function diffLines(a, b) {
+        const n = a.length, m = b.length;
+        const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+        for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+          dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        const out = []; let i = 0, j = 0;
+        while (i < n && j < m) {
+          if (a[i] === b[j]) { out.push({ t: ' ', s: a[i], o: i, n: j }); i++; j++; }
+          else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: '-', s: a[i], o: i }); i++; }
+          else { out.push({ t: '+', s: b[j], n: j }); j++; }
+        }
+        while (i < n) { out.push({ t: '-', s: a[i], o: i }); i++; }
+        while (j < m) { out.push({ t: '+', s: b[j], n: j }); j++; }
+        return out;
+      }
+
+      function renderEditDiff(preview, at) {
+        const box = document.createElement('div');
+        box.className = 'edit-diff';
+        diffLines(preview.old || [], preview.new || []).forEach(d => {
+          const row = document.createElement('div');
+          row.className = 'edit-line' + (d.t === '-' ? ' edit-del' : d.t === '+' ? ' edit-add' : '');
+          const ln = document.createElement('span');
+          ln.className = 'edit-ln';
+          ln.textContent = d.t === '+' ? (at + d.n) : (at + d.o);
+          const sign = document.createElement('span');
+          sign.className = 'edit-sign';
+          sign.textContent = d.t === ' ' ? '' : d.t;
+          const txt = document.createElement('span');
+          txt.textContent = d.s;
+          row.appendChild(ln); row.appendChild(sign); row.appendChild(txt);
+          box.appendChild(row);
+        });
+        return box;
+      }
+
+      function showEditPreviews(data) {
+        const pending = pendingEditMessages[data.msg_id];
+        if (!pending) return;
+        delete pendingEditMessages[data.msg_id];
+        const previews = Array.isArray(data.previews) ? data.previews : [];
+        const keys = [];
+        pending.blocks.forEach((b, i) => {
+          const p = previews[i] || { ok: false, error: 'No preview came back for this edit.' };
+          const key = data.msg_id + '-' + i;
+          const card = document.createElement('div');
+          card.className = 'edit-card';
+          card.dataset.editKey = key;
+          const header = document.createElement('div');
+          header.className = 'edit-card-header';
+          const title = document.createElement('span');
+          title.className = 'edit-card-title';
+          const where = b.edit.mode === 'after'
+            ? (b.edit.start === 0 ? 'insert at top' : 'insert after line ' + b.edit.start)
+            : (b.edit.start === b.edit.end ? 'line ' + b.edit.start : 'lines ' + b.edit.start + '–' + b.edit.end);
+          title.textContent = '✏️ ' + (p.file || 'Open file') + ' · ' + where;
+          const status = document.createElement('span');
+          status.className = 'edit-card-status';
+          const actions = document.createElement('div');
+          actions.className = 'edit-actions';
+          header.appendChild(title); header.appendChild(status); header.appendChild(actions);
+          card.appendChild(header);
+          if (p.ok) {
+            if (p.warning && typeof p.warning === 'string') {
+              const warn = document.createElement('div');
+              warn.className = 'edit-warning';
+              warn.textContent = '⚠️ ' + p.warning;
+              card.appendChild(warn);
+            }
+            card.appendChild(renderEditDiff(p, p.at || b.edit.start || 1));
+            fileEdits[key] = { preview: p, card: card, state: 'pending' };
+            keys.push(key);
+          } else {
+            const pre = document.createElement('div');
+            pre.className = 'edit-diff';
+            pre.textContent = b.edit.code;
+            pre.style.whiteSpace = 'pre';
+            pre.style.padding = '4px 12px';
+            card.appendChild(pre);
+            status.classList.add('edit-error');
+            status.textContent = p.error || "This edit can't be applied.";
+          }
+          b.el.replaceWith(card);
+          if (p.ok) renderEditState(key);
+        });
+        if (keys.length > 1) {
+          const bar = document.createElement('div');
+          bar.className = 'edit-all-bar';
+          bar.dataset.editKeys = keys.join(',');
+          const label = document.createElement('span');
+          label.textContent = keys.length + ' edits';
+          const acc = document.createElement('button');
+          acc.className = 'edit-btn edit-accept';
+          acc.textContent = isAutoExecuteEnabled() ? 'Accept all & run' : 'Accept all';
+          acc.onclick = () => acceptAllEdits(keys);
+          const rej = document.createElement('button');
+          rej.className = 'edit-btn';
+          rej.textContent = 'Reject all';
+          rej.onclick = () => keys.forEach(k => { if (fileEdits[k].state === 'pending') rejectEdit(k); });
+          bar.appendChild(label); bar.appendChild(rej); bar.appendChild(acc);
+          pending.messageDiv.appendChild(bar);
+        }
+      }
+
+      function editButton(text, cls, onclick) {
+        const btn = document.createElement('button');
+        btn.className = 'edit-btn' + (cls ? ' ' + cls : '');
+        btn.textContent = text;
+        btn.onclick = onclick;
+        return btn;
+      }
+
+      function renderEditState(key, message, isError) {
+        const e = fileEdits[key];
+        if (!e) return;
+        const status = e.card.querySelector('.edit-card-status');
+        const actions = e.card.querySelector('.edit-actions');
+        e.card.classList.toggle('edit-applied', e.state === 'applied');
+        e.card.classList.toggle('edit-rejected', e.state === 'rejected');
+        actions.innerHTML = '';
+        status.classList.toggle('edit-error', !!isError);
+        if (e.state === 'busy') {
+          status.textContent = message || 'Working…';
+          return;
+        }
+        if (e.state === 'pending') {
+          status.textContent = message || '';
+          actions.appendChild(editButton('Reject', '', () => rejectEdit(key)));
+          const runAfter = isAutoExecuteEnabled() && e.preview.runnable;
+          actions.appendChild(editButton(runAfter ? 'Accept & run' : 'Accept', 'edit-accept',
+                                         () => acceptEdit(key, runAfter)));
+        } else if (e.state === 'applied') {
+          status.textContent = message || 'Applied';
+          actions.appendChild(editButton('Undo', '', () => undoEdit(key)));
+          if (e.preview.runnable) actions.appendChild(editButton('Run', '', () => runEditCode(key)));
+        } else if (e.state === 'rejected') {
+          status.textContent = message || 'Rejected';
+          actions.appendChild(editButton('Review again', '', () => { e.state = 'pending'; renderEditState(key); }));
+        }
+      }
+
+      function sendEditRequest(key, undo) {
+        const e = fileEdits[key];
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          renderEditState(key, 'Not connected to RStudio', true);
+          return false;
+        }
+        const p = e.preview;
+        ws.send(JSON.stringify({
+          action: 'apply_edit', edit_key: key, undo: !!undo, label: editLabel(p),
+          id: undo ? (e.appliedId || p.id) : p.id,
+          path: undo ? (e.appliedPath || p.path) : p.path,
+          at: undo ? e.appliedAt : p.at,
+          old: undo ? p.new : p.old,
+          new: undo ? p.old : p.new
+        }));
+        return true;
+      }
+
+      function acceptEdit(key, runAfter) {
+        const e = fileEdits[key];
+        if (!e || e.state !== 'pending') return;
+        e.runAfter = !!runAfter;
+        const prev = e.state;
+        e.state = 'busy';
+        renderEditState(key, 'Applying…');
+        if (!sendEditRequest(key, false)) { e.state = prev; renderEditState(key, 'Not connected to RStudio', true); }
+      }
+
+      function rejectEdit(key) {
+        const e = fileEdits[key];
+        if (!e || e.state !== 'pending') return;
+        e.state = 'rejected';
+        renderEditState(key);
+        // Tell Claude on the next message (nothing is sent to Claude now)
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'edit_rejected', label: editLabel(e.preview) }));
+      }
+      function editLabel(p) {
+        const where = p.mode === 'after' ? `insert after line ${p.start}` : (p.start === p.end ? `line ${p.start}` : `lines ${p.start}-${p.end}`);
+        return `${where} of ${p.file || 'the file'}`;
+      }
+
+      function undoEdit(key) {
+        const e = fileEdits[key];
+        if (!e || e.state !== 'applied') return;
+        e.state = 'busy';
+        renderEditState(key, 'Undoing…');
+        if (!sendEditRequest(key, true)) { e.state = 'applied'; renderEditState(key, 'Not connected to RStudio', true); }
+      }
+
+      function runEditCode(key) {
+        const e = fileEdits[key];
+        if (!e || !e.preview.code) return;
+        executeCleaningCodeWithErrorHandling(e.preview.code);
+      }
+
+      function acceptAllEdits(keys) {
+        const todo = keys.filter(k => fileEdits[k] && fileEdits[k].state === 'pending');
+        if (todo.length === 0) return;
+        editBatch = { keys: todo, done: 0, run: isAutoExecuteEnabled() };
+        todo.forEach(k => acceptEdit(k, false));
+      }
+
+      function handleEditApplied(data) {
+        const key = data.edit_key;
+        const e = fileEdits[key];
+        if (!e) return;
+        if (data.ok) {
+          if (data.undo) {
+            e.state = 'pending';
+            renderEditState(key, 'Undone');
+          } else {
+            e.state = 'applied';
+            e.appliedAt = data.at;
+            e.appliedId = data.id;
+            e.appliedPath = data.path;
+            renderEditState(key);
+            if (e.runAfter) runEditCode(key);
+          }
+        } else {
+          e.state = data.undo ? 'applied' : 'pending';
+          renderEditState(key, data.error || 'Something went wrong', true);
+        }
+        e.runAfter = false;
+        // Accept all: once every edit is back, run the applied ones in order
+        if (editBatch && !data.undo && editBatch.keys.indexOf(key) !== -1) {
+          editBatch.done++;
+          if (editBatch.done === editBatch.keys.length) {
+            const batch = editBatch;
+            editBatch = null;
+            const code = batch.keys
+              .filter(k => fileEdits[k].state === 'applied' && fileEdits[k].preview.runnable && fileEdits[k].preview.code)
+              .map(k => fileEdits[k].preview.code).join('\n\n');
+            if (batch.run && code) executeCleaningCodeWithErrorHandling(code);
+          }
+        }
+      }
+
       function insertCode(code) {
         if (!isConnected) {
           alert("Not connected to RStudio");
@@ -8517,7 +9198,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         const horizontalOffset = textWidth;
         
         // Set suggestion overlay content - ONLY show the suggestion text (not duplicate all text)
-        const suggestionColor = document.body.classList.contains('dark-theme') || window.matchMedia('(prefers-color-scheme: dark)').matches ? '#666' : '#999';
+        const suggestionColor = document.body.classList.contains('dark-theme') ? '#888' : '#999';
         completionSuggestion.innerHTML = '<span style="color: ' + suggestionColor + ';">' + 
           suggestionText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + '</span>';
         
@@ -8720,16 +9401,34 @@ Include comments explaining each step. Code only. Minimal chat.`;
         
         const root = document.documentElement;
         
-        if (colors && Object.keys(colors).length > 0) {
+        // RStudio's colours arrive as strings like "rgb(39, 40, 34)". Missing
+        // ones arrive as {} (R's NULL), and some are transparent; using those
+        // made dialogs and cards see-through, so only accept a solid colour.
+        const solid = (v) => {
+          if (typeof v !== 'string' || !v.trim() || !CSS.supports('color', v)) return null;
+          const probe = document.createElement('span');
+          probe.style.color = v;
+          document.body.appendChild(probe);
+          const c = getComputedStyle(probe).color;
+          probe.remove();
+          const m = c.match(/rgba?\(([^)]+)\)/);
+          if (m) { const parts = m[1].split(/[ ,/]+/).filter(Boolean); if (parts.length > 3 && parseFloat(parts[3]) < 1) return null; }
+          return v;
+        };
+        const bg = colors ? solid(colors.background) : null;
+        const fg = colors ? solid(colors.foreground) : null;
+        const consoleBg = colors ? solid(colors.console_background) : null;
+        const consoleFg = colors ? solid(colors.console_foreground) : null;
+        if (bg || fg) {
           // Use actual RStudio colors
-          root.style.setProperty('--bg-primary', colors.background || (isDark ? '#1e1e1e' : '#ffffff'));
-          root.style.setProperty('--bg-secondary', colors.console_background || (isDark ? '#2d2d2d' : '#f8f9fa'));
-          root.style.setProperty('--bg-card', colors.console_background || (isDark ? '#3c3c3c' : '#ffffff'));
-          root.style.setProperty('--text-primary', colors.foreground || (isDark ? '#ffffff' : '#2c3e50'));
-          root.style.setProperty('--text-secondary', colors.console_foreground || (isDark ? '#cccccc' : '#6c757d'));
+          root.style.setProperty('--bg-primary', bg || (isDark ? '#1e1e1e' : '#ffffff'));
+          root.style.setProperty('--bg-secondary', consoleBg || (isDark ? '#2d2d2d' : '#f8f9fa'));
+          root.style.setProperty('--bg-card', consoleBg || bg || (isDark ? '#3c3c3c' : '#ffffff'));
+          root.style.setProperty('--text-primary', fg || (isDark ? '#ffffff' : '#2c3e50'));
+          root.style.setProperty('--text-secondary', consoleFg || (isDark ? '#cccccc' : '#6c757d'));
           root.style.setProperty('--border-color', isDark ? '#555555' : '#dee2e6');
-          root.style.setProperty('--input-bg', colors.console_background || (isDark ? '#2d2d2d' : '#ffffff'));
-          root.style.setProperty('--code-bg', colors.background || (isDark ? '#1e1e1e' : '#f8f9fa'));
+          root.style.setProperty('--input-bg', consoleBg || bg || (isDark ? '#2d2d2d' : '#ffffff'));
+          root.style.setProperty('--code-bg', bg || (isDark ? '#1e1e1e' : '#f8f9fa'));
           root.style.setProperty('--rgent-primary', isDark ? '#ff8c42' : '#ff6b35');
           root.style.setProperty('--rgent-accent', isDark ? '#5dade2' : '#3498db');
         } else {
@@ -14100,12 +14799,8 @@ cat("\\nModeling workflow completed successfully!\\n")
             }
           }, 300); // Simple 300ms delay
         }
-        
-        // Use the existing copyToClipboard function to preserve formatting
-        // Create a temporary button for the copy function
-        const tempButton = document.createElement('button');
-        tempButton.textContent = 'Copy';
-        copyToClipboard(originalCode, tempButton);
+        // No automatic clipboard copy: it silently overwrote the user's clipboard.
+        // Each code block keeps its own Copy button.
       }
       
       // Extract R code blocks from Claude's message (ONLY R blocks, not output/other languages)
@@ -14129,6 +14824,7 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/&nbsp;/g, ' ');
         }
         
+        decodedMessage = withoutEditBlocks(decodedMessage);
         console.log('🔍 Decoded message preview:', decodedMessage.substring(0, 200) + '...');
         
         // ONLY match R code blocks - NOT plain ``` or other languages
@@ -14193,6 +14889,7 @@ cat("\\nModeling workflow completed successfully!\\n")
             .replace(/&nbsp;/g, ' ');
         }
         
+        decodedMessage = withoutEditBlocks(decodedMessage);
         // Find ONLY R code blocks and extract them with original formatting
         // Matches: ```r, ```R, ```{r}, ```{R} - NOT plain ``` or other languages
         // ONLY matches COMPLETE blocks with both opening and closing ```
@@ -14269,6 +14966,13 @@ cat("\\nModeling workflow completed successfully!\\n")
         // Set flag to prevent duplicate handling
         cleaningCodeExecuting = true;
         
+        // New code is running, so earlier unanswered questions no longer apply
+        closeOpenCodeQuestions();
+        
+        // Show that something is happening right away; R updates it if it
+        // has to load things first
+        showExecutionStatus("Running your code");
+        
         // Reset stop flag for new operation
         operationStopped = false;
         
@@ -14324,8 +15028,8 @@ cat("\\nModeling workflow completed successfully!\\n")
         // Ask Claude to fix the code. Agent workflows keep their own wording;
         // normal chat gets a prompt about the user's request, not "cleaning goals".
         const isAgentRun = !!currentAgentWorkflow || !!window.currentActiveAgentType;
-        const envLine = lastExecutionEnvObjects
-          ? `\n\n**Objects in my R session:** ${lastExecutionEnvObjects}`
+        const envLine = lastExecutionFixContext
+          ? `\n\n${lastExecutionFixContext}`
           : '';
         const fixRequest = isAgentRun
           ? `The R code I provided earlier failed to execute with this error:
@@ -14345,16 +15049,14 @@ Please fix the code and provide a corrected version that will work. The code sho
 4. Be production-ready and executable
 
 **Important:** Please analyze the original code and the specific error to provide a targeted fix, not a generic solution.`
-          : `The R code you gave me failed when it ran in my R session:
-
+          : `Your R code failed in my session:
 \`${error}\`
 
-**Code:**
 \`\`\`r
 ${code || "Code not available"}
 \`\`\`${envLine}
 
-Reply with a corrected version as a single R code block, and keep the explanation to a sentence or two. Only use objects that exist in my session or that the code itself creates. If changing the code can't fix this (for example it needs data or a step I haven't run), tell me what to do in one or two sentences and don't include a code block.`;
+Reply with the corrected code as one R code block and at most two sentences. Use only objects that exist or that the code creates. If changing the code can't fix it, say what I need to do instead, with no code block.`;
         
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
@@ -15572,22 +16274,1062 @@ Reply with a corrected version as a single R code block, and keep the explanatio
       // ============================================
       
       // Explorer state
-      let explorerState = {
-        currentDataframe: null,
-        columnInfo: {},
-        filters: [],
-        sorts: [],
-        pinnedCols: [],
-        pinnedRows: [],
-        page: 1,
-        pageSize: 100,
-        selectedCells: new Set(),
-        columnWidths: {},
-        summaryCollapsed: false,
-        summaryLayout: 'left',
-        filteredSummaryColumns: null,
-        summarySortOrder: 'original'
+      // ---- Data Explorer --------------------------------------------------
+      // The grid shows one page of the filtered, sorted view, computed in R
+      // (R/data_explorer.R). Filters, sorts and the search box are sent with
+      // every page request, so "Code" can reproduce exactly what is shown.
+      const xp = {
+        name: null, category: null, objectsInfo: {},
+        info: null,                 // column summaries (arrive after the first page)
+        filters: [], sorts: [], search: '', pinned: [],
+        page: 1, pageSize: 100, totalPages: 1, totalRows: 0, filteredRows: 0,
+        cols: [], kinds: {}, data: {}, rowLabels: [], startRow: 0,
+        widths: {},
+        sel: null, cursor: null,    // {r, c} indexes into the current page
+        reqId: 0, pageReq: 0, busy: 0, errors: {},
+        editIndex: null, searchTimer: null, pollTimer: null, lastPoll: 0,
+        summaryHidden: false,
+        objPath: [], objReq: 0, obj: null
       };
+      try { xp.summaryHidden = localStorage.getItem('rgent.xp.summaryHidden') === '1'; } catch (e) {}
+
+      const XP_KIND_LABEL = { number: 'num', integer: 'int', text: 'chr', factor: 'fct', date: 'date',
+                              datetime: 'datetime', logical: 'lgl', list: 'list', other: 'other' };
+      const XP_CONDITIONS = {
+        number:   [['equals', 'is equal to'], ['not_equals', 'is not equal to'], ['greater_than', 'is greater than'],
+                   ['greater_equal', 'is at least'], ['less_than', 'is less than'], ['less_equal', 'is at most'],
+                   ['between', 'is between'], ['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']],
+        date:     [['equals', 'is on'], ['greater_than', 'is after'], ['greater_equal', 'is on or after'],
+                   ['less_than', 'is before'], ['less_equal', 'is on or before'], ['between', 'is between'],
+                   ['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']],
+        datetime: [['greater_than', 'is after'], ['greater_equal', 'is at or after'], ['less_than', 'is before'],
+                   ['less_equal', 'is at or before'], ['between', 'is between'],
+                   ['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']],
+        text:     [['contains', 'contains'], ['not_contains', 'does not contain'], ['equals', 'is equal to'],
+                   ['not_equals', 'is not equal to'], ['starts_with', 'starts with'], ['ends_with', 'ends with'],
+                   ['is_empty', 'is empty'], ['is_not_empty', 'is not empty'],
+                   ['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']],
+        logical:  [['is_true', 'is TRUE'], ['is_false', 'is FALSE'], ['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']],
+        other:    [['is_null', 'is missing (NA)'], ['is_not_null', 'is not missing']]
+      };
+      XP_CONDITIONS.integer = XP_CONDITIONS.number;
+      XP_CONDITIONS.factor = XP_CONDITIONS.text;
+      XP_CONDITIONS.list = XP_CONDITIONS.other;
+      const XP_SHORT = { equals: '=', not_equals: '≠', greater_than: '>', greater_equal: '≥', less_than: '<', less_equal: '≤',
+                         between: 'between', contains: 'contains', not_contains: 'does not contain', starts_with: 'starts with',
+                         ends_with: 'ends with', is_empty: 'is empty', is_not_empty: 'is not empty', is_null: 'is NA',
+                         is_not_null: 'is not NA', is_true: 'is TRUE', is_false: 'is FALSE' };
+      const XP_NO_VALUE = ['is_null', 'is_not_null', 'is_empty', 'is_not_empty', 'is_true', 'is_false'];
+
+      function xpEsc(v) {
+        return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function xpSend(msg) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) { xpStatus('Not connected to R', true); return false; }
+        ws.send(JSON.stringify(msg));
+        return true;
+      }
+      function xpBusy(delta) {
+        xp.busy = Math.max(0, xp.busy + delta);
+        const bar = document.getElementById('xp-progress');
+        if (bar) bar.classList.toggle('xp-busy', xp.busy > 0);
+      }
+      function xpStatus(text, isError) {
+        const el = document.getElementById('explorer-status-text');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('xp-status-error', !!isError);
+      }
+      let xpToastTimer = null;
+      function xpToast(text) {
+        let t = document.getElementById('xp-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'xp-toast'; t.className = 'xp-toast'; document.body.appendChild(t); }
+        t.textContent = text;
+        t.classList.add('xp-show');
+        clearTimeout(xpToastTimer);
+        xpToastTimer = setTimeout(() => t.classList.remove('xp-show'), 1800);
+      }
+      function xpCopyText(text, what) {
+        const done = () => xpToast(what ? 'Copied ' + what : 'Copied');
+        const fallback = () => {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); done(); } catch (e) { xpToast("Couldn't copy"); }
+          ta.remove();
+        };
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, fallback);
+          } else fallback();
+        } catch (e) { fallback(); }
+      }
+      function xpFmtInt(n) { return Number(n || 0).toLocaleString('en-US'); }
+      function xpFmtStat(v) {
+        if (v === null || v === undefined || v === 'NA') return '—';
+        if (typeof v !== 'number') return String(v);
+        if (!isFinite(v)) return String(v);
+        if (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e9)) return v.toExponential(3);
+        return Number(v.toPrecision(6)).toString();
+      }
+
+      // ---- Opening an object ----------------------------------------------
+      function loadExplorerDataframeFromName(objName) { xpOpen(objName); }
+      function loadExplorerObjectMain(objName) { xpOpen(objName); }
+
+      function xpIsFrame(name) {
+        const info = xp.objectsInfo && xp.objectsInfo[name];
+        return !info || info.category === 'dataframe' || info.category === 'matrix';
+      }
+
+      function xpOpen(name, keepView) {
+        if (!name) return;
+        const same = xp.name === name;
+        xp.name = name;
+        if (!(keepView && same)) {
+          xp.filters = []; xp.sorts = []; xp.search = ''; xp.pinned = []; xp.page = 1;
+          xp.widths = {}; xp.sel = null; xp.cursor = null; xp.info = null; xp.errors = {};
+          const si = document.getElementById('xp-search-input'); if (si) si.value = '';
+          xpRenderFilters();
+        }
+        const label = document.getElementById('explorer-dataframe-select-text');
+        if (label) {
+          const item = document.querySelector(`#explorer-dataframe-select-dropdown [data-obj-name="${CSS.escape(name)}"]`);
+          label.textContent = item ? item.textContent : name;
+        }
+        if (xpIsFrame(name)) {
+          xpShowFrameView(true);
+          if (!(keepView && same)) {
+            document.getElementById('summary-columns-list').innerHTML = '<div class="xp-sum-loading">Computing column summaries…</div>';
+            xpStatus('Loading ' + name + '…');
+          }
+          // The page first (fast), then the summaries (slower on large data)
+          xpRequestPage();
+          xpBusy(1);
+          xpSend({ action: 'get_dataframe_explorer_data', dataframe: name, keep_view: !!keepView });
+        } else {
+          xpShowFrameView(false);
+          if (!(keepView && same)) xp.objPath = [];
+          xpObjRequest(0);
+        }
+        xpStartPolling();
+      }
+
+      function xpShowFrameView(isFrame) {
+        const show = (id, on, disp) => { const el = document.getElementById(id); if (el) el.style.display = on ? (disp || 'block') : 'none'; };
+        show('xp-grid-wrapper', isFrame);
+        show('explorer-object-view', !isFrame);
+        show('xp-pager', isFrame, 'flex');
+        // The object view hides the paging buttons
+        ['prev-page-btn', 'next-page-btn'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ''; });
+        const actions = document.querySelector('.explorer-actions');
+        if (actions) actions.style.display = isFrame ? 'flex' : 'none';
+        const panel = document.getElementById('explorer-summary-panel');
+        if (panel) {
+          panel.style.display = isFrame ? 'flex' : 'none';
+          panel.classList.toggle('xp-hidden', xp.summaryHidden);
+        }
+        document.getElementById('xp-summary-toggle').classList.toggle('xp-active', !xp.summaryHidden);
+        if (!isFrame) document.getElementById('explorer-filter-bar').style.display = 'none';
+      }
+
+      function xpRequestPage() {
+        if (!xp.name) return;
+        xp.pageReq = ++xp.reqId;
+        xpBusy(1);
+        xpSend({
+          action: 'get_dataframe_chunk_filtered', req_id: xp.pageReq, dataframe: xp.name,
+          page: xp.page, page_size: xp.pageSize, filters: xp.filters, sorts: xp.sorts,
+          search: xp.search, pinned_cols: xp.pinned
+        });
+      }
+
+      // ---- Responses ------------------------------------------------------
+      function xpOnSummary(msg) {
+        xpBusy(-1);
+        const d = msg.data || {};
+        if (!d.exists) {
+          if (!xp.name || d.name === undefined || d.name === xp.name) xpStatus(d.error || 'Object not found', true);
+          return;
+        }
+        if (d.name && d.name !== xp.name) return;   // an older object
+        if (d.column_info) {
+          xp.info = d;
+          const kb = d.size_mb !== undefined ? (d.size_mb >= 1 ? d.size_mb + ' MB' : '< 1 MB') : '';
+          document.getElementById('explorer-df-dims').textContent =
+            `${xpFmtInt(d.nrow)} rows × ${xpFmtInt(d.ncol)} columns` + (kb ? ' · ' + kb : '') + (d.type === 'matrix' ? ' · matrix' : '');
+          xpRenderSummary();
+          // The grid may have been drawn before the summaries arrived: use
+          // the full type names in its headers now
+          document.querySelectorAll('#xp-thead th[data-j]').forEach(th => {
+            const c = xp.cols[+th.dataset.j];
+            const info = d.column_info[c];
+            const el = th.querySelector('.xp-colhead-type');
+            if (info && el) { el.textContent = info.type; th.title = `${c} (${info.type})`; }
+          });
+          if (!xp.cols.length && xp.pageReq === 0) xpRequestPage();
+        } else {
+          xpShowFrameView(false);
+          xpStatus('');
+          renderObjectExplorer(d);
+        }
+      }
+
+      function xpOnPage(msg) {
+        xpBusy(-1);
+        if (msg.req_id !== undefined && msg.req_id !== null && msg.req_id !== xp.pageReq) return;  // stale
+        const d = msg.data || {};
+        if (!d.exists) {
+          if (/isn't a data frame/.test(d.error || '')) return;   // the summary call shows other objects
+          xpStatus(d.error || "Couldn't load the data", true);
+          return;
+        }
+        xp.cols = d.column_order || [];
+        xp.kinds = d.column_kinds || {};
+        xp.data = d.data || {};
+        xp.rowLabels = Array.isArray(d.row_labels) ? d.row_labels : (d.row_labels !== undefined && d.row_labels !== null ? [d.row_labels] : []);
+        xp.page = d.page; xp.totalPages = d.total_pages; xp.totalRows = d.total_rows;
+        xp.filteredRows = d.filtered_rows; xp.startRow = d.start_row;
+        xp.errors = d.errors || {};
+        // Sorts and pins on columns that no longer exist are dropped
+        xp.sorts = xp.sorts.filter(s => xp.cols.includes(s.column));
+        xp.pinned = xp.pinned.filter(c => xp.cols.includes(c));
+        // Single values arrive unboxed from R
+        xp.cols.forEach(c => { if (!Array.isArray(xp.data[c])) xp.data[c] = (xp.data[c] === undefined ? [] : [xp.data[c]]); });
+        if (!document.getElementById('explorer-df-dims').textContent) {
+          document.getElementById('explorer-df-dims').textContent = `${xpFmtInt(d.total_rows)} rows × ${xpFmtInt(xp.cols.length)} columns`;
+        }
+        xpRenderGrid();
+        xpRenderFilters();
+        xpUpdateStatus();
+      }
+
+      function xpUpdateStatus() {
+        const errs = Object.entries(xp.errors || {});
+        if (errs.length) {
+          xpStatus(errs.map(([k, v]) => (k === 'sort' ? '' : '') + v).join(' · '), true);
+        } else {
+          let t;
+          if (xp.filteredRows < xp.totalRows) {
+            const pct = xp.totalRows ? (100 * xp.filteredRows / xp.totalRows) : 0;
+            t = `${xpFmtInt(xp.filteredRows)} of ${xpFmtInt(xp.totalRows)} rows (${pct < 0.1 && pct > 0 ? '<0.1' : pct.toFixed(1)}%)`;
+          } else {
+            t = `${xpFmtInt(xp.totalRows)} rows`;
+          }
+          if (xp.sorts.length) t += ' · sorted by ' + xp.sorts.map(s => s.column + (s.direction === 'desc' ? ' ↓' : ' ↑')).join(', ');
+          if (xp.search) t += ` · search "${xp.search}"`;
+          xpStatus(t);
+        }
+        const n = xp.data[xp.cols[0]] ? xp.data[xp.cols[0]].length : 0;
+        document.getElementById('xp-page-text').textContent = n ? `${xpFmtInt(xp.startRow)}–${xpFmtInt(xp.startRow + n - 1)} of ${xpFmtInt(xp.filteredRows)}` : '0 rows';
+        document.getElementById('prev-page-btn').disabled = xp.page <= 1;
+        document.getElementById('next-page-btn').disabled = xp.page >= xp.totalPages;
+        document.getElementById('xp-clear-sort-btn').disabled = xp.sorts.length === 0;
+      }
+
+      // ---- Grid -----------------------------------------------------------
+      function xpColWidth(c) {
+        if (xp.widths[c]) return xp.widths[c];
+        const k = xp.kinds[c];
+        const base = (k === 'number' || k === 'integer' || k === 'logical') ? 96 : (k === 'datetime' ? 160 : (k === 'date' ? 104 : 140));
+        return Math.max(base, Math.min(220, 24 + String(c).length * 7.5));
+      }
+
+      function xpRenderGrid() {
+        const cols = xp.cols;
+        const n = cols.length && xp.data[cols[0]] ? xp.data[cols[0]].length : 0;
+        const labelWidth = Math.max(44, 16 + Math.max(2, ...xp.rowLabels.map(l => String(l).length)) * 7.5);
+        let cg = `<col style="width:${labelWidth}px">`;
+        let head = '<tr><th class="xp-rowhead"></th>';
+        cols.forEach((c, j) => {
+          cg += `<col style="width:${xpColWidth(c)}px">`;
+          const s = xp.sorts.findIndex(x => x.column === c);
+          const sortMark = s >= 0 ? `<span class="xp-sort">${xp.sorts[s].direction === 'desc' ? '▼' : '▲'}${xp.sorts.length > 1 ? s + 1 : ''}</span>` : '';
+          const info = xp.info && xp.info.column_info ? xp.info.column_info[c] : null;
+          const type = info ? info.type : (XP_KIND_LABEL[xp.kinds[c]] || '');
+          head += `<th data-j="${j}" class="${xp.pinned.includes(c) ? 'xp-pinned-col' : ''}" title="${xpEsc(c)} (${xpEsc(type)})">` +
+                  `<div class="xp-colhead"><div class="xp-colhead-main" data-j="${j}">` +
+                  `<div class="xp-colhead-name"><span>${xpEsc(c)}</span>${sortMark}</div>` +
+                  `<div class="xp-colhead-type">${xpEsc(type)}</div></div>` +
+                  `<button class="xp-colhead-menu" data-j="${j}" title="Column menu">▾</button>` +
+                  `<div class="xp-resize" data-j="${j}"></div></div></th>`;
+        });
+        head += '</tr>';
+        const numeric = cols.map(c => xp.kinds[c] === 'number' || xp.kinds[c] === 'integer');
+        const parts = [];
+        for (let i = 0; i < n; i++) {
+          let row = `<tr data-i="${i}"><th class="xp-rowhead" data-i="${i}">${xpEsc(xp.rowLabels[i] !== undefined ? xp.rowLabels[i] : xp.startRow + i)}</th>`;
+          for (let j = 0; j < cols.length; j++) {
+            const v = xp.data[cols[j]][i];
+            if (v === null || v === undefined) {
+              row += `<td data-i="${i}" data-j="${j}" class="xp-na${numeric[j] ? ' xp-num' : ''}">NA</td>`;
+            } else {
+              const sv = String(v);
+              row += `<td data-i="${i}" data-j="${j}"${numeric[j] ? ' class="xp-num"' : ''}${sv.length > 16 ? ` title="${xpEsc(sv)}"` : ''}>${xpEsc(sv)}</td>`;
+            }
+          }
+          parts.push(row + '</tr>');
+        }
+        document.getElementById('xp-colgroup').innerHTML = cg;
+        document.getElementById('xp-thead').innerHTML = head;
+        document.getElementById('xp-tbody').innerHTML = parts.join('');
+        const total = labelWidth + cols.reduce((a, c) => a + xpColWidth(c), 0);
+        document.getElementById('xp-table').style.width = total + 'px';
+        const empty = document.getElementById('xp-empty');
+        if (n === 0) {
+          empty.style.display = 'block';
+          empty.textContent = xp.totalRows === 0 ? 'This data frame has no rows.' :
+            (xp.cols.length === 0 ? 'This data frame has no columns.' : 'No rows match the filters' + (xp.search ? ' and search' : '') + '.');
+        } else {
+          empty.style.display = 'none';
+        }
+        xp.sel = null; xp.cursor = null;
+      }
+
+      // Grid events (delegated, set up once)
+      function xpCellAt(el) {
+        const td = el.closest && el.closest('td[data-i]');
+        return td ? { i: +td.dataset.i, j: +td.dataset.j, td } : null;
+      }
+      function xpPaintSelection() {
+        document.querySelectorAll('#xp-tbody td.xp-sel, #xp-tbody td.xp-cursor').forEach(td => td.classList.remove('xp-sel', 'xp-cursor'));
+        if (!xp.sel) return;
+        const r0 = Math.min(xp.sel.i0, xp.sel.i1), r1 = Math.max(xp.sel.i0, xp.sel.i1);
+        const c0 = Math.min(xp.sel.j0, xp.sel.j1), c1 = Math.max(xp.sel.j0, xp.sel.j1);
+        const rows = document.getElementById('xp-tbody').rows;
+        for (let i = r0; i <= r1 && i < rows.length; i++) {
+          for (let j = c0; j <= c1; j++) {
+            const td = rows[i].cells[j + 1];
+            if (td) td.classList.add('xp-sel');
+          }
+        }
+        if (xp.cursor) {
+          const td = rows[xp.cursor.i] && rows[xp.cursor.i].cells[xp.cursor.j + 1];
+          if (td) { td.classList.add('xp-cursor'); td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+        }
+      }
+      function xpSelect(i0, j0, i1, j1, cursor) {
+        xp.sel = { i0, j0, i1: i1 === undefined ? i0 : i1, j1: j1 === undefined ? j0 : j1 };
+        xp.cursor = cursor || { i: i0, j: j0 };
+        xpPaintSelection();
+      }
+      function xpSelectionText() {
+        if (!xp.sel) return null;
+        const r0 = Math.min(xp.sel.i0, xp.sel.i1), r1 = Math.max(xp.sel.i0, xp.sel.i1);
+        const c0 = Math.min(xp.sel.j0, xp.sel.j1), c1 = Math.max(xp.sel.j0, xp.sel.j1);
+        const val = (i, j) => { const v = xp.data[xp.cols[j]][i]; return v === null || v === undefined ? 'NA' : String(v).replace(/[\t\r\n]/g, ' '); };
+        if (r0 === r1 && c0 === c1) return { text: val(r0, c0), what: 'value' };
+        const lines = [xp.cols.slice(c0, c1 + 1).join('\t')];
+        for (let i = r0; i <= r1; i++) {
+          const row = [];
+          for (let j = c0; j <= c1; j++) row.push(val(i, j));
+          lines.push(row.join('\t'));
+        }
+        return { text: lines.join('\n'), what: `${r1 - r0 + 1} × ${c1 - c0 + 1} cells` };
+      }
+
+      (function xpSetupGridEvents() {
+        const wrap = document.getElementById('xp-grid-wrapper');
+        if (!wrap) return;
+        wrap.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          if (e.target.classList.contains('xp-resize')) { xpStartResize(e); return; }
+          const cell = xpCellAt(e.target);
+          if (cell) {
+            if (e.shiftKey && xp.sel) xpSelect(xp.sel.i0, xp.sel.j0, cell.i, cell.j, { i: cell.i, j: cell.j });
+            else xpSelect(cell.i, cell.j);
+            wrap.focus({ preventScroll: true });
+            e.preventDefault();
+            return;
+          }
+          const rh = e.target.closest('tbody th.xp-rowhead');
+          if (rh) {
+            const i = +rh.dataset.i, last = xp.cols.length - 1;
+            if (e.shiftKey && xp.sel) xpSelect(xp.sel.i0, 0, i, last, { i, j: 0 });
+            else xpSelect(i, 0, i, last);
+            wrap.focus({ preventScroll: true });
+            e.preventDefault();
+          }
+        });
+        wrap.addEventListener('click', (e) => {
+          const menuBtn = e.target.closest('.xp-colhead-menu');
+          if (menuBtn) { e.stopPropagation(); xpColumnMenu(+menuBtn.dataset.j, menuBtn); return; }
+          const main = e.target.closest('.xp-colhead-main');
+          if (main) xpHeaderSort(xp.cols[+main.dataset.j], e.shiftKey);
+        });
+        wrap.addEventListener('contextmenu', (e) => {
+          const th = e.target.closest('thead th[data-j]');
+          const cell = xpCellAt(e.target);
+          const rh = e.target.closest('tbody th.xp-rowhead');
+          if (!th && !cell && !rh) return;
+          e.preventDefault();
+          if (th) xpColumnMenu(+th.dataset.j, null, e);
+          else if (cell) {
+            const inSel = xp.sel && cell.i >= Math.min(xp.sel.i0, xp.sel.i1) && cell.i <= Math.max(xp.sel.i0, xp.sel.i1) &&
+                          cell.j >= Math.min(xp.sel.j0, xp.sel.j1) && cell.j <= Math.max(xp.sel.j0, xp.sel.j1);
+            if (!inSel) xpSelect(cell.i, cell.j);
+            xpCellMenu(cell.i, cell.j, e);
+          } else {
+            const i = +rh.dataset.i; xpSelect(i, 0, i, xp.cols.length - 1); xpRowMenu(i, e);
+          }
+        });
+        wrap.addEventListener('keydown', (e) => {
+          const mod = e.metaKey || e.ctrlKey;
+          if (mod && e.key.toLowerCase() === 'c') {
+            const s = xpSelectionText();
+            if (s) { xpCopyText(s.text, s.what); e.preventDefault(); }
+            return;
+          }
+          if (mod && e.key.toLowerCase() === 'a') {
+            const n = xp.data[xp.cols[0]] ? xp.data[xp.cols[0]].length : 0;
+            if (n) { xpSelect(0, 0, n - 1, xp.cols.length - 1, { i: 0, j: 0 }); e.preventDefault(); }
+            return;
+          }
+          if (e.key === 'Escape') { xp.sel = null; xp.cursor = null; xpPaintSelection(); return; }
+          const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+          if (moves[e.key] && xp.cursor) {
+            const n = xp.data[xp.cols[0]] ? xp.data[xp.cols[0]].length : 0;
+            const i = Math.max(0, Math.min(n - 1, xp.cursor.i + moves[e.key][0]));
+            const j = Math.max(0, Math.min(xp.cols.length - 1, xp.cursor.j + moves[e.key][1]));
+            if (e.shiftKey) xpSelect(xp.sel.i0, xp.sel.j0, i, j, { i, j });
+            else xpSelect(i, j);
+            e.preventDefault();
+          }
+        });
+      })();
+
+      function xpStartResize(e) {
+        const j = +e.target.dataset.j, c = xp.cols[j];
+        const startX = e.clientX, startW = xpColWidth(c);
+        const col = document.getElementById('xp-colgroup').children[j + 1];
+        const table = document.getElementById('xp-table');
+        const startTable = parseFloat(table.style.width) || table.offsetWidth;
+        e.target.classList.add('xp-dragging');
+        const move = (ev) => {
+          const w = Math.max(48, Math.round(startW + ev.clientX - startX));
+          xp.widths[c] = w;
+          col.style.width = w + 'px';
+          table.style.width = (startTable + w - startW) + 'px';
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); e.target.classList.remove('xp-dragging'); };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+        e.preventDefault(); e.stopPropagation();
+      }
+
+      // ---- Sorting --------------------------------------------------------
+      function xpHeaderSort(c, add) {
+        // Click: sort by this column (asc -> desc -> off). Shift+click: add it
+        // as a further sort key.
+        const k = xp.sorts.findIndex(s => s.column === c);
+        const cur = k >= 0 ? xp.sorts[k].direction : null;
+        const next = cur === null ? 'asc' : (cur === 'asc' ? 'desc' : null);
+        if (add) {
+          if (next === null) xp.sorts.splice(k, 1);
+          else if (k >= 0) xp.sorts[k].direction = next;
+          else xp.sorts.push({ column: c, direction: next });
+        } else {
+          xp.sorts = next ? [{ column: c, direction: next }] : [];
+        }
+        xp.page = 1; xpRequestPage();
+      }
+      function xpSetSort(c, dir) {
+        const k = xp.sorts.findIndex(s => s.column === c);
+        if (dir === null) { if (k >= 0) xp.sorts.splice(k, 1); }
+        else if (k >= 0) xp.sorts[k].direction = dir;
+        else xp.sorts.push({ column: c, direction: dir });
+        xp.page = 1; xpRequestPage();
+      }
+      function xpClearSorting() { xp.sorts = []; xp.page = 1; xpRequestPage(); }
+
+      // ---- Paging ---------------------------------------------------------
+      function xpPage(delta) {
+        const p = Math.max(1, Math.min(xp.totalPages, xp.page + delta));
+        if (p === xp.page) return;
+        xp.page = p; xpRequestPage();
+        document.getElementById('xp-grid-wrapper').scrollTop = 0;
+      }
+      function xpSetPageSize(v) { xp.pageSize = parseInt(v, 10) || 100; xp.page = 1; xpRequestPage(); }
+
+      // ---- Search ---------------------------------------------------------
+      (function xpSetupSearch() {
+        const input = document.getElementById('xp-search-input');
+        const clear = document.getElementById('xp-search-clear');
+        if (!input) return;
+        const run = () => {
+          clearTimeout(xp.searchTimer);
+          const v = input.value.trim();
+          clear.style.display = input.value ? 'block' : 'none';
+          if (v === xp.search) return;
+          xp.search = v; xp.page = 1;
+          if (v) xpStatus('Searching…');
+          xpRequestPage();
+        };
+        input.addEventListener('input', () => {
+          clearTimeout(xp.searchTimer);
+          clear.style.display = input.value ? 'block' : 'none';
+          // Large data waits for a pause in typing
+          xp.searchTimer = setTimeout(run, xp.totalRows > 200000 ? 650 : 220);
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') run();
+          if (e.key === 'Escape') { input.value = ''; run(); }
+        });
+        clear.addEventListener('click', () => { input.value = ''; run(); input.focus(); });
+      })();
+
+      // ---- Filters --------------------------------------------------------
+      function xpKind(c) {
+        if (xp.kinds[c]) return xp.kinds[c];
+        const info = xp.info && xp.info.column_info && xp.info.column_info[c];
+        return (info && info.kind) || 'text';
+      }
+      function xpFilterLabel(f) {
+        const op = XP_SHORT[f.type] || f.type;
+        const k = xpKind(f.column);
+        const q = (v) => (k === 'text' || k === 'factor') ? `"${v}"` : v;
+        if (XP_NO_VALUE.includes(f.type)) return `${f.column} ${op}`;
+        if (f.type === 'between') return `${f.column} between ${q(f.value)} and ${q(f.value2)}`;
+        return `${f.column} ${op} ${q(f.value)}`;
+      }
+      function xpRenderFilters() {
+        const bar = document.getElementById('explorer-filter-bar');
+        const box = document.getElementById('explorer-filters-container');
+        if (!bar || !box) return;
+        box.innerHTML = '';
+        xp.filters.forEach((f, i) => {
+          const chip = document.createElement('div');
+          const err = xp.errors && xp.errors[String(i + 1)];
+          chip.className = 'xp-chip' + (err ? ' xp-chip-error' : '');
+          chip.title = err ? err : 'Click to edit';
+          const label = document.createElement('span');
+          label.textContent = xpFilterLabel(f);
+          chip.appendChild(label);
+          const x = document.createElement('button');
+          x.className = 'xp-icon-btn'; x.textContent = '×'; x.title = 'Remove filter';
+          x.onclick = (e) => { e.stopPropagation(); xp.filters.splice(i, 1); xp.page = 1; xpRenderFilters(); xpRequestPage(); };
+          chip.appendChild(x);
+          chip.onclick = () => xpOpenFilter(f.column, i);
+          box.appendChild(chip);
+        });
+        bar.style.display = xp.filters.length ? 'flex' : 'none';
+      }
+      function xpClearFilters() { xp.filters = []; xp.page = 1; xpRenderFilters(); xpRequestPage(); }
+
+      function xpOpenFilter(column, editIndex, preset) {
+        if (!xp.cols.length) return;
+        xp.editIndex = (editIndex === undefined || editIndex === null) ? null : editIndex;
+        const f = xp.editIndex !== null ? xp.filters[xp.editIndex] : (preset || null);
+        const colSel = document.getElementById('filter-column-select');
+        colSel.innerHTML = xp.cols.map(c => `<option value="${xpEsc(c)}">${xpEsc(c)} (${XP_KIND_LABEL[xpKind(c)] || ''})</option>`).join('');
+        colSel.value = (f && f.column) || column || xp.cols[0];
+        colSel.onchange = () => xpFilterColumnChanged(null);
+        xpFilterColumnChanged(f);
+        document.getElementById('xp-filter-title').textContent = xp.editIndex !== null ? 'Edit filter' : 'Add filter';
+        document.getElementById('xp-filter-apply').textContent = xp.editIndex !== null ? 'Update filter' : 'Apply filter';
+        document.getElementById('xp-filter-error').style.display = 'none';
+        document.getElementById('filter-modal').style.display = 'flex';
+        setTimeout(() => {
+          const v = document.getElementById('filter-value-input');
+          (v.offsetParent ? v : document.getElementById('filter-type-select')).focus();
+        }, 30);
+      }
+      function xpFilterColumnChanged(f) {
+        const c = document.getElementById('filter-column-select').value;
+        const k = xpKind(c);
+        const typeSel = document.getElementById('filter-type-select');
+        typeSel.innerHTML = (XP_CONDITIONS[k] || XP_CONDITIONS.other).map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+        if (f && f.type) typeSel.value = f.type;
+        typeSel.onchange = () => xpFilterTypeChanged();
+        const v1 = document.getElementById('filter-value-input'), v2 = document.getElementById('filter-value-input-2');
+        const inputType = k === 'date' ? 'date' : (k === 'datetime' ? 'datetime-local' : 'text');
+        v1.type = inputType; v2.type = inputType;
+        if (k === 'datetime') { v1.step = 1; v2.step = 1; }
+        v1.inputMode = v2.inputMode = (k === 'number' || k === 'integer') ? 'decimal' : 'text';
+        v1.placeholder = v2.placeholder = (k === 'number' || k === 'integer') ? 'a number' : '';
+        v1.value = f && f.value !== undefined && f.value !== null ? String(f.value).replace(' ', 'T') : '';
+        v2.value = f && f.value2 !== undefined && f.value2 !== null ? String(f.value2).replace(' ', 'T') : '';
+        if (k !== 'datetime') { v1.value = v1.value.replace('T', ' '); v2.value = v2.value.replace('T', ' '); }
+        // Suggest the most common values of text columns
+        const info = xp.info && xp.info.column_info && xp.info.column_info[c];
+        const vals = info && info.frequency && Array.isArray(info.frequency.values) ? info.frequency.values : [];
+        document.getElementById('xp-value-suggestions').innerHTML = (k === 'text' || k === 'factor') ? vals.map(v => `<option value="${xpEsc(v)}">`).join('') : '';
+        xpFilterTypeChanged();
+      }
+      function xpFilterTypeChanged() {
+        const t = document.getElementById('filter-type-select').value;
+        const needs = !XP_NO_VALUE.includes(t);
+        document.getElementById('filter-value-container').style.display = needs ? 'block' : 'none';
+        document.getElementById('filter-between-container').style.display = t === 'between' ? 'block' : 'none';
+        document.getElementById('xp-value-label').textContent = t === 'between' ? 'From' : 'Value';
+        document.getElementById('filter-bool-select').style.display = 'none';
+      }
+      function xpCloseFilter() { document.getElementById('filter-modal').style.display = 'none'; }
+      function xpApplyFilter() {
+        const c = document.getElementById('filter-column-select').value;
+        const t = document.getElementById('filter-type-select').value;
+        const k = xpKind(c);
+        const err = (m) => { const e = document.getElementById('xp-filter-error'); e.textContent = m; e.style.display = 'block'; };
+        const f = { column: c, type: t };
+        if (!XP_NO_VALUE.includes(t)) {
+          const read = (id) => {
+            let v = document.getElementById(id).value;
+            if (k === 'datetime') v = v.replace('T', ' ');
+            return k === 'text' || k === 'factor' ? v : v.trim();
+          };
+          const check = (v, what) => {
+            if (v === '') return `Enter ${what}.`;
+            if ((k === 'number' || k === 'integer') && !isFinite(Number(v))) return `"${v}" isn't a number.`;
+            if (k === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return 'Pick a date.';
+            return null;
+          };
+          f.value = read('filter-value-input');
+          let m = check(f.value, t === 'between' ? 'the first value' : 'a value');
+          if (m) return err(m);
+          if (t === 'between') {
+            f.value2 = read('filter-value-input-2');
+            m = check(f.value2, 'the second value');
+            if (m) return err(m);
+            if ((k === 'number' || k === 'integer') && Number(f.value) > Number(f.value2)) [f.value, f.value2] = [f.value2, f.value];
+            if ((k === 'date' || k === 'datetime') && f.value > f.value2) [f.value, f.value2] = [f.value2, f.value];
+          }
+        }
+        if (xp.editIndex !== null) xp.filters[xp.editIndex] = f; else xp.filters.push(f);
+        xpCloseFilter();
+        xp.page = 1;
+        xpRenderFilters();
+        xpRequestPage();
+      }
+      (function xpSetupFilterKeys() {
+        const modal = document.getElementById('filter-modal');
+        if (!modal) return;
+        modal.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); xpApplyFilter(); }
+          if (e.key === 'Escape') xpCloseFilter();
+        });
+        modal.addEventListener('mousedown', (e) => { if (e.target === modal) xpCloseFilter(); });
+      })();
+
+      // ---- Menus ----------------------------------------------------------
+      function xpCloseMenu() { const m = document.getElementById('xp-menu'); if (m) m.remove(); }
+      function xpMenu(items, x, y) {
+        xpCloseMenu();
+        const m = document.createElement('div');
+        m.id = 'xp-menu'; m.className = 'context-menu';
+        items.forEach(it => {
+          if (it === '-') { const s = document.createElement('div'); s.className = 'context-menu-sep'; m.appendChild(s); return; }
+          const d = document.createElement('div');
+          d.className = 'context-menu-item' + (it.disabled ? ' disabled' : '');
+          d.textContent = it.label;
+          if (!it.disabled) d.onclick = (e) => { e.stopPropagation(); xpCloseMenu(); it.run(); };
+          m.appendChild(d);
+        });
+        document.body.appendChild(m);
+        const r = m.getBoundingClientRect();
+        m.style.left = Math.max(4, Math.min(x, window.innerWidth - r.width - 4)) + 'px';
+        m.style.top = Math.max(4, Math.min(y, window.innerHeight - r.height - 4)) + 'px';
+      }
+      document.addEventListener('mousedown', (e) => { if (!e.target.closest('#xp-menu')) xpCloseMenu(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') xpCloseMenu(); });
+      window.addEventListener('blur', xpCloseMenu);
+
+      function xpColumnMenu(j, anchor, ev) {
+        const c = xp.cols[j];
+        const sort = xp.sorts.find(s => s.column === c);
+        const pinned = xp.pinned.includes(c);
+        const n = xp.data[c] ? xp.data[c].length : 0;
+        const items = [
+          { label: 'Copy Column', run: () => xpCopyColumn(c) },
+          { label: 'Select Column', run: () => xpSelect(0, j, Math.max(0, n - 1), j), disabled: !n },
+          { label: pinned ? 'Unpin Column' : 'Pin Column', run: () => xpTogglePin(c) },
+          '-',
+          { label: 'Sort Ascending', run: () => xpSetSort(c, 'asc'), disabled: sort && sort.direction === 'asc' },
+          { label: 'Sort Descending', run: () => xpSetSort(c, 'desc'), disabled: sort && sort.direction === 'desc' },
+          { label: 'Clear Sorting', run: () => xpSetSort(c, null), disabled: !sort },
+          '-',
+          { label: 'Add Filter…', run: () => xpOpenFilter(c) },
+          { label: 'Copy Column Name', run: () => xpCopyText(c, 'column name') },
+          { label: 'Ask Rgent about this column', run: () => xpAskRgent(c) }
+        ];
+        if (anchor) { const r = anchor.getBoundingClientRect(); xpMenu(items, r.left, r.bottom + 2); }
+        else xpMenu(items, ev.clientX, ev.clientY);
+      }
+      function xpRowMenu(i, ev) {
+        xpMenu([
+          { label: 'Copy Row', run: () => { const s = xpSelectionText(); if (s) xpCopyText(s.text, 'row'); } },
+          { label: 'Select Row', run: () => xpSelect(i, 0, i, xp.cols.length - 1) }
+        ], ev.clientX, ev.clientY);
+      }
+      function xpCellMenu(i, j, ev) {
+        const c = xp.cols[j];
+        const v = xp.data[c][i];
+        const k = xpKind(c);
+        const canEq = v !== null && v !== undefined && k !== 'list' && k !== 'other' && k !== 'datetime';
+        const shown = v === null || v === undefined ? 'NA' : (String(v).length > 24 ? String(v).slice(0, 24) + '…' : String(v));
+        const filterTo = () => {
+          if (v === null || v === undefined) return { column: c, type: 'is_null' };
+          if (k === 'logical') return { column: c, type: v === 'TRUE' ? 'is_true' : 'is_false' };
+          return { column: c, type: 'equals', value: v };
+        };
+        const exclude = () => {
+          if (v === null || v === undefined) return { column: c, type: 'is_not_null' };
+          if (k === 'logical') return { column: c, type: v === 'TRUE' ? 'is_false' : 'is_true' };
+          return { column: c, type: 'not_equals', value: v };
+        };
+        const add = (f) => { xp.filters.push(f); xp.page = 1; xpRenderFilters(); xpRequestPage(); };
+        const sel = xpSelectionText();
+        xpMenu([
+          { label: 'Copy', run: () => { if (sel) xpCopyText(sel.text, sel.what); } },
+          '-',
+          { label: `Keep rows where ${c} is ${shown}`, run: () => add(filterTo()), disabled: !(canEq || v === null || v === undefined || k === 'logical') },
+          { label: `Exclude ${shown}`, run: () => add(exclude()), disabled: !(canEq || v === null || v === undefined || k === 'logical') },
+          '-',
+          { label: 'Select Column', run: () => xpSelect(0, j, xp.data[c].length - 1, j) },
+          { label: 'Select Row', run: () => xpSelect(i, 0, i, xp.cols.length - 1) },
+          { label: 'Sort Ascending', run: () => xpSetSort(c, 'asc') },
+          { label: 'Sort Descending', run: () => xpSetSort(c, 'desc') },
+          { label: 'Add Filter…', run: () => xpOpenFilter(c) }
+        ], ev.clientX, ev.clientY);
+      }
+
+      function xpTogglePin(c) {
+        const k = xp.pinned.indexOf(c);
+        if (k >= 0) xp.pinned.splice(k, 1); else xp.pinned.push(c);
+        xpRequestPage();
+        xpRenderSummary();
+      }
+      function xpCopyColumn(c) {
+        xpBusy(1);
+        xpSend({ action: 'explorer_copy', dataframe: xp.name, filters: xp.filters, sorts: xp.sorts, search: xp.search, columns: [c] });
+      }
+      function xpOnCopied(d) {
+        xpBusy(-1);
+        if (d.error) { xpToast(d.error); return; }
+        xpCopyText(d.text || '', `${xpFmtInt(d.rows)} values` + (d.truncated ? ' (first 100,000)' : ''));
+      }
+      function xpAskRgent(c) {
+        const info = xp.info && xp.info.column_info && xp.info.column_info[c];
+        const type = info ? info.type : '';
+        switchTab('chat');
+        const input = document.getElementById('user-input');
+        if (input) {
+          input.value = `Tell me about the \`${c}\` column${type ? ' (' + type + ')' : ''} in \`${xp.name}\`: its distribution, missing values, and anything unusual I should know before analysing it.`;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus();
+        }
+      }
+
+      // ---- Summary panel --------------------------------------------------
+      function xpRenderSummary() {
+        const box = document.getElementById('summary-columns-list');
+        if (!box || !xp.info || !xp.info.column_info) return;
+        const ci = xp.info.column_info;
+        let cols = Object.keys(ci);
+        const q = (document.getElementById('summary-search').value || '').toLowerCase();
+        if (q) cols = cols.filter(c => c.toLowerCase().includes(q));
+        const order = document.getElementById('summary-sort').value;
+        if (order === 'name-asc') cols.sort((a, b) => a.localeCompare(b));
+        else if (order === 'name-desc') cols.sort((a, b) => b.localeCompare(a));
+        else if (order === 'type-asc') cols.sort((a, b) => String(ci[a].type).localeCompare(String(ci[b].type)));
+        else if (order === 'missing-desc') cols.sort((a, b) => (ci[b].missing || 0) - (ci[a].missing || 0));
+        // Pinned columns first, as in the grid
+        cols.sort((a, b) => (xp.pinned.includes(b) ? 1 : 0) - (xp.pinned.includes(a) ? 1 : 0));
+        if (!cols.length) { box.innerHTML = '<div class="xp-sum-loading">No columns match.</div>'; return; }
+        box.innerHTML = cols.map(c => {
+          const info = ci[c];
+          const miss = info.missing || 0;
+          const bars = info.histogram && info.histogram.counts ? info.histogram.counts : (info.frequency && info.frequency.counts ? info.frequency.counts : null);
+          const arr = bars ? (Array.isArray(bars) ? bars : [bars]) : null;
+          const max = arr ? Math.max(...arr) : 0;
+          const spark = arr && max > 0 ? `<div class="mini-sparkline" title="${info.histogram ? 'Distribution' : 'Most common values'}">` +
+            arr.map(v => `<div class="sparkline-bar" style="height:${Math.max(4, 100 * v / max)}%"></div>`).join('') + '</div>' : '';
+          return `<div class="summary-column-item${xp.pinned.includes(c) ? ' xp-pinned' : ''}" data-col="${xpEsc(c)}">` +
+            `<div class="xp-sum-head"><span class="xp-sum-name" title="Double-click to show in the grid">${xpEsc(c)}</span>` +
+            `<span class="xp-sum-type">${xpEsc(info.type || '')}</span>` +
+            `<span class="xp-sum-miss" title="Missing values">${miss ? xpFmtInt(miss) + ' NA (' + info.missing_pct + '%)' : 'no NA'}</span></div>` +
+            (miss ? `<div class="xp-miss-track"><div style="width:${Math.max(1, info.missing_pct)}%"></div></div>` : '') +
+            spark + '<div class="xp-sum-detail" style="display:none"></div></div>';
+        }).join('');
+      }
+      function xpSummaryDetail(c) { return xpStatsHtml(xp.info.column_info[c]); }
+      function xpSparkHtml(info, cls) {
+        const bars = info.histogram && info.histogram.counts ? info.histogram.counts : (info.frequency && info.frequency.counts ? info.frequency.counts : null);
+        const arr = bars ? (Array.isArray(bars) ? bars : [bars]) : null;
+        const max = arr ? Math.max(...arr) : 0;
+        return arr && max > 0 ? `<div class="mini-sparkline${cls ? ' ' + cls : ''}" title="${info.histogram ? 'Distribution' : 'Most common values'}">` +
+          arr.map(v => `<div class="sparkline-bar" style="height:${Math.max(4, 100 * v / max)}%"></div>`).join('') + '</div>' : '';
+      }
+      function xpStatsHtml(info) {
+        const s = info.summary_stats || {};
+        const rows = [];
+        const add = (k, v) => rows.push(`<dt>${k}</dt><dd title="${xpEsc(v)}">${xpEsc(v)}</dd>`);
+        add('Missing', `${xpFmtInt(info.missing || 0)} (${info.missing_pct || 0}%)`);
+        if (info.unique_values !== undefined) add('Distinct', xpFmtInt(info.unique_values));
+        if (s.mean !== undefined) {
+          add('Min', xpFmtStat(s.min)); add('Median', xpFmtStat(s.median)); add('Mean', xpFmtStat(s.mean));
+          add('Max', xpFmtStat(s.max)); add('SD', xpFmtStat(s.sd));
+        } else if (s.range_days !== undefined) {
+          add('Earliest', s.min); add('Median', s.median); add('Latest', s.max); add('Span', xpFmtStat(s.range_days) + ' days');
+        } else if (s.top_values !== undefined) {
+          const tv = Array.isArray(s.top_values) ? s.top_values : [s.top_values];
+          const tc = Array.isArray(s.top_counts) ? s.top_counts : [s.top_counts];
+          const tp = Array.isArray(s.top_percentages) ? s.top_percentages : [s.top_percentages];
+          tv.forEach((v, i) => add(xpEsc(v === '' ? '(empty)' : v), `${xpFmtInt(tc[i])} (${tp[i]}%)`));
+          if (s.total_categories > tv.length) add('…', `${xpFmtInt(s.total_categories - tv.length)} more values`);
+          if (s.avg_length !== undefined) add('Length', `${s.min_length}–${s.max_length} (avg ${s.avg_length})`);
+        }
+        return `<dl class="xp-stats">${rows.join('')}</dl>`;
+      }
+      (function xpSetupSummaryEvents() {
+        const box = document.getElementById('summary-columns-list');
+        if (!box) return;
+        box.addEventListener('click', (e) => {
+          const item = e.target.closest('.summary-column-item');
+          if (!item || !xp.info) return;
+          const det = item.querySelector('.xp-sum-detail');
+          const open = det.style.display !== 'none';
+          if (!open) det.innerHTML = xpSummaryDetail(item.dataset.col);
+          det.style.display = open ? 'none' : 'block';
+          item.classList.toggle('expanded', !open);
+        });
+        box.addEventListener('dblclick', (e) => {
+          const item = e.target.closest('.summary-column-item');
+          if (!item) return;
+          const j = xp.cols.indexOf(item.dataset.col);
+          const th = document.querySelector(`#xp-thead th[data-j="${j}"]`);
+          if (th) {
+            th.scrollIntoView({ inline: 'center', block: 'nearest' });
+            const n = xp.data[xp.cols[j]] ? xp.data[xp.cols[j]].length : 0;
+            if (n) xpSelect(0, j, n - 1, j, { i: 0, j });
+          }
+        });
+      })();
+      function xpToggleSummary() {
+        xp.summaryHidden = !xp.summaryHidden;
+        try { localStorage.setItem('rgent.xp.summaryHidden', xp.summaryHidden ? '1' : '0'); } catch (e) {}
+        document.getElementById('explorer-summary-panel').classList.toggle('xp-hidden', xp.summaryHidden);
+        document.getElementById('xp-summary-toggle').classList.toggle('xp-active', !xp.summaryHidden);
+      }
+
+      // ---- Code -----------------------------------------------------------
+      function xpShowCode() {
+        if (!xp.name) return;
+        xpBusy(1);
+        xpSend({ action: 'convert_explorer_to_code', dataframe: xp.name, filters: xp.filters, sorts: xp.sorts, search: xp.search });
+      }
+      function xpOnCode(d) {
+        xpBusy(-1);
+        const code = d.code || '';
+        document.getElementById('xp-code-text').textContent = code;
+        document.getElementById('xp-code-hint').textContent = /dplyr::/.test(code) ? 'Uses dplyr. Runs as-is in your session.' :
+          (/^#/.test(code) ? '' : 'Base R. Runs as-is in your session.');
+        document.getElementById('xp-code-status').textContent = '';
+        document.getElementById('xp-code-modal').style.display = 'flex';
+      }
+      function xpCloseCode() { document.getElementById('xp-code-modal').style.display = 'none'; }
+      function xpCopyCode() { xpCopyText(document.getElementById('xp-code-text').textContent, 'code'); }
+      function xpInsertCode() {
+        const code = document.getElementById('xp-code-text').textContent;
+        if (xpSend({ action: 'insert_code', code: code + '\n' })) {
+          document.getElementById('xp-code-status').textContent = 'Inserted at the cursor in your script.';
+        }
+      }
+      (function xpSetupCodeModal() {
+        const modal = document.getElementById('xp-code-modal');
+        if (!modal) return;
+        modal.addEventListener('mousedown', (e) => { if (e.target === modal) xpCloseCode(); });
+        modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') xpCloseCode(); });
+      })();
+
+
+      // ---- Object view: lists, models, vectors, functions, other objects --
+      function xpObjRequest(offset) {
+        if (!xp.name) return;
+        xp.objReq = ++xp.reqId;
+        xpBusy(1);
+        if (!offset) xpStatus('Loading ' + xp.name + '…');
+        xpSend({ action: 'explorer_object_view', req_id: xp.objReq, dataframe: xp.name, path: xp.objPath, offset: offset || 0 });
+      }
+      function xpObjGo(depth) { xp.objPath = xp.objPath.slice(0, depth); xpObjRequest(0); }
+      function xpObjInto(i) {
+        const ch = xp.obj && xp.obj.children && xp.obj.children[i];
+        if (!ch) return;
+        xp.objPath = xp.objPath.concat([ch.step]);
+        xpObjRequest(0);
+      }
+      function xpArr(v) { return v === undefined || v === null ? [] : (Array.isArray(v) ? v : [v]); }
+      function xpOnObject(msg) {
+        xpBusy(-1);
+        if (msg.req_id !== undefined && msg.req_id !== null && msg.req_id !== xp.objReq) return;   // stale
+        const d = msg.data || {};
+        const box = document.getElementById('xp-o');
+        if (!d.exists) {
+          if (xp.objPath.length && d.name === undefined) { xp.objPath = []; xpObjRequest(0); return; }
+          xpStatus(d.error || "Couldn't show that object", true);
+          return;
+        }
+        if (d.name !== xp.name) return;
+        const more = d.kind === 'vector' && d.offset > 0 && xp.obj && xp.obj.kind === 'vector' && xp.obj.expr === d.expr;
+        if (more) {
+          xp.obj.values = xpArr(xp.obj.values).concat(xpArr(d.values));
+          if (d.labels) xp.obj.labels = xpArr(xp.obj.labels).concat(xpArr(d.labels));
+          xp.obj.shown = xp.obj.values.length;
+        } else {
+          xp.obj = d;
+          xp.obj.values = xpArr(d.values);
+          if (d.labels) xp.obj.labels = xpArr(d.labels);
+          xp.obj.children = xpArr(d.children);
+        }
+        document.getElementById('explorer-df-dims').textContent = d.desc + (d.size ? ' · ' + d.size : '');
+        xpStatus('');
+        xpRenderObject(box, more);
+      }
+      function xpPre(lines, total, what) {
+        const arr = xpArr(lines);
+        return `<pre class="xp-o-pre">${xpEsc(arr.join('\n'))}</pre>` +
+          (total > arr.length ? `<div class="xp-o-note">Showing the first ${xpFmtInt(arr.length)} of ${xpFmtInt(total)} lines${what ? ' ' + what : ''}.</div>` : '');
+      }
+      function xpRenderObject(box, keepScroll) {
+        const d = xp.obj;
+        const scroll = box.parentElement.scrollTop;
+        // Breadcrumbs: name › part › part
+        const crumbs = [`<button class="xp-o-crumb${xp.objPath.length ? '' : ' xp-o-here'}" data-depth="0">${xpEsc(xp.name)}</button>`];
+        xp.objPath.forEach((st, k) => {
+          const label = st.t === 'slot' ? '@' + st.v : (st.t === 'i' ? '[[' + st.v + ']]' : st.v);
+          crumbs.push(`<span class="xp-o-sep">›</span><button class="xp-o-crumb${k === xp.objPath.length - 1 ? ' xp-o-here' : ''}" data-depth="${k + 1}">${xpEsc(label)}</button>`);
+        });
+        let h = `<div class="xp-o-crumbs">${crumbs.join('')}</div>`;
+        const cls = String(d.class || '').split(', ');
+        h += `<div class="xp-o-meta">${cls.slice(0, 3).map(c => `<span class="xp-o-badge">${xpEsc(c)}</span>`).join('')}` +
+             `<span>${xpEsc(d.desc || '')}${d.size ? ' · ' + xpEsc(d.size) : ''}</span>` +
+             `<span class="xp-o-actions">` +
+               `<button class="xp-o-btn" data-act="copy-expr" title="${xpEsc(d.expr)}">Copy path</button>` +
+               (d.kind === 'function' ? '<button class="xp-o-btn" data-act="copy-code">Copy code</button>' : '') +
+               (d.kind === 'vector' ? '<button class="xp-o-btn" data-act="copy-values">Copy values</button>' : '') +
+               `<button class="xp-o-btn" data-act="ask">Ask Rgent</button>` +
+             `</span></div>`;
+
+        if (d.kind === 'tree') {
+          if (d.summary) h += `<div class="xp-o-section"><div class="xp-o-h">Summary</div>${xpPre(d.summary.lines, d.summary.total)}</div>`;
+          const n = d.children.length;
+          h += `<div class="xp-o-section"><div class="xp-o-h">${d.summary ? 'Components' : 'Contents'} · ${xpFmtInt(d.total)}` +
+               (n > 12 ? `<input class="xp-o-filter" id="xp-o-filter" placeholder="Filter names" autocomplete="off">` : '') + `</div>` +
+               `<table class="xp-o-table"><colgroup><col style="width:30%"><col style="width:26%"><col class="xp-o-hide-narrow"></colgroup>` +
+               `<thead><tr><th>Name</th><th>Type</th><th class="xp-o-hide-narrow">Value</th></tr></thead><tbody id="xp-o-rows">` +
+               d.children.map((c, i) =>
+                 `<tr class="xp-o-row" tabindex="0" data-i="${i}" title="Open ${xpEsc(c.label)}"><td class="xp-o-name"><span class="xp-o-chev">${c.expandable ? '▸' : ''}</span>${xpEsc(c.label)}</td>` +
+                 `<td class="xp-o-desc">${xpEsc(c.desc)}</td><td class="xp-o-prev xp-o-hide-narrow">${xpEsc(c.preview || '')}</td></tr>`).join('') +
+               `</tbody></table>` +
+               (d.total > n ? `<div class="xp-o-note">Showing the first ${xpFmtInt(n)} of ${xpFmtInt(d.total)}.</div>` : '') + `</div>`;
+          if (d.printed) h += `<div class="xp-o-section"><div class="xp-o-h">Printed</div>${xpPre(d.printed.lines, d.printed.total)}</div>`;
+        } else if (d.kind === 'vector') {
+          const info = d.info;
+          if (info && d.length) {
+            h += `<div class="xp-o-section xp-o-stats"><div class="xp-o-card">${xpStatsHtml(info)}</div>` +
+                 `<div class="xp-o-card">${xpSparkHtml(info) || '<div class="xp-o-note">No distribution to show.</div>'}</div></div>`;
+          }
+          const vals = d.values, labels = d.labels;
+          const numeric = info && (info.kind === 'number' || info.kind === 'integer');
+          h += `<div class="xp-o-section"><div class="xp-o-h">Values · ${xpFmtInt(d.length)}</div>`;
+          if (!d.length) h += '<div class="xp-o-note">This vector is empty.</div>';
+          else {
+            h += `<table class="xp-o-table"><colgroup><col style="width:${labels ? 30 : 12}%"><col></colgroup><tbody>` +
+                 vals.map((v, i) => `<tr><td class="${labels ? 'xp-o-name' : 'xp-o-idx'}">${xpEsc(labels ? (labels[i] === null ? 'NA' : labels[i]) : '[' + (i + 1) + ']')}</td>` +
+                   (v === null ? '<td class="xp-o-val xp-o-na">NA</td>' : `<td class="xp-o-val${numeric ? ' xp-o-num' : ''}" title="${xpEsc(v)}">${xpEsc(v)}</td>`) + '</tr>').join('') +
+                 `</tbody></table>`;
+            if (d.length > vals.length) h += `<div class="xp-o-more"><button class="xp-o-btn" data-act="more">Show more (${xpFmtInt(vals.length)} of ${xpFmtInt(d.length)})</button></div>`;
+          }
+          h += '</div>';
+          const attrs = xpArr(d.attrs);
+          if (attrs.length) h += `<div class="xp-o-note">Attributes: ${attrs.map(xpEsc).join(', ')}</div>`;
+        } else if (d.kind === 'function') {
+          const args = xpArr(d.args);
+          h += `<div class="xp-o-section"><div class="xp-o-h">Arguments · ${args.length}</div>` +
+               (args.length ? `<div class="xp-o-args">${args.map(a => `<span class="xp-o-arg">${xpEsc(a.name)}${a.default !== undefined && a.default !== null ? ' <span>= ' + xpEsc(a.default) + '</span>' : ''}</span>`).join('')}</div>` : '<div class="xp-o-note">No arguments.</div>') +
+               `</div><div class="xp-o-section"><div class="xp-o-h">Code${d.env ? ' · environment ' + xpEsc(d.env) : ''}</div>${xpPre(d.code, xpArr(d.code).length)}</div>`;
+        } else {
+          if (d.printed) h += `<div class="xp-o-section">${xpPre(d.printed.lines, d.printed.total)}</div>`;
+          if (d.note) h += `<div class="xp-o-note">${xpEsc(d.note)}</div>`;
+        }
+        box.innerHTML = h;
+        box.parentElement.scrollTop = keepScroll ? scroll : 0;
+      }
+      (function xpSetupObjectEvents() {
+        const box = document.getElementById('xp-o');
+        if (!box) return;
+        box.addEventListener('click', (e) => {
+          const crumb = e.target.closest('.xp-o-crumb');
+          if (crumb && !crumb.classList.contains('xp-o-here')) { xpObjGo(+crumb.dataset.depth); return; }
+          const row = e.target.closest('.xp-o-row');
+          if (row) { xpObjInto(+row.dataset.i); return; }
+          const btn = e.target.closest('[data-act]');
+          if (!btn || !xp.obj) return;
+          const d = xp.obj;
+          if (btn.dataset.act === 'copy-expr') xpCopyText(d.expr, d.expr);
+          else if (btn.dataset.act === 'copy-code') xpCopyText(xpArr(d.code).join('\n'), 'code');
+          else if (btn.dataset.act === 'copy-values') xpCopyText(d.values.map(v => v === null ? 'NA' : v).join('\n'), d.values.length < d.length ? `the first ${xpFmtInt(d.values.length)} values` : 'values');
+          else if (btn.dataset.act === 'more') { btn.disabled = true; btn.textContent = 'Loading…'; xpObjRequest(d.values.length); }
+          else if (btn.dataset.act === 'ask') {
+            switchTab('chat');
+            const input = document.getElementById('user-input');
+            if (input) {
+              input.value = `Explain \`${d.expr}\` (${d.desc}) and what I can do with it.`;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.focus();
+            }
+          }
+        });
+        box.addEventListener('keydown', (e) => {
+          const row = e.target.closest('.xp-o-row');
+          if (row && (e.key === 'Enter' || e.key === 'ArrowRight')) { e.preventDefault(); xpObjInto(+row.dataset.i); }
+          else if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault();
+            let r = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+            while (r && r.style.display === 'none') r = e.key === 'ArrowDown' ? r.nextElementSibling : r.previousElementSibling;
+            if (r) r.focus();
+          } else if ((e.key === 'ArrowLeft' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && xp.objPath.length) {
+            e.preventDefault(); xpObjGo(xp.objPath.length - 1);
+          }
+        });
+        box.addEventListener('input', (e) => {
+          if (e.target.id !== 'xp-o-filter') return;
+          const q = e.target.value.toLowerCase();
+          document.querySelectorAll('#xp-o-rows tr').forEach(tr => {
+            const c = xp.obj.children[+tr.dataset.i];
+            tr.style.display = !q || c.label.toLowerCase().includes(q) ? '' : 'none';
+          });
+        });
+      })();
+
+      // ---- Refresh and live updates ---------------------------------------
+      function xpRefresh() {
+        loadExplorerDataframes();
+        if (xp.name) xpOpen(xp.name, true);
+      }
+      function xpExplorerVisible() {
+        const tab = document.getElementById('explorer-tab');
+        return !!(tab && tab.classList.contains('active') && document.visibilityState !== 'hidden');
+      }
+      function xpStartPolling() {
+        if (xp.pollTimer) return;
+        // Like Positron: notice when the data changes in the session and
+        // update the view, keeping filters and sorting
+        xp.pollTimer = setInterval(() => {
+          if (!xp.name || xp.busy > 0 || !xpExplorerVisible()) return;
+          xpSend({ action: 'explorer_check_changed', dataframe: xp.name });
+        }, 2500);
+      }
+      function xpOnChanged(d) {
+        if (!d || d.name !== xp.name || !d.changed) return;
+        if (!d.exists) {
+          xpStatus(`${xp.name} is no longer in your workspace.`, true);
+          loadExplorerDataframes();
+          return;
+        }
+        xpOpen(xp.name, true);
+        loadExplorerDataframes();
+        xpToast(`${xp.name} changed, view updated`);
+      }
       
       // Load available dataframes for explorer
       function loadExplorerDataframes() {
@@ -15607,13 +17349,13 @@ Reply with a corrected version as a single R code block, and keep the explanatio
         if (!dropdown || !button) return;
         
         // Detect theme and use solid background
-        const isDark = document.body.classList.contains('dark-theme') || 
-                       window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = document.body.classList.contains('dark-theme');
         const dropdownBg = isDark ? '#2d2d2d' : '#ffffff';
         dropdown.style.backgroundColor = dropdownBg;
         dropdown.style.background = dropdownBg;
         
         dropdown.innerHTML = '';
+        xp.objectsInfo = objectsInfo || {};
         
         if (!objects || objects.length === 0) {
           buttonText.textContent = 'No objects available';
@@ -15806,130 +17548,8 @@ Reply with a corrected version as a single R code block, and keep the explanatio
         });
       }
       
-      // Load dataframe by name (used by dropdown items)
-      function loadExplorerDataframeFromName(objName) {
-        if (!objName) return;
-        
-        // Find the category from the dropdown item
-        const dropdown = document.getElementById('explorer-dataframe-select-dropdown');
-        const item = dropdown ? dropdown.querySelector(`[data-obj-name="${objName}"]`) : null;
-        const category = item ? item.dataset.category : null;
-        
-        console.log('Explorer: Loading object:', objName, 'category:', category);
-        
-        // Use the main loading function
-        loadExplorerObjectMain(objName);
-        
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'get_dataframe_explorer_data',
-            dataframe: objName
-          }));
-        }
-      };
       
-      // Load a specific object in explorer (legacy function - now uses loadExplorerDataframeFromName)
-      function loadExplorerDataframe() {
-        // This function is kept for compatibility but the new dropdown uses loadExplorerDataframeFromName
-        const buttonText = document.getElementById('explorer-dataframe-select-text');
-        if (!buttonText || !buttonText.textContent || buttonText.textContent === 'Select an object...') {
-          explorerState.currentDataframe = null;
-          document.getElementById('explorer-df-dims').textContent = '';
-          document.getElementById('explorer-status-text').textContent = '';
-          document.getElementById('summary-columns-list').innerHTML = '';
-          document.getElementById('grid-column-headers').innerHTML = '';
-          document.getElementById('grid-row-headers').innerHTML = '';
-          document.getElementById('grid-data-cells').innerHTML = '';
-          return;
-        }
-        
-        // Try to find the object name from the button text
-        // This is a fallback - the new dropdown should use loadExplorerDataframeFromName directly
-        return;
-      }
       
-      // Main function to load object (used by new dropdown)
-      function loadExplorerObjectMain(objName) {
-        if (!objName) {
-          explorerState.currentDataframe = null;
-          document.getElementById('explorer-df-dims').textContent = '';
-          document.getElementById('explorer-status-text').textContent = '';
-          document.getElementById('summary-columns-list').innerHTML = '';
-          document.getElementById('grid-column-headers').innerHTML = '';
-          document.getElementById('grid-row-headers').innerHTML = '';
-          document.getElementById('grid-data-cells').innerHTML = '';
-          
-          // Hide all grid elements when no object is selected
-          const summaryPanel = document.getElementById('explorer-summary-panel');
-          const rowHeaderCorner = document.querySelector('.row-header-corner');
-          const rowHeaders = document.getElementById('grid-row-headers');
-          const columnHeaders = document.getElementById('grid-column-headers');
-          const gridWrapper = document.querySelector('.explorer-grid-wrapper');
-          const explorerActions = document.querySelector('.explorer-actions');
-          const prevPageBtn = document.getElementById('prev-page-btn');
-          const nextPageBtn = document.getElementById('next-page-btn');
-          const summarySearch = document.getElementById('summary-search');
-          
-          if (summaryPanel) summaryPanel.style.display = 'none';
-          if (rowHeaderCorner) rowHeaderCorner.style.display = 'none';
-          if (rowHeaders) rowHeaders.style.display = 'none';
-          if (columnHeaders) columnHeaders.style.display = 'none';
-          if (gridWrapper) gridWrapper.style.display = 'none';
-          if (explorerActions) explorerActions.style.display = 'none';
-          if (prevPageBtn) prevPageBtn.style.display = 'none';
-          if (nextPageBtn) nextPageBtn.style.display = 'none';
-          if (summarySearch) summarySearch.style.display = 'none';
-          
-          return;
-        }
-        
-        // Show grid elements when loading an object
-        const gridWrapper = document.querySelector('.explorer-grid-wrapper');
-        const explorerActions = document.querySelector('.explorer-actions');
-        const prevPageBtn = document.getElementById('prev-page-btn');
-        const nextPageBtn = document.getElementById('next-page-btn');
-        const summarySearch = document.getElementById('summary-search');
-        
-        if (gridWrapper) gridWrapper.style.display = 'block';
-        if (explorerActions) explorerActions.style.display = 'flex';
-        if (prevPageBtn) prevPageBtn.style.display = 'flex';
-        if (nextPageBtn) nextPageBtn.style.display = 'flex';
-        if (summarySearch) summarySearch.style.display = 'block';
-        
-        explorerState.currentDataframe = objName;
-        explorerState.page = 1;
-        explorerState.filters = [];
-        explorerState.sorts = [];
-        explorerState.pinnedCols = [];
-        explorerState.pinnedRows = [];
-        explorerState.selectedCells.clear();
-        
-        // Enable pagination buttons
-        const prevBtn = document.getElementById('prev-page-btn');
-        const nextBtn = document.getElementById('next-page-btn');
-        if (prevBtn) prevBtn.disabled = true; // Start at page 1, so previous is disabled
-        if (nextBtn) nextBtn.disabled = false; // Will be updated after data loads
-        
-        // Clear previous content
-        document.getElementById('explorer-df-dims').textContent = '';
-        document.getElementById('explorer-status-text').textContent = '';
-        document.getElementById('summary-columns-list').innerHTML = '';
-        document.getElementById('grid-column-headers').innerHTML = '';
-        document.getElementById('grid-row-headers').innerHTML = '';
-        document.getElementById('grid-data-cells').innerHTML = '';
-        
-        // Get comprehensive explorer data
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          console.log('📊 Explorer: Sending request for explorer data');
-          ws.send(JSON.stringify({
-            action: "get_dataframe_explorer_data",
-            dataframe: objName
-          }));
-        } else {
-          console.error('📊 Explorer: WebSocket not connected');
-          document.getElementById('explorer-status-text').textContent = 'Error: Not connected';
-        }
-      }
       
       // Render object explorer for non-dataframe objects
       function renderObjectExplorer(objData) {
@@ -16293,7 +17913,7 @@ Reply with a corrected version as a single R code block, and keep the explanatio
         
         // For functions, make the grid container take full width
         if (objType === 'function') {
-          const gridWrapper = document.querySelector('.explorer-grid-wrapper');
+          const gridWrapper = document.querySelector('.explorer-grid-wrapper-legacy');
           if (gridWrapper) {
             gridWrapper.style.width = '100%';
             gridWrapper.style.flex = '1';
@@ -16305,251 +17925,6 @@ Reply with a corrected version as a single R code block, and keep the explanatio
         }
       }
       
-      // Render summary panel with columns
-      function renderExplorerSummary(columnInfo) {
-        explorerState.columnInfo = columnInfo;
-        const container = document.getElementById('summary-columns-list');
-        container.innerHTML = '';
-        
-        let columns = Object.keys(columnInfo);
-        
-        // Apply search filter
-        const searchText = document.getElementById('summary-search').value.toLowerCase();
-        if (searchText) {
-          columns = columns.filter(col => col.toLowerCase().includes(searchText));
-        }
-        
-        // Apply sort
-        if (explorerState.summarySortOrder !== 'original') {
-          columns.sort((a, b) => {
-            const infoA = columnInfo[a];
-            const infoB = columnInfo[b];
-            
-            switch(explorerState.summarySortOrder) {
-              case 'name-asc':
-                return a.localeCompare(b);
-              case 'name-desc':
-                return b.localeCompare(a);
-              case 'type-asc':
-                return infoA.type.localeCompare(infoB.type);
-              case 'type-desc':
-                return infoB.type.localeCompare(infoA.type);
-              default:
-                return 0;
-            }
-          });
-        }
-        
-        columns.forEach(colName => {
-          const info = columnInfo[colName];
-          const item = document.createElement('div');
-          item.className = 'summary-column-item';
-          item.dataset.columnName = colName;
-          
-          const header = document.createElement('div');
-          header.className = 'summary-column-header';
-          
-          const nameSpan = document.createElement('span');
-          nameSpan.style.fontWeight = '600';
-          nameSpan.textContent = colName;
-          nameSpan.style.cursor = 'pointer';
-          nameSpan.title = 'Double-click to focus column in grid';
-          nameSpan.ondblclick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            try {
-              focusColumnInGrid(colName);
-            } catch (error) {
-              console.error('Error focusing column:', error);
-            }
-          };
-          header.appendChild(nameSpan);
-          
-          const typeSpan = document.createElement('span');
-          typeSpan.style.fontSize = '11px';
-          typeSpan.style.color = 'var(--text-secondary)';
-          typeSpan.style.marginLeft = '8px';
-          typeSpan.textContent = info.type;
-          header.appendChild(typeSpan);
-          
-          // Add expand/collapse indicator
-          const expandIcon = document.createElement('span');
-          expandIcon.className = 'expand-icon';
-          expandIcon.style.cssText = 'margin-left: auto; font-size: 12px; color: var(--text-secondary); transition: transform 0.2s; user-select: none;';
-          expandIcon.textContent = '▶';
-          expandIcon.title = 'Click to expand details';
-          header.appendChild(expandIcon);
-          
-          item.appendChild(header);
-          
-          // Missing data indicator
-          if (info.missing > 0) {
-            const missingDiv = document.createElement('div');
-            missingDiv.style.marginTop = '5px';
-            missingDiv.style.fontSize = '11px';
-            missingDiv.style.color = 'var(--text-secondary)';
-            missingDiv.textContent = `${info.missing} missing (${info.missing_pct}%)`;
-            
-            const missingBar = document.createElement('div');
-            missingBar.className = 'missing-data-bar';
-            missingBar.style.width = `${info.missing_pct}%`;
-            missingDiv.appendChild(missingBar);
-            
-            item.appendChild(missingDiv);
-          }
-          
-          // Mini sparkline
-          const sparklineDiv = document.createElement('div');
-          sparklineDiv.className = 'mini-sparkline';
-          
-          if (info.histogram && info.histogram.counts) {
-            sparklineDiv.innerHTML = renderMiniHistogram(info.histogram.counts);
-          } else if (info.frequency && info.frequency.counts) {
-            sparklineDiv.innerHTML = renderMiniBarChart(info.frequency.counts);
-          }
-          
-          item.appendChild(sparklineDiv);
-          
-          // Expandable stats (initially hidden)
-          const expandedDiv = document.createElement('div');
-          expandedDiv.className = 'column-stats-expanded';
-          expandedDiv.style.display = 'none';
-          
-          if (info.summary_stats) {
-            // Check if it's numeric (has sd/se) or date (has range_days) or categorical (has most_common)
-            if (info.summary_stats.sd !== undefined && info.summary_stats.se !== undefined) {
-              // Numeric summary
-              // Helper function to safely format numbers
-              const formatStat = (val) => {
-                if (val === null || val === undefined || val === 'NA' || isNaN(val)) {
-                  return 'N/A';
-                }
-                return typeof val === 'number' ? val.toFixed(2) : String(val);
-              };
-              
-              expandedDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 8px; font-size: 13px;">
-                  <div><strong>Min:</strong> ${formatStat(info.summary_stats.min)}</div>
-                  <div><strong>Max:</strong> ${formatStat(info.summary_stats.max)}</div>
-                  <div><strong>Mean:</strong> ${formatStat(info.summary_stats.mean)}</div>
-                  <div><strong>Median:</strong> ${formatStat(info.summary_stats.median)}</div>
-                  <div><strong>SD:</strong> ${formatStat(info.summary_stats.sd)}</div>
-                  <div><strong>SE:</strong> ${formatStat(info.summary_stats.se)}</div>
-                </div>
-              `;
-            } else if (info.summary_stats.range_days !== undefined) {
-              // Date/POSIXct summary
-              let dateHtml = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 8px; font-size: 13px;">
-                  <div><strong>Min:</strong> ${info.summary_stats.min}</div>
-                  <div><strong>Max:</strong> ${info.summary_stats.max}</div>
-                  <div><strong>Median:</strong> ${info.summary_stats.median}</div>
-                  <div><strong>Range:</strong> ${info.summary_stats.range_days.toFixed(1)} days</div>
-              `;
-              if (info.summary_stats.range_hours !== undefined) {
-                dateHtml += `<div><strong>Range:</strong> ${info.summary_stats.range_hours.toFixed(1)} hours</div>`;
-              }
-              dateHtml += `</div>`;
-              expandedDiv.innerHTML = dateHtml;
-            } else if (info.summary_stats.top_values !== undefined) {
-              // Categorical summary (factor/character/logical) - show top values
-              const isLogical = info.type === 'logical';
-              const title = isLogical ? 'Values:' : 'Top Values:';
-              
-              let catHtml = `
-                <div style="margin-top: 8px; font-size: 13px;">
-                  <div style="margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">${title}</div>
-                  <div style="display: flex; flex-direction: column; gap: 4px;">
-              `;
-              
-              const topValues = info.summary_stats.top_values;
-              const topCounts = info.summary_stats.top_counts;
-              const topPcts = info.summary_stats.top_percentages;
-              
-              // Helper function to escape HTML content
-              const escapeHTML = (str) => {
-                if (!str) return '';
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-              };
-              
-              for (let i = 0; i < topValues.length; i++) {
-                catHtml += `
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-color);">
-                    <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: ${isLogical ? '500' : '400'};">${escapeHTML(String(topValues[i]))}</span>
-                    <span style="margin-left: 12px; color: var(--text-secondary); font-size: 12px;">${topCounts[i]} (${topPcts[i]}%)</span>
-                  </div>
-                `;
-              }
-              
-              catHtml += `</div>`;
-              
-              // For logical columns, show NA info if present
-              if (isLogical && info.summary_stats.na_count !== undefined && info.summary_stats.na_count > 0) {
-                catHtml += `
-                  <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-color);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-                      <span style="font-weight: 500;">NA</span>
-                      <span style="margin-left: 12px; color: var(--text-secondary); font-size: 12px;">${info.summary_stats.na_count} (${info.summary_stats.na_percentage}%)</span>
-                    </div>
-                  </div>
-                `;
-              }
-              
-              // Add total categories info (for non-logical)
-              if (!isLogical && info.summary_stats.total_categories !== undefined) {
-                catHtml += `
-                  <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-secondary);">
-                    <strong>Total Categories:</strong> ${info.summary_stats.total_categories}
-                  </div>
-                `;
-              }
-              
-              // For character columns, add string length stats
-              if (info.summary_stats.avg_length !== undefined) {
-                catHtml += `
-                  <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-color);">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 13px;">
-                      <div><strong>Avg Length:</strong> ${info.summary_stats.avg_length}</div>
-                      <div><strong>Min Length:</strong> ${info.summary_stats.min_length}</div>
-                      <div><strong>Max Length:</strong> ${info.summary_stats.max_length}</div>
-                      <div><strong>Median Length:</strong> ${info.summary_stats.median_length}</div>
-                    </div>
-                  </div>
-                `;
-              }
-              
-              catHtml += `</div>`;
-              expandedDiv.innerHTML = catHtml;
-            }
-          } else if (info.frequency) {
-            expandedDiv.innerHTML = `
-              <div><strong>Total Categories:</strong> ${info.frequency.total_categories}</div>
-              <div><strong>Unique Values:</strong> ${info.unique_values}</div>
-            `;
-          }
-          
-          item.appendChild(expandedDiv);
-          
-          // Toggle expand on click (but not on column name double-click)
-          item.onclick = (e) => {
-            if (e.target !== nameSpan) {
-              const isExpanded = expandedDiv.style.display !== 'none';
-              expandedDiv.style.display = isExpanded ? 'none' : 'block';
-              item.classList.toggle('expanded', !isExpanded);
-              
-              // Rotate expand icon
-              if (expandIcon) {
-                expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
-                expandIcon.textContent = isExpanded ? '▶' : '▼';
-              }
-            }
-          };
-          
-          container.appendChild(item);
-        });
-      }
       
       // Render mini histogram
       function renderMiniHistogram(counts) {
@@ -16597,468 +17972,19 @@ Reply with a corrected version as a single R code block, and keep the explanatio
         }).join('');
       }
       
-      // Filter summary columns
-      function filterSummaryColumns() {
-        renderExplorerSummary(explorerState.columnInfo);
-      }
       
-      // Sort summary columns
-      function sortSummaryColumns() {
-        const select = document.getElementById('summary-sort');
-        explorerState.summarySortOrder = select.value;
-        renderExplorerSummary(explorerState.columnInfo);
-      }
       
-      // Toggle summary panel
-      function toggleSummaryPanel() {
-        const panel = document.getElementById('explorer-summary-panel');
-        explorerState.summaryCollapsed = !explorerState.summaryCollapsed;
-        panel.classList.toggle('collapsed', explorerState.summaryCollapsed);
-        const btn = document.querySelector('.collapse-btn');
-        btn.textContent = explorerState.summaryCollapsed ? '▶' : '◀';
-      }
       
-      // Focus column in grid
-      function focusColumnInGrid(columnName) {
-        const headers = document.querySelectorAll('.grid-column-header');
-        for (let header of headers) {
-          const headerText = header.textContent.trim().replace(/\s*↑.*|\s*↓.*|\s*\d+.*/g, '').trim();
-          if (headerText === columnName || header.dataset.column === columnName) {
-            header.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-            // Highlight briefly
-            header.style.backgroundColor = 'var(--text-primary)';
-            header.style.color = 'var(--bg-primary)';
-            setTimeout(() => {
-              header.style.backgroundColor = '';
-              header.style.color = '';
-            }, 1000);
-            return;
-          }
-        }
-      }
       
-      // Render data grid
-      function renderExplorerGrid(chunkData, columns, pageInfo) {
-        const headersContainer = document.getElementById('grid-column-headers');
-        const rowsContainer = document.getElementById('grid-row-headers');
-        const cellsContainer = document.getElementById('grid-data-cells');
-        
-        headersContainer.innerHTML = '';
-        rowsContainer.innerHTML = '';
-        cellsContainer.innerHTML = '';
-        
-        // Set solid backgrounds for row header corner
-        const isDark = document.body.classList.contains('dark-theme') || 
-                       window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const cornerBg = isDark ? '#2d2d2d' : '#f0f0f0';
-        const headerBg = isDark ? '#2d2d2d' : '#f0f0f0';
-        const rowHeaderCorner = document.getElementById('row-header-corner');
-        if (rowHeaderCorner) {
-          rowHeaderCorner.style.backgroundColor = cornerBg;
-        }
-        
-        // Set grid template columns
-        const columnWidths = columns.map(col => explorerState.columnWidths[col] || 120);
-        const gridTemplateColumns = columnWidths.map(w => `${w}px`).join(' ');
-        cellsContainer.style.gridTemplateColumns = gridTemplateColumns;
-        headersContainer.style.gridTemplateColumns = gridTemplateColumns;
-        
-        // Ensure both containers use the same grid setup
-        headersContainer.style.display = 'grid';
-        cellsContainer.style.display = 'grid';
-        
-          // Render column headers
-          columns.forEach((col, colIndex) => {
-          const header = document.createElement('div');
-          header.className = 'grid-column-header';
-          header.style.backgroundColor = headerBg;
-          header.dataset.column = col;
-          // Don't set width explicitly - let grid handle it
-          
-          // Create text node for column name
-          const colNameSpan = document.createElement('span');
-          colNameSpan.textContent = col;
-          header.appendChild(colNameSpan);
-          
-          if (explorerState.pinnedCols.includes(col)) {
-            header.classList.add('pinned');
-          }
-          
-          // Add sort indicator
-          const sort = explorerState.sorts.find(s => s.column === col);
-          if (sort) {
-            header.classList.add(sort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
-            if (explorerState.sorts.length > 1) {
-              const sortOrder = explorerState.sorts.findIndex(s => s.column === col) + 1;
-              const orderSpan = document.createElement('span');
-              orderSpan.textContent = ` ${sortOrder}`;
-              orderSpan.style.marginLeft = '4px';
-              header.appendChild(orderSpan);
-            }
-          }
-          
-          // Context menu (right-click)
-          header.oncontextmenu = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            showColumnContextMenu(e, col);
-            return false;
-          };
-          
-          // Click to sort (left-click only)
-          header.onclick = (e) => {
-            // Only handle left-click (button 0 or undefined)
-            if (e.button !== undefined && e.button !== 0) {
-              return;
-            }
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('🔍 Column header clicked:', col, 'button:', e.button);
-            toggleColumnSort(col);
-            return false;
-          };
-          
-          headersContainer.appendChild(header);
-        });
-        
-        // Render rows
-        const numRows = chunkData[columns[0]] ? chunkData[columns[0]].length : 0;
-        for (let i = 0; i < numRows; i++) {
-          const rowIndex = pageInfo.start_row + i - 1;
-          
-          // Row header
-          const rowHeader = document.createElement('div');
-          rowHeader.className = 'grid-row-header';
-          rowHeader.style.backgroundColor = headerBg;
-          rowHeader.textContent = rowIndex + 1; // 1-based indexing for R
-          rowHeader.dataset.row = rowIndex;
-          
-          if (explorerState.pinnedRows.includes(rowIndex)) {
-            rowHeader.classList.add('pinned');
-          }
-          
-          rowHeader.oncontextmenu = (e) => {
-            e.preventDefault();
-            showRowContextMenu(e, rowIndex);
-          };
-          
-          rowsContainer.appendChild(rowHeader);
-          
-          // Data cells
-          columns.forEach((col, colIndex) => {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            cell.dataset.row = rowIndex;
-            cell.dataset.col = col;
-            const value = chunkData[col] ? chunkData[col][i] : '';
-            cell.textContent = value || '';
-            cell.title = value; // Tooltip for full value
-            
-            cell.onclick = () => {
-              selectCell(rowIndex, col);
-            };
-            
-            cell.oncontextmenu = (e) => {
-              e.preventDefault();
-              showCellContextMenu(e, rowIndex, col);
-            };
-            
-            cellsContainer.appendChild(cell);
-          });
-        }
-        
-        // Update status
-        const statusText = `Showing rows ${pageInfo.start_row}-${pageInfo.end_row} of ${pageInfo.total_rows}${pageInfo.filtered_rows < pageInfo.total_rows ? ` (${pageInfo.filtered_rows} after filters)` : ''}`;
-        document.getElementById('explorer-status-text').textContent = statusText;
-        
-        // Update pagination buttons
-        const prevBtn = document.getElementById('prev-page-btn');
-        const nextBtn = document.getElementById('next-page-btn');
-        
-        if (prevBtn) {
-          prevBtn.disabled = (pageInfo.page <= 1);
-        }
-        if (nextBtn) {
-          nextBtn.disabled = (pageInfo.page >= pageInfo.total_pages);
-        }
-      }
       
-      // Load grid page
-      function loadExplorerPage(page, pageSize = null) {
-        if (!explorerState.currentDataframe) return;
-        
-        explorerState.page = page;
-        const size = pageSize || explorerState.pageSize;
-        
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: "get_dataframe_chunk_filtered",
-            dataframe: explorerState.currentDataframe,
-            page: page,
-            page_size: size,
-            filters: explorerState.filters,
-            sorts: explorerState.sorts,
-            pinned_cols: explorerState.pinnedCols
-          }));
-        }
-      }
       
-      // Navigate to next page
-      function explorerNextPage() {
-        if (!explorerState.currentDataframe) return;
-        const currentPage = explorerState.page || 1;
-        loadExplorerPage(currentPage + 1);
-        // Remove focus from button after click to prevent color change
-        const nextBtn = document.getElementById('next-page-btn');
-        if (nextBtn) nextBtn.blur();
-      }
       
-      // Navigate to previous page
-      function explorerPreviousPage() {
-        if (!explorerState.currentDataframe) return;
-        const currentPage = explorerState.page || 1;
-        if (currentPage > 1) {
-          loadExplorerPage(currentPage - 1);
-        }
-        // Remove focus from button after click to prevent color change
-        const prevBtn = document.getElementById('prev-page-btn');
-        if (prevBtn) prevBtn.blur();
-      }
       
-      // Cell selection
-      function selectCell(row, col) {
-        const cellId = `${row}_${col}`;
-        explorerState.selectedCells.clear();
-        explorerState.selectedCells.add(cellId);
-        
-        // Update UI
-        document.querySelectorAll('.grid-cell').forEach(cell => {
-          cell.classList.remove('selected', 'range-selected');
-          if (cell.dataset.row == row && cell.dataset.col == col) {
-            cell.classList.add('selected');
-          }
-        });
-      }
       
-      // Column sort toggle
-      function toggleColumnSort(column) {
-        console.log('🔍 toggleColumnSort called for:', column);
-        console.log('🔍 Current sorts:', explorerState.sorts);
-        
-        const existingSort = explorerState.sorts.findIndex(s => s.column === column);
-        
-        if (existingSort >= 0) {
-          const sort = explorerState.sorts[existingSort];
-          console.log('🔍 Found existing sort:', sort);
-          if (sort.direction === 'asc') {
-            sort.direction = 'desc';
-            console.log('🔍 Changed to desc');
-          } else {
-            explorerState.sorts.splice(existingSort, 1);
-            console.log('🔍 Removed sort');
-          }
-        } else {
-          explorerState.sorts.push({
-            column: column,
-            direction: 'asc',
-            order: explorerState.sorts.length + 1
-          });
-          console.log('🔍 Added new sort (asc)');
-        }
-        
-        console.log('🔍 Updated sorts:', explorerState.sorts);
-        loadExplorerPage(explorerState.page);
-      }
       
-      // Add filter - opens modal
-      function explorerAddFilter(columnName = null) {
-        if (!explorerState.currentDataframe) {
-          alert('Please select a dataframe first');
-          return;
-        }
-        
-        // Wait for columnInfo if not loaded yet
-        if (!explorerState.columnInfo) {
-          alert('Column information is still loading. Please wait a moment and try again.');
-          return;
-        }
-        
-        // Populate column select
-        const columnSelect = document.getElementById('filter-column-select');
-        columnSelect.innerHTML = '<option value="">Select a column...</option>';
-        const columns = Object.keys(explorerState.columnInfo);
-        columns.forEach(col => {
-          const option = document.createElement('option');
-          option.value = col;
-          option.textContent = col;
-          if (columnName === col) {
-            option.selected = true;
-          }
-          columnSelect.appendChild(option);
-        });
-        
-        // Reset filter type and value
-        document.getElementById('filter-type-select').innerHTML = '<option value="">Select filter type...</option>';
-        document.getElementById('filter-type-select').value = '';
-        document.getElementById('filter-value-input').value = '';
-        document.getElementById('filter-value-input-2').value = '';
-        document.getElementById('filter-value-container').style.display = 'none';
-        document.getElementById('filter-between-container').style.display = 'none';
-        
-        // Show modal
-        document.getElementById('filter-modal').style.display = 'flex';
-        
-        // Update filter types when column changes
-        columnSelect.onchange = updateFilterTypes;
-        if (columnName) {
-          updateFilterTypes();
-        }
-      }
       
-      // Update filter types based on selected column
-      function updateFilterTypes() {
-        const columnSelect = document.getElementById('filter-column-select');
-        const typeSelect = document.getElementById('filter-type-select');
-        const valueContainer = document.getElementById('filter-value-container');
-        const betweenContainer = document.getElementById('filter-between-container');
-        
-        const column = columnSelect.value;
-        if (!column || !explorerState.columnInfo) {
-          typeSelect.innerHTML = '<option value="">Select filter type...</option>';
-          valueContainer.style.display = 'none';
-          return;
-        }
-        
-        const colInfo = explorerState.columnInfo[column];
-        const colType = colInfo.type;
-        
-        let filterTypeOptions = [];
-        if (colType === 'numeric') {
-          filterTypeOptions = [
-            {value: 'equals', label: 'Equals'},
-            {value: 'not_equals', label: 'Not Equals'},
-            {value: 'greater_than', label: 'Greater Than'},
-            {value: 'less_than', label: 'Less Than'},
-            {value: 'between', label: 'Between'},
-            {value: 'is_null', label: 'Is Null'},
-            {value: 'is_not_null', label: 'Is Not Null'}
-          ];
-        } else if (colType === 'character' || colType === 'factor') {
-          filterTypeOptions = [
-            {value: 'equals', label: 'Equals'},
-            {value: 'not_equals', label: 'Not Equals'},
-            {value: 'contains', label: 'Contains'},
-            {value: 'starts_with', label: 'Starts With'},
-            {value: 'ends_with', label: 'Ends With'},
-            {value: 'is_empty', label: 'Is Empty'},
-            {value: 'is_not_empty', label: 'Is Not Empty'},
-            {value: 'is_null', label: 'Is Null'},
-            {value: 'is_not_null', label: 'Is Not Null'}
-          ];
-        } else {
-          filterTypeOptions = [
-            {value: 'equals', label: 'Equals'},
-            {value: 'not_equals', label: 'Not Equals'},
-            {value: 'is_null', label: 'Is Null'},
-            {value: 'is_not_null', label: 'Is Not Null'}
-          ];
-        }
-        
-        typeSelect.innerHTML = '<option value="">Select filter type...</option>';
-        filterTypeOptions.forEach(opt => {
-          const option = document.createElement('option');
-          option.value = opt.value;
-          option.textContent = opt.label;
-          typeSelect.appendChild(option);
-        });
-        
-        // Update value input visibility
-        typeSelect.onchange = function() {
-          const filterType = typeSelect.value;
-          const needsValue = filterType && 
-            filterType !== 'is_null' && 
-            filterType !== 'is_not_null' && 
-            filterType !== 'is_empty' && 
-            filterType !== 'is_not_empty';
-          
-          if (filterType === 'between') {
-            valueContainer.style.display = 'block';
-            betweenContainer.style.display = 'block';
-          } else if (needsValue) {
-            valueContainer.style.display = 'block';
-            betweenContainer.style.display = 'none';
-          } else {
-            valueContainer.style.display = 'none';
-            betweenContainer.style.display = 'none';
-          }
-        };
-      }
       
-      // Apply filter from modal
-      function applyFilter() {
-        const column = document.getElementById('filter-column-select').value;
-        const filterType = document.getElementById('filter-type-select').value;
-        
-        if (!column || !filterType) {
-          alert('Please select both a column and filter type');
-          return;
-        }
-        
-        const colInfo = explorerState.columnInfo[column];
-        const colType = colInfo.type;
-        
-        let filterValue = null;
-        const needsValue = filterType !== 'is_null' && 
-          filterType !== 'is_not_null' && 
-          filterType !== 'is_empty' && 
-          filterType !== 'is_not_empty';
-        
-        if (needsValue) {
-          if (filterType === 'between') {
-            const val1 = document.getElementById('filter-value-input').value;
-            const val2 = document.getElementById('filter-value-input-2').value;
-            if (!val1 || !val2) {
-              alert('Please enter both minimum and maximum values');
-              return;
-            }
-            filterValue = [parseFloat(val1) || val1, parseFloat(val2) || val2];
-          } else {
-            const val = document.getElementById('filter-value-input').value;
-            if (!val) {
-              alert('Please enter a filter value');
-              return;
-            }
-            filterValue = val;
-            // Try to parse as number for numeric columns
-            if (colType === 'numeric') {
-              const numValue = parseFloat(filterValue);
-              if (!isNaN(numValue)) filterValue = numValue;
-            }
-          }
-        }
-        
-        explorerState.filters.push({
-          column: column,
-          type: filterType,
-          value: filterValue
-        });
-        
-        // Show filter bar if hidden
-        const filterBar = document.getElementById('explorer-filter-bar');
-        if (filterBar.style.display === 'none') {
-          filterBar.style.display = 'block';
-          document.getElementById('toggle-filters-btn').textContent = '👁️ Hide Filters';
-        }
-        
-        closeFilterModal();
-        renderFilters();
-        loadExplorerPage(1);
-      }
       
-      // Close filter modal
-      function closeFilterModal() {
-        document.getElementById('filter-modal').style.display = 'none';
-      }
       
       // Open guide modal
       function openGuideModal() {
@@ -17097,250 +18023,25 @@ Reply with a corrected version as a single R code block, and keep the explanatio
       });
       
       // Render filters
-      // Helper function to escape HTML content for filters
-      const escapeHTMLForFilter = (str) => {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-      };
       
-      function renderFilters() {
-        const container = document.getElementById('explorer-filters-container');
-        const filterBar = document.getElementById('explorer-filter-bar');
-        container.innerHTML = '';
-        
-        if (explorerState.filters.length === 0) {
-          filterBar.style.display = 'none';
-          document.getElementById('toggle-filters-btn').textContent = '👁️ Show Filters';
-          return;
-        }
-        
-        // Show filter bar if there are filters
-        filterBar.style.display = 'block';
-        document.getElementById('toggle-filters-btn').textContent = '👁️ Hide Filters';
-        
-        explorerState.filters.forEach((filter, index) => {
-          const filterDiv = document.createElement('div');
-          filterDiv.className = 'filter-item';
-          
-          // Format filter value display
-          let valueDisplay = '';
-          if (filter.value !== null && filter.value !== undefined) {
-            if (Array.isArray(filter.value)) {
-              valueDisplay = `[${filter.value[0]}, ${filter.value[1]}]`;
-            } else {
-              valueDisplay = String(filter.value);
-            }
-          }
-          
-          filterDiv.innerHTML = `
-            <span style="font-weight: 500;">${escapeHTMLForFilter(filter.column)}</span>
-            <span style="color: var(--text-secondary); margin: 0 4px;">${escapeHTMLForFilter(filter.type)}</span>
-            ${valueDisplay ? '<span style="color: var(--accent-color);">' + escapeHTMLForFilter(valueDisplay) + '</span>' : ''}
-            <button onclick="removeFilter(${index})" style="background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 18px; padding: 0 8px; margin-left: auto;">×</button>
-          `;
-          container.appendChild(filterDiv);
-        });
-      }
       
-      // Remove filter
-      function removeFilter(index) {
-        explorerState.filters.splice(index, 1);
-        renderFilters();
-        loadExplorerPage(1);
-      }
       
-      // Toggle filters visibility
-      function explorerToggleFilters() {
-        const bar = document.getElementById('explorer-filter-bar');
-        const btn = document.getElementById('toggle-filters-btn');
-        const isVisible = bar.style.display !== 'none';
-        bar.style.display = isVisible ? 'none' : 'block';
-        btn.textContent = isVisible ? '👁️ Show Filters' : '👁️ Hide Filters';
-      }
       
-      // Clear filters
-      function explorerClearFilters() {
-        explorerState.filters = [];
-        renderFilters();
-        loadExplorerPage(1);
-      }
       
-      // Clear sorting
-      function explorerClearSorting() {
-        explorerState.sorts = [];
-        loadExplorerPage(explorerState.page);
-      }
       
-      // Convert to code
-      function explorerConvertToCode() {
-        if (!explorerState.currentDataframe) {
-          alert('Please select a dataframe first');
-          return;
-        }
-        
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: "convert_explorer_to_code",
-            dataframe: explorerState.currentDataframe,
-            filters: explorerState.filters,
-            sorts: explorerState.sorts
-          }));
-        }
-      }
       
-      // Refresh explorer
-      function explorerRefresh() {
-        if (explorerState.currentDataframe) {
-          loadExplorerDataframe();
-        } else {
-          loadExplorerDataframes();
-        }
-      }
       
-      // Helper function to escape JavaScript string values for use in onclick handlers
-      const escapeJSString = (str) => {
-        if (!str) return '';
-        return String(str)
-          .replace(/\\/g, '\\\\')  // Escape backslashes first
-          .replace(/'/g, "\\'")     // Escape single quotes
-          .replace(/"/g, '\\"')     // Escape double quotes
-          .replace(/\n/g, '\\n')    // Escape newlines
-          .replace(/\r/g, '\\r')    // Escape carriage returns
-          .replace(/\t/g, '\\t');   // Escape tabs
-      };
       
-      // Context menus (simplified versions)
-      function showColumnContextMenu(event, column) {
-        // Create simple context menu
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = event.pageX + 'px';
-        menu.style.top = event.pageY + 'px';
-        
-        const escapedColumn = escapeJSString(column);
-        menu.innerHTML = `
-          <div class="context-menu-item" onclick="copyColumn('${escapedColumn}'); document.body.removeChild(this.parentElement);">Copy Column</div>
-          <div class="context-menu-item" onclick="pinColumn('${escapedColumn}'); document.body.removeChild(this.parentElement);">Pin Column</div>
-          <div class="context-menu-item" onclick="toggleColumnSort('${escapedColumn}'); document.body.removeChild(this.parentElement);">Sort Ascending</div>
-          <div class="context-menu-item" onclick="addColumnFilter('${escapedColumn}'); document.body.removeChild(this.parentElement);">Add Filter</div>
-        `;
-        
-        document.body.appendChild(menu);
-        
-        setTimeout(() => {
-          document.addEventListener('click', function removeMenu() {
-            if (document.body.contains(menu)) {
-              document.body.removeChild(menu);
-            }
-            document.removeEventListener('click', removeMenu);
-          });
-        }, 0);
-      }
       
-      function showRowContextMenu(event, row) {
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = event.pageX + 'px';
-        menu.style.top = event.pageY + 'px';
-        
-        menu.innerHTML = `
-          <div class="context-menu-item" onclick="copyRow(${row}); document.body.removeChild(this.parentElement);">Copy Row</div>
-          <div class="context-menu-item" onclick="pinRow(${row}); document.body.removeChild(this.parentElement);">Pin Row</div>
-        `;
-        
-        document.body.appendChild(menu);
-        
-        setTimeout(() => {
-          document.addEventListener('click', function removeMenu() {
-            if (document.body.contains(menu)) {
-              document.body.removeChild(menu);
-            }
-            document.removeEventListener('click', removeMenu);
-          });
-        }, 0);
-      }
       
-      function showCellContextMenu(event, row, col) {
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = event.pageX + 'px';
-        menu.style.top = event.pageY + 'px';
-        
-        const escapedCol = escapeJSString(col);
-        menu.innerHTML = `
-          <div class="context-menu-item" onclick="copyCell(${row}, '${escapedCol}'); document.body.removeChild(this.parentElement);">Copy</div>
-          <div class="context-menu-item" onclick="selectColumn('${escapedCol}'); document.body.removeChild(this.parentElement);">Select Column</div>
-          <div class="context-menu-item" onclick="selectRow(${row}); document.body.removeChild(this.parentElement);">Select Row</div>
-        `;
-        
-        document.body.appendChild(menu);
-        
-        setTimeout(() => {
-          document.addEventListener('click', function removeMenu() {
-            if (document.body.contains(menu)) {
-              document.body.removeChild(menu);
-            }
-            document.removeEventListener('click', removeMenu);
-          });
-        }, 0);
-      }
       
-      // Helper functions for context menus
-      function copyColumn(column) {
-        // Implementation for copying column
-        alert('Copy column: ' + column);
-      }
       
-      function pinColumn(column) {
-        if (!explorerState.pinnedCols.includes(column)) {
-          explorerState.pinnedCols.push(column);
-          loadExplorerPage(explorerState.page);
-        }
-      }
       
-      function addColumnFilter(column) {
-        explorerAddFilter(column);
-        // Close context menu if open
-        document.querySelectorAll('.context-menu').forEach(menu => {
-          if (document.body.contains(menu)) {
-            document.body.removeChild(menu);
-          }
-        });
-      }
       
-      function copyRow(row) {
-        alert('Copy row: ' + row);
-      }
       
-      function pinRow(row) {
-        if (!explorerState.pinnedRows.includes(row)) {
-          explorerState.pinnedRows.push(row);
-          loadExplorerPage(explorerState.page);
-        }
-      }
       
-      function copyCell(row, col) {
-        const cell = document.querySelector(`.grid-cell[data-row="${row}"][data-col="${col}"]`);
-        if (cell) {
-          navigator.clipboard.writeText(cell.textContent);
-        }
-      }
       
-      function selectColumn(col) {
-        // Select all cells in column
-        document.querySelectorAll(`.grid-cell[data-col="${col}"]`).forEach(cell => {
-          cell.classList.add('selected');
-        });
-      }
       
-      function selectRow(row) {
-        // Select all cells in row
-        document.querySelectorAll(`.grid-cell[data-row="${row}"]`).forEach(cell => {
-          cell.classList.add('selected');
-        });
-      }
       
       // Handle WebSocket messages for explorer - integrate into main handler
       // This will be called from the main WebSocket message handler

@@ -10,7 +10,7 @@ ai_insert_code <- function(code, context_context = NULL) {
     }
     
     # Get current document context
-    doc_context <- rstudioapi::getActiveDocumentContext()
+    doc_context <- rstudioapi::getSourceEditorContext()
     if (is.null(doc_context)) {
       cat("❌ No active document found\n")
       return(FALSE)
@@ -57,7 +57,7 @@ ai_replace_code <- function(old_code_pattern, new_code) {
     }
     
     # Get current document context
-    doc_context <- rstudioapi::getActiveDocumentContext()
+    doc_context <- rstudioapi::getSourceEditorContext()
     if (is.null(doc_context)) {
       cat("❌ No active document found\n")
       return(FALSE)
@@ -118,7 +118,7 @@ ai_smart_insert <- function(code, location_hint = NULL) {
     }
     
     # Get current document context
-    doc_context <- rstudioapi::getActiveDocumentContext()
+    doc_context <- rstudioapi::getSourceEditorContext()
     if (is.null(doc_context)) {
       cat("❌ No active document found\n")
       return(FALSE)

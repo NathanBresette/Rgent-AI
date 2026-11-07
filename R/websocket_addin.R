@@ -8,9 +8,10 @@ library(base64enc)
 # Agent functions are loaded via package namespace when the package is loaded
 
 # Debug wrapper functions to track down invalid 'envir' argument error
+# Objects in the user's workspace, without the package's own globals (one
+# of them holds the access code, which must never reach a prompt)
 safe_ls <- function(envir) {
-  
-  ls(envir = envir)
+  explorer_user_objects(ls(envir = envir))
 }
 
 safe_get <- function(name, envir) {
@@ -713,7 +714,7 @@ get_rstudio_theme <- function() {
           theme_info$colors <- list(
             foreground = theme_data$foreground,
             background = theme_data$background,
-            console_background = theme_data$console_background,
+            console_background = if (is.null(theme_data$console_background)) NA else theme_data$console_background,
             console_foreground = theme_data$console_foreground
           )
         }
@@ -792,6 +793,7 @@ start_websocket_server <- function() {
           # Get all available objects (for Data Explorer)
           if (exists("get_available_objects", envir = asNamespace("rstudioai"), inherits = FALSE)) {
             objects <- get("get_available_objects", envir = asNamespace("rstudioai"))()
+            objects <- explorer_user_objects(objects)
             # Also get detailed info for each object
             objects_info <- list()
             for (obj_name in objects) {
@@ -835,11 +837,13 @@ start_websocket_server <- function() {
                 NULL
               })
             }
-            list(action = "objects", data = objects, objects_info = objects_info)
+            list(action = "objects", data = objects, objects_info = objects_info,
+                 active_file = tryCatch(describe_active_file(), error = function(e) NULL))
           } else {
             # Fallback to just dataframes
-            dataframes <- get_available_dataframes()
-            list(action = "objects", data = dataframes, objects_info = list())
+            dataframes <- explorer_user_objects(get_available_dataframes())
+            list(action = "objects", data = dataframes, objects_info = list(),
+                 active_file = tryCatch(describe_active_file(), error = function(e) NULL))
           }
         },
         "get_dataframe_variables" = {
@@ -876,7 +880,7 @@ start_websocket_server <- function() {
         "get_completions" = {
           # Get completion suggestions for tab completion (dataframes, functions, variables)
           tryCatch({
-            env_objects <- ls(envir = globalenv())
+            env_objects <- explorer_user_objects(ls(envir = globalenv()))
             completions <- list(
               dataframes = character(0),
               functions = character(0),
@@ -919,84 +923,39 @@ start_websocket_server <- function() {
             } else {
               explorer_data <- get_object_explorer_data(request$dataframe)
             }
-            list(action = "dataframe_explorer_data", data = explorer_data)
+            if (isTRUE(explorer_data$exists)) explorer_check_changed(request$dataframe)
+            list(action = "dataframe_explorer_data", req_id = request$req_id, keep_view = isTRUE(request$keep_view), data = explorer_data)
           }, error = function(e) {
             list(action = "dataframe_explorer_data", data = list(exists = FALSE, error = e$message))
           })
         },
+        "explorer_object_view" = {
+          view <- tryCatch(
+            explorer_object_view(request$dataframe, request$path %||% list(), request$offset %||% 0L),
+            error = function(e) list(exists = FALSE, error = conditionMessage(e)))
+          if (isTRUE(view$exists)) explorer_check_changed(request$dataframe)
+          list(action = "explorer_object", req_id = request$req_id, data = view)
+        },
         "get_dataframe_chunk_filtered" = {
-          # Get filtered and sorted chunk of DataFrame
-          tryCatch({
-            # Normalize filters and sorts from JSON (handle atomic vectors)
-            filters <- request$filters
-            sorts <- request$sorts
-            
-            # Convert atomic vectors to lists if needed (only if they're atomic)
-            if (!is.null(filters) && is.atomic(filters)) {
-              filters <- as.list(filters)
-            }
-            
-            # Handle sorts - ensure each element is a list, not atomic
-            if (!is.null(sorts) && length(sorts) > 0) {
-              if (is.atomic(sorts)) {
-                sorts <- as.list(sorts)
-              }
-              # Check if sorts is a list but elements are atomic (JSON parsing issue)
-              if (is.list(sorts) && length(sorts) > 0) {
-                # Try to convert each element if it's atomic
-                for (i in seq_along(sorts)) {
-                  if (is.atomic(sorts[[i]]) && length(sorts[[i]]) >= 2) {
-                    # This shouldn't happen, but handle it
-                  }
-                }
-              }
-            }
-            
-            if (exists("get_dataframe_chunk_filtered", envir = asNamespace("rstudioai"), inherits = FALSE)) {
-              chunk_result <- get("get_dataframe_chunk_filtered", envir = asNamespace("rstudioai"))(
-                request$dataframe,
-                request$page %||% 1,
-                request$page_size %||% 100,
-                filters,
-                sorts,
-                request$pinned_cols
-              )
-            } else {
-              chunk_result <- get_dataframe_chunk_filtered(
-                request$dataframe,
-                request$page %||% 1,
-                request$page_size %||% 100,
-                filters,
-                sorts,
-                request$pinned_cols
-              )
-            }
-            list(action = "dataframe_chunk_filtered", data = chunk_result)
-          }, error = function(e) {
-            list(action = "dataframe_chunk_filtered", data = list(exists = FALSE, error = e$message))
-          })
+          chunk_result <- get_dataframe_chunk_filtered(
+            request$dataframe, request$page %||% 1, request$page_size %||% 100,
+            request$filters, request$sorts, request$pinned_cols, request$search)
+          list(action = "dataframe_chunk_filtered", req_id = request$req_id, data = chunk_result)
         },
         "convert_explorer_to_code" = {
-          # Convert explorer view (filters/sorts) to R code
-          tryCatch({
-            if (exists("convert_explorer_view_to_code", envir = asNamespace("rstudioai"), inherits = FALSE)) {
-              code <- get("convert_explorer_view_to_code", envir = asNamespace("rstudioai"))(
-                request$dataframe,
-                request$filters,
-                request$sorts
-              )
-            } else {
-              code <- convert_explorer_view_to_code(
-                request$dataframe,
-                request$filters,
-                request$sorts
-              )
-            }
-            list(action = "explorer_code", data = list(code = code))
-          }, error = function(e) {
-            cat("R: Error converting to code:", e$message, "\n")
-            list(action = "explorer_code", data = list(code = paste("# Error:", e$message)))
-          })
+          code <- tryCatch(
+            convert_explorer_view_to_code(request$dataframe, request$filters, request$sorts, request$search),
+            error = function(e) paste("# Couldn't build the code:", conditionMessage(e)))
+          list(action = "explorer_code", data = list(code = code))
+        },
+        "explorer_copy" = {
+          res <- tryCatch(
+            explorer_copy_values(request$dataframe, request$filters, request$sorts, request$search, request$columns),
+            error = function(e) list(error = conditionMessage(e)))
+          list(action = "explorer_copied", data = res)
+        },
+        "explorer_check_changed" = {
+          list(action = "explorer_changed", data = explorer_check_changed(request$dataframe))
         },
         "start_cleaning_agent" = {
           # Start the cleaning agent workflow
@@ -1072,6 +1031,28 @@ start_websocket_server <- function() {
             list(action = "inserted", status = "error", message = e$message)
           })
         },
+        "preview_edits" = {
+          list(action = "edit_previews", msg_id = request$msg_id,
+               previews = preview_file_edits(request$edits))
+        },
+        "apply_edit" = {
+          res <- tryCatch(
+            apply_file_edit(id = request$id, path = request$path, at = request$at,
+                            old = request$old, new = request$new),
+            error = function(e) list(ok = FALSE, error = conditionMessage(e)))
+          label <- if (is.null(request$label)) "an edit" else paste0("your edit (", request$label, ")")
+          .rgent_edit_note(if (!isTRUE(res$ok)) {
+            paste0("tried to ", if (isTRUE(request$undo)) "undo " else "apply ", label, " but it failed: ", res$error)
+          } else if (isTRUE(request$undo)) {
+            paste0("undid ", label, " with its Undo button, so those lines are back as they were")
+          } else paste0("accepted ", label))
+          c(list(action = "edit_applied", edit_key = request$edit_key,
+                 undo = isTRUE(request$undo)), res)
+        },
+        "edit_rejected" = {
+          .rgent_edit_note(paste0("rejected your edit (", if (is.null(request$label)) "?" else request$label, ")"))
+          list(action = "edit_rejected_noted")
+        },
         "execute_code" = {
           # Store the code for error handling
           .GlobalEnv$currentStepCode <- request$code
@@ -1088,7 +1069,14 @@ start_websocket_server <- function() {
             # Execute the code. If it fails because the session is missing
             # something (an object from an unrun chunk, an unattached package,
             # a path relative to the document), fix that and re-run.
-            result <- execute_with_recovery(request$code, settings)
+            # Status lines go to the chat while R works (httpuv sends them
+            # right away, even though R is busy)
+            send_progress <- function(msg) {
+              ws$send(jsonlite::toJSON(list(action = "execution_progress", message = msg), auto_unbox = TRUE))
+            }
+            result <- execute_with_recovery(request$code, settings, progress = send_progress,
+                                            answers = request$answers %||% character(0),
+                                            resume = request$resume)
             
             # Return structured result
             list(
@@ -1101,7 +1089,14 @@ start_websocket_server <- function() {
               recovery = as.list(result$recovery),
               needs_user = isTRUE(result$needs_user),
               user_message = result$user_message,
-              env_objects = result$env_objects
+              fix_context = result$fix_context,
+              # The code asked a question (menu, readline, ...): the chat asks
+              # the user, then sends the code again with `answers`
+              needs_input = result$needs_input,
+              answers = result$answers,
+              # Where to continue after the answer, and the output of the
+              # lines that already ran, so they don't run twice
+              resume = result$resume
             )
           }, error = function(e) {
             list(
@@ -1121,7 +1116,7 @@ start_websocket_server <- function() {
             cat("Executing code:", request$code, "\n")
             
             # Get current document context
-            doc <- rstudioapi::getActiveDocumentContext()
+            doc <- rstudioapi::getSourceEditorContext()
             if (is.null(doc)) {
               list(action = "execute_and_fix", status = "error", error = "No active document")
             } else {
@@ -1260,7 +1255,7 @@ start_websocket_server <- function() {
         },
         "get_cursor" = {
           # Get current cursor position
-          doc <- rstudioapi::getActiveDocumentContext()
+          doc <- rstudioapi::getSourceEditorContext()
           if (!is.null(doc)) {
             list(action = "cursor", 
                  line = doc$selection[[1]]$range$start[["row"]],
@@ -1270,11 +1265,19 @@ start_websocket_server <- function() {
           }
         },
         "chat_with_ai" = {
-          # Use intelligent indexing system
+          # Auto-fix requests after failed code: the message already carries the
+          # code, the error and a targeted lookup (build_fix_context), so send it
+          # lean, without the workspace, file context or history, and keep it
+          # out of the conversation history.
+          is_fix_request <- identical(request$conversation_context, "chat_code_fix")
           
+          # History as it was before this message, so the current request isn't
+          # sent twice (once in the history and again as USER REQUEST)
+          prior_history <- get_conversation_history()
+          last_user_request <- get_last_user_request()
           
           # Add user message to conversation history
-          add_to_conversation_history("user", request$message)
+          if (!is_fix_request) add_to_conversation_history("user", request$message)
           
           # Direct workspace scanning (no session_index dependency)
           
@@ -1370,25 +1373,42 @@ start_websocket_server <- function() {
               current_context$workspace_objects
             }
             
-            # Get conversation history to include in prompt
-            conversation_history <- get_conversation_history()
-            
             # Prepend conversation history to prompt if it exists
             enhanced_prompt <- request$message
-            if (nchar(conversation_history) > 0) {
-              enhanced_prompt <- paste0(conversation_history, "\n\nUSER REQUEST: ", request$message)
+            if (is_fix_request) {
+              if (nzchar(last_user_request)) {
+                enhanced_prompt <- paste0("What I originally asked: ", substr(last_user_request, 1, 600),
+                                          "\n\n", request$message)
+              }
+            } else if (nchar(prior_history) > 0) {
+              enhanced_prompt <- paste0(prior_history, "\n\nUSER REQUEST: ", request$message)
+            }
+            # Let Claude propose edits to the open file (reviewed in the chat
+            # before anything changes). Remember the file as Claude sees it,
+            # so its line numbers can be mapped back.
+            if (!is_fix_request) {
+              enhanced_prompt <- paste0(enhanced_prompt, edit_history_note())
+              edit_target <- remember_edit_target()
+              if (!is.null(edit_target) && length(edit_target$lines) > 0 &&
+                  any(nzchar(edit_target$lines))) {
+                enhanced_prompt <- paste0(enhanced_prompt, edit_instructions(edit_target$name, document_outline(edit_target$lines, edit_target$name)))
+              }
             }
             
             request_body <- list(
               access_code = current_access_code,
               prompt = enhanced_prompt,
-              context_data = list(
-                workspace_objects = workspace_objects_array,
-                file_info = current_context$file_info,
-                environment_info = current_context$environment_info,
-                timestamp = current_context$timestamp,
-                last_output = if (!is.null(request$last_output)) request$last_output else NULL
-              )
+              context_data = if (is_fix_request) {
+                list(timestamp = current_context$timestamp)
+              } else {
+                list(
+                  workspace_objects = workspace_objects_array,
+                  file_info = current_context$file_info,
+                  environment_info = current_context$environment_info,
+                  timestamp = current_context$timestamp,
+                  last_output = if (!is.null(request$last_output)) request$last_output else NULL
+                )
+              }
             )
             
             # Debug the final request structure
@@ -2031,7 +2051,7 @@ start_websocket_server <- function() {
           tryCatch({
             if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
               # Get the current document
-              doc_context <- rstudioapi::getActiveDocumentContext()
+              doc_context <- rstudioapi::getSourceEditorContext()
               if (!is.null(doc_context)) {
                 # Get the line number and new code
                 line_number <- request$line_number
@@ -2754,21 +2774,65 @@ add_to_conversation_history <- function(role, message) {
   
 }
 
+#' The most recent message the user typed (not an auto-fix request)
+#' @keywords internal
+get_last_user_request <- function() {
+  hist <- if (exists("conversation_history", envir = .GlobalEnv)) .GlobalEnv$conversation_history else list()
+  for (msg in rev(hist)) {
+    if (identical(msg$role, "user")) return(as.character(msg$message))
+  }
+  ""
+}
+
+# Shorten an older reply for the history: its code blocks become a one-line
+# note (that code has run or is in the file by now), and very long text is cut.
+.rgent_compact_reply <- function(text, max_chars = 1500L) {
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  out <- character(0)
+  i <- 1L
+  while (i <= length(lines)) {
+    m <- regmatches(lines[i], regexec("^\\s*(`{3,})\\s*([^`]*)$", lines[i]))[[1]]
+    if (length(m)) {
+      j <- i + 1L
+      while (j <= length(lines) && !grepl(paste0("^\\s*", m[2], "`*\\s*$"), lines[j])) j <- j + 1L
+      body <- lines[seq_len(max(0L, min(j, length(lines) + 1L) - i - 1L)) + i]
+      first <- trimws(body[nzchar(trimws(body))][1])
+      lang <- if (nzchar(m[3])) trimws(m[3]) else "code"
+      out <- c(out, sprintf("[%s block, %d lines%s]", lang, length(body),
+                            if (!is.na(first)) paste0(", starting `", substr(first, 1, 60), "`") else ""))
+      i <- j + 1L
+    } else {
+      out <- c(out, lines[i])
+      i <- i + 1L
+    }
+  }
+  res <- paste(out, collapse = "\n")
+  if (nchar(res) > max_chars) res <- paste0(substr(res, 1, max_chars), " [...]")
+  res
+}
+
 #' Get conversation history as formatted string
+#'
+#' Claude's most recent reply is kept whole (follow-ups often refer to its
+#' code); older replies are compacted to save input tokens.
 #' @export
 get_conversation_history <- function() {
   if (!exists("conversation_history") || length(.GlobalEnv$conversation_history) == 0) {
     return("")
   }
-  
-  # Format conversation history
+  hist <- .GlobalEnv$conversation_history
+  ai <- which(vapply(hist, function(m) !identical(m$role, "user"), logical(1)))
+  last_ai <- if (length(ai)) max(ai) else 0L
+
   history_text <- "CONVERSATION HISTORY:\n"
-  for (i in seq_along(.GlobalEnv$conversation_history)) {
-    msg <- .GlobalEnv$conversation_history[[i]]
+  for (i in seq_along(hist)) {
+    msg <- hist[[i]]
     role_label <- ifelse(msg$role == "user", "USER", "AI")
-    history_text <- paste0(history_text, role_label, ": ", msg$message, "\n\n")
+    text <- as.character(msg$message)
+    if (role_label == "AI" && i != last_ai) text <- .rgent_compact_reply(text)
+    history_text <- paste0(history_text, role_label, ": ", text, "\n\n")
   }
-  
+
   return(history_text)
 }
 
@@ -2928,7 +2992,7 @@ capture_context <- function() {
     if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
       tryCatch({
         # Get active document context
-        doc_context <- rstudioapi::getActiveDocumentContext()
+        doc_context <- rstudioapi::getSourceEditorContext()
         if (!is.null(doc_context)) {
           # Handle both saved files and untitled documents
           file_path <- doc_context$path
@@ -3207,7 +3271,7 @@ get_last_executed_code <- function() {
     # Try to get from RStudio history
     if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
       # Get the active document context
-      doc_context <- rstudioapi::getActiveDocumentContext()
+      doc_context <- rstudioapi::getSourceEditorContext()
       if (!is.null(doc_context) && length(doc_context$contents) > 0) {
         # Get the last few lines that might contain the error
         lines <- doc_context$contents
@@ -3414,7 +3478,7 @@ get_console_context <- function() {
       # Fallback: Get from active document context
       tryCatch({
         # Get the active document context
-        doc_context <- rstudioapi::getActiveDocumentContext()
+        doc_context <- rstudioapi::getSourceEditorContext()
         
         if (!is.null(doc_context) && "contents" %in% names(doc_context) && length(doc_context$contents) > 0) {
           # Get the last few lines from the document
@@ -3673,7 +3737,7 @@ update_workspace_index <- function() {
     
     
     # Get all workspace objects
-    workspace_objects <- ls(envir = globalenv())
+    workspace_objects <- explorer_user_objects(ls(envir = globalenv()))
     
     # Clear old index using global environment
     .GlobalEnv$workspace_index$objects <- list()
@@ -3715,7 +3779,7 @@ get_editor_context <- function() {
     }
     
     # Get active document
-    doc <- rstudioapi::getActiveDocumentContext()
+    doc <- rstudioapi::getSourceEditorContext()
     if (is.null(doc)) {
       return("No active document")
     }
@@ -4784,7 +4848,7 @@ capture_context_smart <- function(query = NULL) {
     
     # Get file information if available
     file_info <- tryCatch({
-      doc <- rstudioapi::getActiveDocumentContext()
+      doc <- rstudioapi::getSourceEditorContext()
       if (!is.null(doc)) {
         # Handle document_selection properly
         selection_info <- tryCatch({
@@ -5014,7 +5078,7 @@ update_workspace_index_incremental <- function() {
     }
     
     # Get current workspace objects
-    current_objects <- ls(envir = globalenv())
+    current_objects <- explorer_user_objects(ls(envir = globalenv()))
     # Silenced debug: found current workspace objects
     
     # Get last scan info
@@ -5127,7 +5191,7 @@ update_workspace_index_full <- function() {
     # Silenced debug: performing full workspace index update
     
     # Get all workspace objects
-    workspace_objects <- ls(envir = globalenv())
+    workspace_objects <- explorer_user_objects(ls(envir = globalenv()))
     # Silenced debug: found workspace objects
     
     # Clear old index using global environment
@@ -5180,7 +5244,7 @@ capture_context_smart_incremental <- function(query = NULL) {
     workspace_objects <- tryCatch({
       
       # Get all objects in global environment
-      object_names <- ls(envir = globalenv())
+      object_names <- explorer_user_objects(ls(envir = globalenv()))
       
       # Process each object with basic info
       all_objects <- lapply(object_names, function(obj_name) {

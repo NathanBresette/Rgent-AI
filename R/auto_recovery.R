@@ -92,6 +92,7 @@ get_document_info <- function() {
   cursor <- tryCatch(ctx$selection[[1]]$range$start[["row"]], error = function(e) NA_integer_)
   list(
     units = units,
+    lines = lines,
     path = path,
     dir = if (nzchar(path)) dirname(normalizePath(path, mustWork = FALSE)) else NULL,
     is_md = is_md,
@@ -294,6 +295,22 @@ unit_unsafe_reason <- function(code) {
   NULL
 }
 
+#' Folder R Markdown chunks run from, following RStudio's "Evaluate chunks in
+#' directory" setting (document by default). NULL for scripts, or when chunks
+#' run in the current directory.
+#' @keywords internal
+chunk_working_dir <- function(doc) {
+  if (is.null(doc) || !isTRUE(doc$is_md) || is.null(doc$dir)) return(NULL)
+  pref <- tryCatch(rstudioapi::readRStudioPreference("knit_working_dir", "default"),
+                   error = function(e) "default")
+  if (identical(pref, "current")) return(NULL)
+  if (identical(pref, "project")) {
+    proj <- tryCatch(rstudioapi::getActiveProject(), error = function(e) NULL)
+    if (!is.null(proj)) return(proj)
+  }
+  doc$dir
+}
+
 with_dir <- function(dir, expr) {
   if (is.null(dir) || !dir.exists(dir)) return(force(expr))
   old <- setwd(dir)
@@ -312,7 +329,7 @@ run_document_unit <- function(unit, doc, reason) {
   if (inherits(exprs, "error")) return(list(ok = FALSE, error = conditionMessage(exprs)))
   cat(sprintf("\n### Rgent: running %s %s ###\n", unit$display, reason))
   # R Markdown chunks run from the document's folder in RStudio, so do the same
-  run_dir <- if (isTRUE(doc$is_md)) doc$dir else NULL
+  run_dir <- chunk_working_dir(doc)
   with_dir(run_dir, {
     for (e in exprs) {
       err <- tryCatch({
@@ -325,14 +342,22 @@ run_document_unit <- function(unit, doc, reason) {
   })
 }
 
-# Pick the unit that creates `name`: the last one above the cursor, otherwise
-# the first one in the document.
-find_defining_unit <- function(name, doc) {
+# Pick the unit that creates `name`.
+# - `before` set (a chunk needs it): the last unit above that chunk. A chunk
+#   like `meta <- meta %>% filter(...)` updates `meta`, so the original has to
+#   come from further up.
+# - Otherwise (the user's code needs it): the last unit above the cursor,
+#   or the first one in the document.
+find_defining_unit <- function(name, doc, before = NULL) {
   if (is.null(doc) || length(doc$units) == 0) return(NULL)
   if (is.null(doc$defs)) doc$defs <- lapply(doc$units, function(u) code_defines(u$code))
   hits <- which(vapply(doc$defs, function(d) name %in% d, logical(1)))
   if (length(hits) == 0) return(NULL)
   starts <- vapply(doc$units[hits], function(u) u$start, numeric(1))
+  if (!is.null(before)) {
+    above <- hits[starts < before]
+    return(if (length(above)) doc$units[[max(above)]] else NULL)
+  }
   above <- hits[!is.na(doc$cursor) & starts < doc$cursor]
   doc$units[[if (length(above)) max(above) else min(hits)]]
 }
@@ -347,7 +372,14 @@ new_recovery_state <- function() {
   state$units_run <- 0
   state$max_units <- 15
   state$tried <- character(0)
+  state$progress <- NULL
   state
+}
+
+# Tell the user what's happening (shown live in the chat while R works)
+report_progress <- function(state, msg) {
+  if (is.function(state$progress)) try(state$progress(msg), silent = TRUE)
+  invisible()
 }
 
 result_fixed <- function(...) list(fixed = TRUE, ...)
@@ -358,27 +390,27 @@ result_claude <- function() list(fixed = FALSE, user_message = NULL)
 #' @return list(fixed = TRUE/FALSE, user_message = <why the user must act> or NULL,
 #'   use_docdir = TRUE to re-run from the document's folder)
 #' @keywords internal
-try_recover <- function(error, doc, state, depth = 0) {
+try_recover <- function(error, doc, state, depth = 0, before = NULL) {
   info <- classify_execution_error(error)
-  key <- paste(info$type, info$name %||% "")
+  key <- paste(info$type, info$name %||% "", before %||% "")
   if (info$type == "other") return(result_claude())
   if (key %in% state$tried) return(result_claude())
   state$tried <- c(state$tried, key)
   if (depth > 6) return(result_claude())
 
   switch(info$type,
-    missing_object = recover_missing_object(info$name, doc, state, depth),
-    missing_function = recover_missing_function(info$name, doc, state, depth),
+    missing_object = recover_missing_object(info$name, doc, state, depth, before),
+    missing_function = recover_missing_function(info$name, doc, state, depth, before),
     missing_package = result_user(sprintf(
       "Package `%s` isn't installed. Install it with `install.packages(\"%s\")` (or `BiocManager::install(\"%s\")` if it's a Bioconductor package), then try again.",
       info$name, info$name, info$name)),
-    missing_file = recover_missing_file(info$name, doc, state$code),
+    missing_file = recover_missing_file(info$name, doc, state$code, state$run_dir),
     result_claude()
   )
 }
 
-recover_missing_object <- function(name, doc, state, depth) {
-  unit <- find_defining_unit(name, doc)
+recover_missing_object <- function(name, doc, state, depth, before = NULL) {
+  unit <- find_defining_unit(name, doc, before)
   # Not created anywhere in the document: probably a wrong name in the code,
   # which Claude can fix with the list of objects that do exist.
   if (is.null(unit)) return(result_claude())
@@ -387,51 +419,66 @@ recover_missing_object <- function(name, doc, state, depth) {
 
 fn_label <- function(fname) if (grepl("^%.*%$", fname)) sprintf("`%s`", fname) else sprintf("`%s()`", fname)
 
-recover_missing_function <- function(fname, doc, state, depth) {
+recover_missing_function <- function(fname, doc, state, depth, before = NULL) {
   # 1. A function the document defines itself
-  unit <- find_defining_unit(fname, doc)
+  unit <- find_defining_unit(fname, doc, before)
   if (!is.null(unit)) {
     return(run_unit_with_recovery(unit, doc, state, depth, paste("to define", fn_label(fname)), fname))
   }
 
   # Check exports by reading NAMESPACE files, so we don't load (and run the
   # startup code of) every package that happens to have a matching help alias
-  exports_fn <- function(p) {
+  # "named": the NAMESPACE exports it by name. "pattern": only an
+  # exportPattern() matches it (e.g. picante's "^[^.]"), which says nothing
+  # about whether the package has it. NA: not exported.
+  export_kind <- function(p) {
     if (p %in% loadedNamespaces()) {
-      return(isTRUE(tryCatch(fname %in% getNamespaceExports(p), error = function(e) FALSE)))
+      has <- isTRUE(tryCatch(fname %in% getNamespaceExports(p), error = function(e) FALSE))
+      return(if (has) "named" else NA_character_)
     }
     nsi <- read_namespace_info(p)
-    if (is.null(nsi)) return(FALSE)
-    fname %in% nsi$exports || any(vapply(nsi$exportPatterns, function(rx) grepl(rx, fname), logical(1)))
+    if (is.null(nsi)) return(NA_character_)
+    if (fname %in% nsi$exports) return("named")
+    if (any(vapply(nsi$exportPatterns, function(rx) grepl(rx, fname), logical(1)))) return("pattern")
+    NA_character_
   }
+  # Attach a package, and keep it only if it really provides the function
   attach_pkg <- function(p, why) {
+    was_attached <- paste0("package:", p) %in% search()
+    report_progress(state, sprintf("Loading `%s` for %s", p, fn_label(fname)))
     ok <- tryCatch({
       suppressPackageStartupMessages(library(p, character.only = TRUE))
       TRUE
     }, error = function(e) FALSE)
     if (!ok) return(NULL)
+    if (!exists(fname, mode = "function")) {
+      if (!was_attached) try(detach(paste0("package:", p), character.only = TRUE), silent = TRUE)
+      return(NULL)
+    }
     state$notes <- c(state$notes, sprintf("Loaded `%s` %s.", p, why))
     result_fixed()
   }
 
-  # 2. A package the document loads (usually a setup chunk that wasn't run)
+  # 2. A package the document loads (usually a setup chunk that wasn't run).
+  #    Packages that export it by name first.
   doc_pkgs <- document_packages(doc)
   installed <- doc_pkgs[vapply(doc_pkgs, function(p) nzchar(system.file(package = p)), logical(1))]
-  for (p in installed) {
-    if (exports_fn(p)) {
-      r <- attach_pkg(p, paste("(your document uses it) for", fn_label(fname)))
-      if (!is.null(r)) return(r)
-    }
+  kinds <- vapply(installed, export_kind, character(1))
+  for (p in c(installed[kinds %in% "named"], installed[kinds %in% "pattern"])) {
+    r <- attach_pkg(p, paste("(your document uses it) for", fn_label(fname)))
+    if (!is.null(r)) return(r)
   }
 
   # 3. Any installed package that exports it
+  report_progress(state, sprintf("Looking for the package that has %s", fn_label(fname)))
   esc <- gsub("([][{}()+*^$|\\\\?.%])", "\\\\\\1", fname)
   hs <- tryCatch(
     suppressWarnings(utils::help.search(paste0("^", esc, "$"), fields = "alias",
                                         agrep = FALSE, ignore.case = FALSE, types = "help")),
     error = function(e) NULL)
   cands <- if (!is.null(hs) && NROW(hs$matches)) unique(as.character(hs$matches[, "Package"])) else character(0)
-  cands <- cands[vapply(cands, exports_fn, logical(1))]
+  cand_kinds <- vapply(cands, export_kind, character(1))
+  cands <- if (any(cand_kinds %in% "named")) cands[cand_kinds %in% "named"] else cands[!is.na(cand_kinds)]
   if (length(cands) == 0) return(result_claude())
 
   pick <- NULL
@@ -465,7 +512,7 @@ read_namespace_info <- function(p) {
   tryCatch(parseNamespaceFile(p, lib, mustExist = FALSE), error = function(e) NULL)
 }
 
-recover_missing_file <- function(path, doc, code = NULL) {
+recover_missing_file <- function(path, doc, code = NULL, run_dir = NULL) {
   # Without a file name in the error, look at the file paths the code mentions
   candidates <- if (!is.null(path)) path else {
     lits <- regmatches(code %||% "", gregexpr("[\"']([^\"'\n]+\\.[A-Za-z0-9]{1,8})[\"']", code %||% "", perl = TRUE))[[1]]
@@ -483,8 +530,8 @@ recover_missing_file <- function(path, doc, code = NULL) {
   missing <- candidates[!file.exists(candidates)]
   if (length(missing) == 0) return(result_claude())
   result_user(sprintf(
-    "R can't find %s (the working directory is `%s`). Check the path, or use the full path to the file.",
-    paste0("`", missing, "`", collapse = ", "), getwd()))
+    "R can't find %s (looked in `%s`). Check the path, or use the full path to the file.",
+    paste0("`", missing, "`", collapse = ", "), run_dir %||% getwd()))
 }
 
 run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
@@ -498,7 +545,7 @@ run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
   if (!is.null(unit$eval_opt)) {
     val <- tryCatch(eval(unit$eval_opt, envir = .GlobalEnv), error = function(e) e)
     if (inherits(val, "error")) {
-      inner <- try_recover(conditionMessage(val), doc, state, depth + 1)
+      inner <- try_recover(conditionMessage(val), doc, state, depth + 1, before = unit$start)
       if (!isTRUE(inner$fixed)) {
         return(result_user(sprintf(
           "`%s` comes from %s, but I couldn't tell whether that chunk is turned on (`eval = %s`): %s",
@@ -522,13 +569,14 @@ run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
 
   for (attempt in 1:6) {
     state$units_run <- state$units_run + 1
+    report_progress(state, sprintf("Running %s %s", unit$display, reason))
     res <- run_document_unit(unit, doc, reason)
     if (isTRUE(res$ok)) {
       state$notes <- c(state$notes, sprintf("Ran %s %s.", unit$display, reason))
       return(result_fixed())
     }
     # The chunk needs something from further up: fix that, then run it again
-    inner <- try_recover(res$error, doc, state, depth + 1)
+    inner <- try_recover(res$error, doc, state, depth + 1, before = unit$start)
     if (!isTRUE(inner$fixed)) {
       if (!is.null(inner$user_message)) return(inner)
       return(result_user(sprintf(
@@ -542,28 +590,268 @@ run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
 }
 
 # ---------------------------------------------------------------------------
+# Questions from the code
+# ---------------------------------------------------------------------------
+#
+# Code sometimes asks a question in the Console: ggsave() asks whether to
+# create a folder, installers ask Yes/No, scripts call readline(). Nobody is
+# watching the Console while Rgent runs code, so R would wait forever. While
+# Rgent runs code, the functions packages use to ask (menu, readline,
+# askYesNo, scan from the console) are swapped for versions that stop and pass
+# the question to the chat. The chat shows it with buttons or a text box, and
+# the code runs again with the answer.
+
+# Replace a function in a namespace (and its attached package) until the
+# returned restore function is called
+.rgent_swap_function <- function(name, ns, fn) {
+  old <- get(name, envir = asNamespace(ns))
+  pkg <- paste0("package:", ns)
+
+  # Every place a package can see the function: the namespace, the attached
+  # package, and the import environments of packages that copied it in with
+  # importFrom() (e.g. importFrom(utils, menu) in caret or DESeq2)
+  places <- function() {
+    envs <- list(asNamespace(ns))
+    if (pkg %in% search()) envs <- c(envs, list(as.environment(pkg)))
+    for (n in loadedNamespaces()) {
+      imp <- tryCatch(parent.env(asNamespace(n)), error = function(e) NULL)
+      if (!is.null(imp) && exists(name, envir = imp, inherits = FALSE)) envs <- c(envs, list(imp))
+    }
+    envs
+  }
+  # Replace `from` with `to` wherever the binding currently holds `from`
+  replace_binding <- function(from, to) {
+    for (e in places()) {
+      cur <- tryCatch(get(name, envir = e, inherits = FALSE), error = function(err) NULL)
+      if (!identical(cur, from)) next
+      locked <- bindingIsLocked(name, e)
+      if (locked) unlockBinding(name, e)
+      assign(name, to, envir = e)
+      if (locked) lockBinding(name, e)
+    }
+  }
+  replace_binding(old, fn)
+  # Restoring also fixes copies made by packages loaded while it was swapped
+  function() replace_binding(fn, old)
+}
+
+# Lines printed to the captured output just before a question. Some packages
+# print the question with cat() (rlang::check_installed), not message().
+# The engine captures output with capture.output(), which writes into a text
+# connection in its own frame; finish the current line and read it from there.
+.rgent_recent_output <- function(n = 3) {
+  if (sink.number() == 0) return(character(0))
+  cat("\n")
+  for (fr in rev(sys.frames())) {
+    if (!exists("file", envir = fr, inherits = FALSE) || !exists("rval", envir = fr, inherits = FALSE)) next
+    con <- get("file", envir = fr, inherits = FALSE)
+    if (!inherits(con, "textConnection")) next
+    out <- tryCatch(textConnectionValue(con), error = function(e) character(0))
+    out <- out[nzchar(trimws(out))]
+    return(utils::tail(out, n))
+  }
+  character(0)
+}
+
+.rgent_input_needed <- function(state, kind, prompt, choices = NULL) {
+  # Drop cli's bullet symbols ("ℹ Would you like ...") for the chat
+  tidy <- function(x) gsub("^\\s*[\u2139\u2716\u2714\u2022\u2192!*>-]+\\s+", "", x, perl = TRUE)
+  recent <- c(utils::tail(state$recent_messages %||% character(0), 3),
+              tryCatch(.rgent_recent_output(), error = function(e) character(0)))
+  recent <- tidy(trimws(.rgent_strip_ansi(recent)))
+  recent <- utils::tail(unique(recent[nzchar(recent)]), 3)
+  state$pending_input <- list(
+    kind = kind,
+    prompt = tidy(trimws(.rgent_strip_ansi(paste(prompt %||% "", collapse = " ")))),
+    choices = choices,
+    context = recent,
+    answers_given = length(state$answers_used)
+  )
+  cat("\n### Rgent: the code is asking a question. Answer it in the Rgent chat. ###\n")
+  stop(structure(class = c("rgent_input_needed", "error", "condition"),
+                 list(message = "Waiting for your answer in the Rgent chat", call = NULL)))
+}
+
+.rgent_next_answer <- function(state) {
+  if (length(state$answers) == 0) return(NULL)
+  a <- state$answers[[1]]
+  state$answers <- state$answers[-1]
+  state$answers_used <- c(state$answers_used, a)
+  a
+}
+
+#' Swap in the question-catching versions of menu(), readline(), askYesNo()
+#' and console scan(); returns a function that restores the originals
+#' @keywords internal
+install_prompt_handlers <- function(state) {
+  restores <- list()
+  safe_swap <- function(name, ns, fn) {
+    r <- tryCatch(.rgent_swap_function(name, ns, fn), error = function(e) NULL)
+    if (!is.null(r)) restores[[length(restores) + 1]] <<- r
+  }
+
+  safe_swap("menu", "utils", function(choices, graphics = FALSE, title = NULL) {
+    a <- .rgent_next_answer(state)
+    if (!is.null(a)) {
+      # The chat sends the 1-based position; accept the choice text too
+      n <- match(a, choices)
+      if (is.na(n)) n <- suppressWarnings(as.integer(a))
+      return(if (is.na(n)) 0L else n)
+    }
+    .rgent_input_needed(state, "choice", title, as.character(choices))
+  })
+
+  safe_swap("readline", "base", function(prompt = "") {
+    a <- .rgent_next_answer(state)
+    if (!is.null(a)) return(as.character(a))
+    .rgent_input_needed(state, "text", prompt)
+  })
+
+  safe_swap("askYesNo", "utils", function(msg, default = TRUE, prompts = getOption("askYesNo", gettext(c("Yes", "No", "Cancel"))), ...) {
+    a <- .rgent_next_answer(state)
+    if (!is.null(a)) return(switch(tolower(a), "1" = , yes = TRUE, "2" = , no = FALSE, NA))
+    .rgent_input_needed(state, "choice", msg, c("Yes", "No", "Cancel"))
+  })
+
+  # select.list() would open a Tcl/Tk or OS dialog in some setups (and hang
+  # on macOS without XQuartz), so ask in the chat no matter which GUI is around
+  safe_swap("select.list", "utils", function(choices, preselect = NULL, multiple = FALSE, title = NULL,
+                                             graphics = getOption("menu.graphics")) {
+    labels <- as.character(choices)
+    a <- .rgent_next_answer(state)
+    if (!is.null(a)) {
+      if (isTRUE(multiple)) {
+        idx <- suppressWarnings(as.integer(strsplit(trimws(a), "[ ,]+")[[1]]))
+        idx <- idx[!is.na(idx) & idx >= 1 & idx <= length(labels)]
+        return(labels[unique(idx)])
+      }
+      n <- match(a, labels)
+      if (is.na(n)) n <- suppressWarnings(as.integer(a))
+      return(if (is.na(n) || n < 1 || n > length(labels)) "" else labels[n])
+    }
+    if (isTRUE(multiple)) {
+      .rgent_input_needed(state, "text", paste0(
+        if (is.null(title)) "Choose one or more" else title,
+        ". Type the numbers, separated by spaces: ",
+        paste0(seq_along(labels), ") ", labels, collapse = "   ")))
+    }
+    .rgent_input_needed(state, "choice", title, labels)
+  })
+
+  orig_scan <- base::scan
+  scan_fn <- function() {
+    mc <- match.call()
+    # Only reading from the Console counts; scan(text = ...) also has file = ""
+    if (identical(file, "") && missing(text)) {
+      a <- .rgent_next_answer(state)
+      if (is.null(a)) .rgent_input_needed(state, "text", "Enter values (separated by spaces)")
+      return(orig_scan(text = a, what = what, quiet = TRUE))
+    }
+    mc[[1]] <- orig_scan
+    eval(mc, parent.frame())
+  }
+  formals(scan_fn) <- formals(orig_scan)
+  safe_swap("scan", "base", scan_fn)
+
+  function() for (r in rev(restores)) try(r(), silent = TRUE)
+}
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
-#' Short description of the objects in the global environment, for Claude
+#' One-line description of an object, e.g. "melsi_tbl: tibble 4x5; columns:
+#' Time <chr>, n <int>, ..."
 #' @keywords internal
-summarize_global_env <- function(max_objects = 60) {
-  nms <- ls(envir = .GlobalEnv)
-  if (length(nms) == 0) return("(the global environment is empty)")
-  shown <- utils::head(nms, max_objects)
-  desc <- vapply(shown, function(n) {
-    obj <- tryCatch(get(n, envir = .GlobalEnv), error = function(e) NULL)
-    cls <- class(obj)[1]
-    d <- dim(obj)
-    if (!is.null(d)) sprintf("%s (%s %s)", n, cls, paste(d, collapse = "x"))
-    else if (is.function(obj)) sprintf("%s (function)", n)
-    else if (is.list(obj) && !is.null(names(obj))) sprintf("%s (%s of %d: %s)", n, cls, length(obj),
-                                                           paste(utils::head(names(obj), 5), collapse = ", "))
-    else sprintf("%s (%s, length %d)", n, cls, length(obj))
-  }, character(1))
-  out <- paste(desc, collapse = "; ")
-  if (length(nms) > max_objects) out <- paste0(out, sprintf("; ... and %d more", length(nms) - max_objects))
-  out
+describe_object_brief <- function(name, env = .GlobalEnv) {
+  obj <- tryCatch(get(name, envir = env), error = function(e) NULL)
+  cls <- class(obj)[1]
+  short <- function(x, n = 40) if (nchar(x) > n) paste0(substr(x, 1, n - 3), "...") else x
+  if (is.data.frame(obj)) {
+    cols <- names(obj)
+    types <- vapply(obj, function(col) {
+      t <- class(col)[1]
+      switch(t, character = "chr", integer = "int", numeric = "dbl", logical = "lgl",
+             factor = "fct", Date = "date", POSIXct = "dttm", list = "list", t)
+    }, character(1))
+    shown <- utils::head(seq_along(cols), 25)
+    more <- if (length(cols) > 25) sprintf(", +%d more", length(cols) - 25) else ""
+    sprintf("%s: %s %dx%d; columns: %s%s", name, cls, nrow(obj), ncol(obj),
+            paste0(cols[shown], " <", types[shown], ">", collapse = ", "), more)
+  } else if (is.function(obj)) {
+    sig <- tryCatch(paste(utils::head(deparse(args(obj)), -1), collapse = " "), error = function(e) "function")
+    sprintf("%s: %s", name, short(gsub("\\s+", " ", sig), 120))
+  } else if (is.list(obj)) {
+    nms <- names(obj)
+    sprintf("%s: %s of %d%s", name, cls, length(obj),
+            if (length(nms)) paste0(" (", paste(utils::head(nms, 10), collapse = ", "),
+                                    if (length(nms) > 10) ", ..." else "", ")") else "")
+  } else if (is.atomic(obj) && length(obj) == 1) {
+    sprintf("%s: %s %s", name, cls, short(paste(format(obj), collapse = "")))
+  } else if (!is.null(dim(obj))) {
+    sprintf("%s: %s %s", name, cls, paste(dim(obj), collapse = "x"))
+  } else {
+    sprintf("%s: %s, length %d", name, cls, length(obj))
+  }
+}
+
+# Lines of the open document that assign `name`, e.g. "line 845: melsi_rows <- list()"
+grep_definitions <- function(name, doc, max_hits = 3) {
+  if (is.null(doc) || is.null(doc$lines)) return(character(0))
+  esc <- gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", name)
+  # name <- ..., name <<- ..., ... -> name, a line starting with name = ..., assign("name", ...)
+  rx <- paste0("(^|[^.\\w])", esc, "\\s*<<?-|->>?\\s*", esc, "(?![.\\w])|^\\s*", esc,
+               "\\s*=(?!=)|assign\\(\\s*[\"']", esc, "[\"']")
+  hits <- grep(rx, doc$lines, perl = TRUE)
+  hits <- hits[!grepl("^\\s*#", doc$lines[hits])]
+  if (length(hits) == 0) return(character(0))
+  # Where it's first created, plus the latest changes
+  hits <- unique(c(utils::head(hits, 1), utils::tail(hits, max_hits - 1)))
+  vapply(hits, function(h) sprintf("line %d: %s", h, trimws(substr(doc$lines[h], 1, 160))), character(1))
+}
+
+#' Small, targeted context for asking Claude to fix failed code
+#'
+#' Instead of the whole workspace and file, describe only what the failing code
+#' touches: the objects it uses, where a missing name is defined in the open
+#' document, and similar names that do exist (typos, column names).
+#' @keywords internal
+build_fix_context <- function(code, error, doc = NULL, max_chars = 1800) {
+  exprs <- tryCatch(parse(text = code, keep.source = FALSE), error = function(e) NULL)
+  used <- if (is.null(exprs)) character(0) else unique(all.names(exprs))
+  used <- used[grepl("^[.A-Za-z][.A-Za-z0-9_]*$", used)]
+  used <- setdiff(used, code_defines(code))
+  existing <- used[vapply(used, exists, logical(1), envir = .GlobalEnv, inherits = FALSE)]
+
+  out <- character(0)
+  if (length(existing)) {
+    out <- c(out, "Objects the code uses:",
+             paste0("- ", vapply(existing, function(n) tryCatch(describe_object_brief(n), error = function(e) n), character(1))))
+  }
+
+  info <- classify_execution_error(error)
+  if (info$type %in% c("missing_object", "missing_function") && !is.null(info$name)) {
+    nm <- info$name
+    defs <- grep_definitions(nm, doc)
+    file_name <- if (!is.null(doc) && nzchar(doc$path %||% "")) basename(doc$path) else "the open file"
+    if (length(defs)) {
+      out <- c(out, sprintf("`%s` is assigned in %s at:", nm, file_name), paste0("- ", defs))
+    } else if (!is.null(doc)) {
+      out <- c(out, sprintf("`%s` isn't assigned anywhere in %s.", nm, file_name))
+    }
+    # Similar names: objects in the session, and columns of the data frames used
+    pool <- explorer_user_objects(ls(envir = .GlobalEnv))
+    for (n in existing) {
+      obj <- tryCatch(get(n, envir = .GlobalEnv), error = function(e) NULL)
+      if (is.data.frame(obj)) pool <- c(pool, names(obj))
+    }
+    similar <- unique(agrep(nm, setdiff(pool, nm), max.distance = 0.2, value = TRUE))
+    if (length(similar)) out <- c(out, sprintf("Similar names that exist: %s", paste(utils::head(similar, 6), collapse = ", ")))
+  }
+
+  txt <- paste(out, collapse = "\n")
+  if (nchar(txt) > max_chars) txt <- paste0(substr(txt, 1, max_chars - 4), " ...")
+  txt
 }
 
 #' Execute AI code, fixing the session and re-running when the failure isn't
@@ -572,32 +860,95 @@ summarize_global_env <- function(max_objects = 60) {
 #' @param code The R code to execute
 #' @param settings Execution settings passed to execute_code_in_session()
 #' @param max_rounds How many times to fix the session and re-run
+#' @param progress Optional function(message) called with a short status line
+#'   at each step, so the chat can show what's happening
 #' @return The execute_code_in_session() result plus `recovery` (notes on what
 #'   was fixed), and on failure `needs_user` / `user_message` (the user has to
-#'   act, so don't ask Claude) and `env_objects` (for Claude's fix prompt)
+#'   act, so don't ask Claude) and `fix_context` (targeted lookup for Claude's fix prompt)
 #' @keywords internal
-execute_with_recovery <- function(code, settings = NULL, max_rounds = 4) {
+execute_with_recovery <- function(code, settings = NULL, max_rounds = 4, progress = NULL,
+                                  answers = character(0), resume = NULL) {
   state <- new_recovery_state()
+  state$progress <- progress
   state$code <- code
-  doc <- NULL
-  doc_loaded <- FALSE
-  in_docdir <- FALSE
+  state$answers <- as.character(unlist(answers))
+  state$answers_used <- character(0)
+  state$expr_mark <- 0L
   result <- NULL
 
-  for (round in seq_len(max_rounds + 1)) {
-    result <- if (in_docdir) with_dir(doc$dir, execute_code_in_session(code, settings))
-              else execute_code_in_session(code, settings)
+  # Resuming (after a question, or after an automatic fix): start at the line
+  # that stopped, so lines that already ran don't run twice, and keep the
+  # output they produced. `resume` comes back from the chat as
+  # list(start_at, output).
+  start_at <- suppressWarnings(as.integer(unlist(resume$start_at)))
+  if (length(start_at) != 1 || is.na(start_at) || start_at < 1) start_at <- 1L
+  carried_output <- unlist(resume$output)
+  carried_output <- if (is.character(carried_output) && length(carried_output))
+    paste(carried_output, collapse = "\n") else ""
+  carry <- function(txt) {
+    if (is.character(txt) && length(txt) == 1 && nzchar(txt)) {
+      carried_output <<- if (nzchar(carried_output)) paste(carried_output, txt, sep = "\n") else txt
+    }
+  }
+  # Answers given while the current line ran belong to it; answers before
+  # that belong to lines that finished and won't run again
+  on_expr_start <- function(i) state$expr_mark <- length(state$answers_used)
+
+  # Questions the code asks go to the chat instead of the Console
+  restore_prompts <- install_prompt_handlers(state)
+  on.exit(restore_prompts(), add = TRUE)
+
+  # The open document (an environment, so find_defining_unit() can cache)
+  doc <- tryCatch(list2env(get_document_info()), error = function(e) NULL)
+  # Code for an R Markdown document runs from the same folder as its chunks,
+  # so relative paths like "output/figures" mean the same thing
+  run_dir <- chunk_working_dir(doc)
+  state$run_dir <- run_dir
+  in_docdir <- FALSE
+
+  # Remember the last few messages, so a question like "Would you like to
+  # create a new directory?" can be shown with what was printed before it
+  remember_message <- function(m) {
+    state$recent_messages <- utils::tail(c(state$recent_messages, conditionMessage(m)), 5)
+  }
+
+  withCallingHandlers(message = remember_message, for (round in seq_len(max_rounds + 1)) {
+    if (round > 1) report_progress(state, "Running your code again")
+    dir_now <- if (in_docdir && !is.null(doc)) doc$dir else run_dir
+    # Some code cancels with invokeRestart("abort"), e.g. rlang::check_installed
+    # when the answer is No. That would unwind past everything and the chat
+    # would never hear back, so catch it here.
+    run <- function() execute_code_in_session(code, settings, start_at = start_at,
+                                              on_expr_start = on_expr_start)
+    result <- withRestarts(
+      if (!is.null(dir_now)) with_dir(dir_now, run()) else run(),
+      abort = function(...) list(success = FALSE, error = "The code was cancelled.", cancelled = TRUE))
+    if (isTRUE(result$cancelled)) {
+      result$needs_user <- TRUE
+      result$user_message <- if (length(state$answers_used))
+        "The code stopped after your answer, so nothing else ran." else "The code was cancelled before it finished."
+      break
+    }
     result$error <- .rgent_strip_ansi(result$error)
+    # The code asked a question: stop here and ask the user in the chat
+    if (!is.null(state$pending_input)) break
     if (isTRUE(result$success) || round > max_rounds) break
 
-    if (!doc_loaded) {
-      doc <- tryCatch(get_document_info(), error = function(e) NULL)
-      if (!is.null(doc)) {
-        doc <- list2env(doc)  # lets find_defining_unit() cache parsed definitions
+    # The next round resumes at the line that failed. Keep what ran before it,
+    # and put back the answers that line used so it gets them again
+    if (!is.null(result$failed_at)) {
+      carry(result$done_output)
+      start_at <- result$failed_at
+      n_used <- length(state$answers_used)
+      if (n_used > state$expr_mark) {
+        state$answers <- c(state$answers_used[(state$expr_mark + 1):n_used], state$answers)
+        state$answers_used <- state$answers_used[seq_len(state$expr_mark)]
       }
-      doc_loaded <- TRUE
     }
 
+    if (classify_execution_error(result$error)$type %in% c("missing_object", "missing_function")) {
+      report_progress(state, "Your code needs something that isn't loaded yet. Finding it")
+    }
     fix <- tryCatch(try_recover(result$error, doc, state),
                     error = function(e) result_claude())
     if (isTRUE(fix$fixed)) {
@@ -612,11 +963,79 @@ execute_with_recovery <- function(code, settings = NULL, max_rounds = 4) {
       result$user_message <- fix$user_message
     }
     break
+  })
+
+  if (!is.null(state$pending_input)) {
+    result$success <- FALSE
+    result$needs_input <- state$pending_input
+    # Only the answers the stopped line needs; the chat adds the new one
+    used <- state$answers_used
+    result$answers <- as.list(if (length(used) > state$expr_mark) used[(state$expr_mark + 1):length(used)] else character(0))
+    if (!is.null(result$failed_at)) {
+      carry(result$done_output)
+      start_at <- result$failed_at
+    }
+    result$resume <- list(start_at = start_at, output = carried_output)
+    result$recovery <- state$notes
+    return(result)
+  }
+
+  # Put the output of lines that ran in earlier rounds first
+  if (nzchar(carried_output)) {
+    result$output <- if (is.character(result$output) && length(result$output) == 1 && nzchar(result$output))
+      paste(carried_output, result$output, sep = "\n") else carried_output
+    if (isTRUE(result$success) && is.null(result$plot) && grepl("PLOT_DATA:", carried_output, fixed = TRUE)) {
+      result$plot <- list(created = TRUE, message = "Plot created and displayed in RStudio",
+                          mime_type = "image/png")
+    }
   }
 
   result$recovery <- state$notes
   if (!isTRUE(result$success)) {
-    result$env_objects <- tryCatch(summarize_global_env(), error = function(e) NULL)
+    result$fix_context <- tryCatch(build_fix_context(code, result$error, doc), error = function(e) "")
   }
   result
+}
+
+#' Short description of the file open in the RStudio editor, for the greeting
+#' @return list(name, folder, kind, lines, cursor_line, chunk), or NULL when no
+#'   file is open
+#' @keywords internal
+describe_active_file <- function() {
+  ctx <- tryCatch(rstudioapi::getSourceEditorContext(), error = function(e) NULL)
+  if (is.null(ctx) || is.null(ctx$contents)) return(NULL)
+  path <- ctx$path %||% ""
+  name <- if (nzchar(path)) basename(path) else "an unsaved file"
+  ext <- if (grepl("\\.", name)) tolower(sub(".*\\.", "", name)) else ""
+  kind <- switch(ext, rmd = "R Markdown", qmd = "Quarto", r = "R script", rnw = "Sweave",
+                 md = "Markdown", py = "Python", sql = "SQL", NULL)
+  lines <- ctx$contents
+  # RStudio reports an empty buffer as one empty line
+  n_lines <- if (length(lines) == 1 && !nzchar(lines)) 0L else length(lines)
+  if (!nzchar(path) && n_lines == 0) return(NULL)  # empty Untitled tab: nothing to say
+  cursor <- tryCatch(as.integer(ctx$selection[[1]]$range$start[["row"]]), error = function(e) NA_integer_)
+
+  chunk <- NULL
+  if (!is.na(cursor) && ext %in% c("rmd", "qmd", "rnw")) {
+    units <- tryCatch(parse_chunk_units(lines), error = function(e) list())
+    starts <- vapply(units, function(u) u$start, numeric(1))
+    inside <- which(starts <= cursor)
+    if (length(inside)) {
+      u <- units[[max(inside)]]
+      # Only count it if the cursor is before the chunk's closing fence
+      after <- lines[(u$start + 1):min(cursor, length(lines))]
+      if (cursor == u$start || !any(grepl("^\\s*`{3,}\\s*$", after[-length(after)]))) {
+        chunk <- u$label %||% sprintf("starting at line %d", u$start)
+      }
+    }
+  }
+
+  folder <- if (nzchar(path)) {
+    d <- dirname(path)
+    home <- path.expand("~")
+    if (startsWith(d, home)) paste0("~", substring(d, nchar(home) + 1)) else d
+  } else NULL
+
+  list(name = name, folder = folder, kind = kind, lines = n_lines,
+       cursor_line = cursor, chunk = chunk)
 }

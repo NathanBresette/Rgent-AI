@@ -5,7 +5,7 @@ library(base64enc)
 
 # Get available dataframes for transformation
 get_available_dataframes <- function() {
-  objects <- ls(envir = .GlobalEnv)
+  objects <- explorer_user_objects(ls(envir = .GlobalEnv))
   dataframes <- objects[sapply(objects, function(x) {
     obj <- get(x, envir = .GlobalEnv)
     is.data.frame(obj) && nrow(obj) > 0 && ncol(obj) > 0

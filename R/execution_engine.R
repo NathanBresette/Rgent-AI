@@ -10,8 +10,16 @@
 #'
 #' @param code The R code to execute
 #' @param settings The current settings for execution
-#' @return A list containing the execution result and metadata
-execute_code_in_session <- function(code, settings = NULL) {
+#' @param start_at Index of the top-level expression to start from. Used to
+#'   resume after a question or an automatic fix, so lines that already ran
+#'   don't run twice.
+#' @param on_expr_start Optional function(i) called before each expression
+#' @return A list containing the execution result and metadata. On failure it
+#'   also has `failed_at` (the expression that failed) and `done_output` (the
+#'   output, plots included, of the expressions that finished before it).
+execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
+                                    on_expr_start = NULL) {
+  start_at <- max(1L, as.integer(start_at %||% 1L))
   # Default settings if not provided
   if (is.null(settings)) {
     settings <- list(
@@ -21,15 +29,15 @@ execute_code_in_session <- function(code, settings = NULL) {
     )
   }
 
-  # Print code to console if enabled
-  if (settings$print_to_console) {
+  # Print code to console if enabled (once, not again when resuming)
+  if (settings$print_to_console && start_at == 1L) {
     cat("\n### AI executing the following code ###\n")
     cat(code, "\n")
     cat("### End of AI code ###\n\n")
   }
 
   # Log code to file if enabled
-  if (settings$log_to_file && !is.null(settings$log_file_path) && settings$log_file_path != "") {
+  if (start_at == 1L && settings$log_to_file && !is.null(settings$log_file_path) && settings$log_file_path != "") {
     log_code_to_file(code, settings$log_file_path)
   }
 
@@ -177,9 +185,21 @@ execute_code_in_session <- function(code, settings = NULL) {
     }
     
     # Helper: Check if expression is an assignment
+    # Name of the function a call uses, e.g. "print" for print(x) and
+    # base::print(x). Always one string: as.character() on `pkg::fn` gives
+    # three ("::", "pkg", "fn"), which broke every `pkg::fn(...)` line.
+    call_name <- function(expr) {
+      fn <- expr[[1]]
+      if (is.symbol(fn)) return(as.character(fn))
+      if (is.call(fn) && length(fn) == 3 && as.character(fn[[1]]) %in% c("::", ":::")) {
+        return(as.character(fn[[3]]))
+      }
+      ""
+    }
+
     is_assignment <- function(expr) {
       if (is.call(expr)) {
-        op <- as.character(expr[[1]])
+        op <- call_name(expr)
         return(op %in% c("<-", "=", "<<-", "assign"))
       }
       FALSE
@@ -188,7 +208,7 @@ execute_code_in_session <- function(code, settings = NULL) {
     # Helper: Check if expression is a print() call
     is_print_call <- function(expr) {
       if (is.call(expr)) {
-        op <- as.character(expr[[1]])
+        op <- call_name(expr)
         return(op == "print")
       }
       FALSE
@@ -240,12 +260,20 @@ execute_code_in_session <- function(code, settings = NULL) {
     
     if (!is.null(parsed_code) && length(parsed_code) > 0) {
       # Single-pass execution: handle each expression based on its type
-      i <- 1
+      i <- start_at
+      expr_start_i <- i
+      output_mark <- length(all_output)
+      plots_mark <- length(plot_files)
       # Stop at the first error, like R does, so the error reported is the
       # one that caused the failure rather than a knock-on error from a later line
       while (i <= length(parsed_code) && !execution_had_error) {
         expr <- parsed_code[[i]]
         expr_str <- paste(deparse(expr), collapse = " ")
+        # Remember where this expression starts, so a failure can be resumed here
+        expr_start_i <- i
+        output_mark <- length(all_output)
+        plots_mark <- length(plot_files)
+        if (is.function(on_expr_start)) on_expr_start(i)
         
         if (is_base_plot_expr(expr_str)) {
           # BASE R PLOT: Collect plot + following drawing commands, capture together
@@ -443,7 +471,18 @@ execute_code_in_session <- function(code, settings = NULL) {
       
       # If any expression had an error, return failure
       if (execution_had_error) {
-        return(list(success = FALSE, error = last_error_message, output = paste(output, collapse = "\n")))
+        # What finished before the failing expression, so a resumed run can
+        # show it without running those lines again
+        done <- all_output[seq_len(output_mark)]
+        for (pf in plot_files[seq_len(plots_mark)]) {
+          if (file.exists(pf) && requireNamespace("base64enc", quietly = TRUE)) {
+            done <- c(done, paste0("PLOT_DATA:", base64enc::base64encode(pf)))
+          }
+        }
+        return(list(success = FALSE, error = last_error_message,
+                    output = paste(output, collapse = "\n"),
+                    failed_at = expr_start_i,
+                    done_output = paste(done, collapse = "\n")))
       }
       
     } else {
