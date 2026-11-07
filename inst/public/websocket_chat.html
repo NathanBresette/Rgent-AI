@@ -444,6 +444,30 @@
       .edit-btn:disabled { opacity: 0.5; cursor: default; }
       .edit-all-bar { display: flex; gap: 6px; justify-content: flex-end; align-items: center;
         font-size: 12px; color: var(--text-secondary); margin: 6px 0 12px; }
+      /* Output and plot cards */
+      #chat-container .output-block.ob-card, #chat-container .plot-card { padding: 0; margin: 10px 0 14px; border: 1px solid var(--border-color);
+        border-radius: 10px; background: var(--code-bg); box-shadow: none; overflow: hidden; white-space: normal; font-family: inherit; font-size: 12px; }
+      #chat-container .plot-card { background: var(--bg-card); }
+      #chat-container .ob-card .output-block-header, #chat-container .plot-card .output-block-header { display: flex; align-items: center; justify-content: flex-start;
+        gap: 7px; margin: 0; width: auto; padding: 6px 8px 6px 12px; border-radius: 0; background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 20px; }
+      .ob-icon { flex: 0 0 auto; color: var(--text-secondary); }
+      .ob-icon.ob-ok { color: #38a169; }
+      .ob-meta { font-weight: 400; color: var(--text-secondary); }
+      .ob-spacer { flex: 1; }
+      #chat-container .ob-card > .ob-body { margin: 0; padding: 9px 12px 10px; overflow-x: auto; white-space: pre; background: transparent;
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 11.5px; line-height: 1.55; color: var(--text-primary); }
+      #chat-container .ob-card.ob-clamped > .ob-body { max-height: calc(1.55em * 18); overflow-y: hidden;
+        -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+      .tab-content button.cx-ob-btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);
+        padding: 1px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 18px; cursor: pointer; }
+      .tab-content button.cx-ob-btn:hover { border-color: var(--text-secondary); }
+      .tab-content button.cx-ob-more { display: block; width: 100%; border: 0; border-top: 1px solid var(--border-color); background: transparent;
+        color: var(--text-secondary); font-size: 12px; padding: 6px; cursor: pointer; }
+      .tab-content button.cx-ob-more:hover { color: var(--text-primary); background: var(--bg-secondary); }
+      #chat-container .plot-card img { display: block; width: 100%; height: auto; background: #fff; }
+      .ob-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+      #chat-container .message.ob-status-msg { padding-top: 0; padding-bottom: 0; margin-top: -4px; }
 
       .code-block-header {
         display: flex;
@@ -8365,7 +8389,22 @@ Include comments explaining each step. Code only. Minimal chat.`;
         const messageDiv = document.createElement("div");
         messageDiv.className = "message " + role + "-message";
         
+        let ranOk = false;
         if (role === "ai") {
+          const okHead = /^\s*\*\*Code executed successfully!\*\*\s*/i;
+          if (okHead.test(content)) {
+            ranOk = true;
+            content = content.replace(okHead, '');
+            if (!content.trim()) {
+              // a plot card was just shown for this run: it already says the code ran
+              if (Date.now() - (window.__rgentPlotAt || 0) < 4000) return;
+              messageDiv.classList.add('ob-status-msg');
+              messageDiv.innerHTML = '<span class="ob-status">' + OB_CHECK + 'Ran in your session</span>';
+              container.appendChild(messageDiv);
+              container.scrollTop = container.scrollHeight;
+              return;
+            }
+          }
           // Check for output blocks first - format: @@output\n...content...\n@@
           // Process all output blocks in the message
           const outputBlockRegex = /@@output\n([\s\S]*?)\n@@/g;
@@ -8399,18 +8438,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               const outputDiv = document.createElement("div");
               outputDiv.className = "output-block";
               
-              // Create header
-              const headerDiv = document.createElement("div");
-              headerDiv.className = "output-block-header";
-              const outputLabel = document.createElement("span");
-              outputLabel.textContent = "Output";
-              headerDiv.appendChild(outputLabel);
-              outputDiv.appendChild(headerDiv);
-              
-              // Add output content
-              const outputContentDiv = document.createElement("div");
-              outputContentDiv.textContent = outputMatch.content;
-              outputDiv.appendChild(outputContentDiv);
+              buildOutputCard(outputDiv, outputMatch.content, ranOk);
               
               messageDiv.appendChild(outputDiv);
               
@@ -8551,6 +8579,64 @@ Include comments explaining each step. Code only. Minimal chat.`;
       }
       
       // Specialized function for visualization agent messages with image support
+      const OB_CHECK = '<svg class="ob-icon ob-ok" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+      const OB_TERM = '<svg class="ob-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 4 4-4 4"/><path d="M12 17h7"/></svg>';
+      const OB_PLOT = '<svg class="ob-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>';
+      const OB_MAX_LINES = 18;
+      // Output of code that ran: a card like the code blocks, with a line count, Copy, and long output folded
+      function buildOutputCard(card, text, ranOk) {
+        text = String(text || '').replace(/\s+$/, '');
+        const lines = text.split('\n').length;
+        card.classList.add('ob-card');
+        if (ranOk) card.classList.add('ob-ran');
+        const head = document.createElement('div');
+        head.className = 'output-block-header';
+        head.innerHTML = (ranOk ? OB_CHECK : OB_TERM) + '<span class="ob-title">' + (ranOk ? 'Ran · Output' : 'Output') + '</span>' +
+          '<span class="ob-meta">' + lines + (lines === 1 ? ' line' : ' lines') + '</span><span class="ob-spacer"></span>';
+        const copy = document.createElement('button');
+        copy.className = 'cx-ob-btn'; copy.type = 'button'; copy.textContent = 'Copy'; copy.dataset.tip = 'Copy this output';
+        copy.onclick = () => {
+          const done = () => { copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1400); };
+          try { navigator.clipboard.writeText(text).then(done, () => { fallbackCopy(text); done(); }); } catch (e) { fallbackCopy(text); done(); }
+        };
+        head.appendChild(copy);
+        card.appendChild(head);
+        const body = document.createElement('pre');
+        body.className = 'ob-body';
+        body.textContent = text;
+        card.appendChild(body);
+        if (lines > OB_MAX_LINES) {
+          card.classList.add('ob-clamped');
+          const more = document.createElement('button');
+          more.className = 'cx-ob-more'; more.type = 'button';
+          const label = () => card.classList.contains('ob-clamped') ? 'Show all ' + lines + ' lines' : 'Show less';
+          more.textContent = label();
+          more.onclick = () => { card.classList.toggle('ob-clamped'); more.textContent = label(); };
+          card.appendChild(more);
+        }
+      }
+      function fallbackCopy(text) {
+        const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
+      }
+      // A plot from code that ran: a card with a header, and Explain (the same as the composer's Explain plot)
+      function buildPlotCard(src, title) {
+        window.__rgentPlotAt = Date.now();
+        const card = document.createElement('div');
+        card.className = 'plot-card';
+        const head = document.createElement('div');
+        head.className = 'output-block-header';
+        head.innerHTML = OB_PLOT + '<span class="ob-title"></span><span class="ob-spacer"></span>';
+        head.querySelector('.ob-title').textContent = title || 'Plot';
+        const explain = document.createElement('button');
+        explain.className = 'cx-ob-btn'; explain.type = 'button'; explain.textContent = 'Explain'; explain.dataset.tip = 'Explain this plot';
+        explain.onclick = () => { const b = document.getElementById('analyze-plot-button'); if (b && !b.disabled) b.click(); };
+        head.appendChild(explain);
+        const img = document.createElement('img');
+        img.src = src; img.alt = title || 'Plot';
+        card.appendChild(head); card.appendChild(img);
+        return card;
+      }
       function addVisualizationMessage(content, role) {
         const container = document.getElementById("chat-container");
         const messageDiv = document.createElement("div");
@@ -8559,9 +8645,14 @@ Include comments explaining each step. Code only. Minimal chat.`;
         if (content.includes("data:image/png;base64,")) {
           // Handle mixed content (text + images)
           const parts = content.split(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/);
-          
+          let plotTitle = null;
           parts.forEach(part => {
-            if (part.startsWith('data:image/png;base64,')) {
+            const t = part.trim().match(/^\*\*(?:Generated Plot|Plot from Visualization Agent)\s*(\(\d+\/\d+\))?\*\*$/);
+            if (t) { plotTitle = 'Plot' + (t[1] ? ' ' + t[1] : ''); return; }
+            if (part.startsWith('data:image/png;base64,') && plotTitle) {
+              messageDiv.appendChild(buildPlotCard(part, plotTitle));
+              plotTitle = null;
+            } else if (part.startsWith('data:image/png;base64,')) {
               // Create image element
               const img = document.createElement('img');
               console.log('🎨 Creating image with data URL length:', part.length);
