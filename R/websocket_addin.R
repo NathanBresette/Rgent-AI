@@ -285,6 +285,17 @@ save_access_code_to_disk <- function(code) {
   })
 }
 
+# Sign out: forget the saved code (on disk and in this session), so the next
+# start shows the sign-in form instead of signing in by itself
+clear_saved_access_code <- function() {
+  tryCatch({
+    p <- get_access_code_path()
+    if (file.exists(p)) unlink(p)
+    if (exists("current_access_code", envir = .GlobalEnv)) rm("current_access_code", envir = .GlobalEnv)
+    invisible(TRUE)
+  }, error = function(e) invisible(FALSE))
+}
+
 # Load access code from disk if it exists
 load_access_code_from_disk <- function() {
   tryCatch({
@@ -496,34 +507,6 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
 #' Launch Rgent
 #' @export
 run_rgent <- function() {
-  # Check for updates and auto-install if available (once per session)
-  if (!exists(".rgent_update_checked", envir = .GlobalEnv)) {
-    tryCatch({
-      cat("Checking for updates...\n")
-      # Use the check_and_update_package function with auto_update
-      update_performed <- check_and_update_package(auto_update = TRUE, quiet = FALSE)
-      
-      if (update_performed) {
-        cat("\n")
-        cat("═══════════════════════════════════════════════════════════\n")
-        cat("✅ RgentAI has been updated!\n")
-        cat("═══════════════════════════════════════════════════════════\n")
-        cat("Please restart RStudio to use the new version.\n")
-        cat("You can continue using the current session, but new features\n")
-        cat("will be available after restarting.\n")
-        cat("═══════════════════════════════════════════════════════════\n")
-        cat("\n")
-      }
-      
-      # Mark as checked for this session
-      assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
-    }, error = function(e) {
-      # Show error but don't block usage
-      cat("⚠️  Could not check for updates:", conditionMessage(e), "\n")
-      cat("   Continuing with current version...\n")
-    })
-  }
-  
   # Check if RStudio API is available
   if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
     stop("RStudio API is not available. Please run this in RStudio.")
@@ -567,6 +550,39 @@ run_rgent <- function() {
   
   # Create and launch HTML interface
   launch_html_interface()
+
+  # Updates are checked after the pane is open, at most once a day
+  .rgent_schedule_update_check()
+  invisible(TRUE)
+}
+
+# ---- Update check: once a day, after the pane has opened -------------------
+# It used to run three times on every start (.onLoad, .onAttach and here),
+# each a blocking download from GitHub before the pane opened.
+.rgent_update_stamp <- function() file.path(tools::R_user_dir("rstudioai", "config"), "last_update_check")
+
+.rgent_update_due <- function(hours = 24) {
+  f <- .rgent_update_stamp()
+  if (!file.exists(f)) return(TRUE)
+  t <- suppressWarnings(as.numeric(readLines(f, n = 1, warn = FALSE)))
+  length(t) != 1 || is.na(t) || (as.numeric(Sys.time()) - t) > hours * 3600
+}
+
+.rgent_schedule_update_check <- function(delay = 3) {
+  if (exists(".rgent_update_checked", envir = .GlobalEnv) || !.rgent_update_due()) return(invisible(FALSE))
+  assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
+  run <- function() {
+    tryCatch({
+      f <- .rgent_update_stamp()
+      dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
+      writeLines(as.character(as.numeric(Sys.time())), f)
+      if (isTRUE(check_and_update_package(auto_update = TRUE, quiet = TRUE))) {
+        cat("\nRgent was updated. Restart RStudio to use the new version.\n")
+      }
+    }, error = function(e) invisible(NULL))
+  }
+  if (requireNamespace("later", quietly = TRUE)) later::later(run, delay) else run()
+  invisible(TRUE)
 }
 
 #' Backwards compatibility alias
@@ -759,6 +775,10 @@ start_websocket_server <- function() {
     
       # Handle different actions
       response <- switch(request$action,
+        "clear_access_code" = {
+          clear_saved_access_code()
+          list(action = "access_code_cleared", status = "success")
+        },
         "set_access_code" = {
           # Check if access code is different from what's already stored
           current_code <- if(exists("current_access_code", envir = .GlobalEnv)) .GlobalEnv$current_access_code else NULL
@@ -1386,6 +1406,7 @@ start_websocket_server <- function() {
             # Let Claude propose edits to the open file (reviewed in the chat
             # before anything changes). Remember the file as Claude sees it,
             # so its line numbers can be mapped back.
+            edit_target <- NULL
             if (!is_fix_request) {
               enhanced_prompt <- paste0(enhanced_prompt, edit_history_note())
               edit_target <- remember_edit_target()
@@ -1499,10 +1520,55 @@ start_websocket_server <- function() {
               chunk_callback = chunk_callback
             )
             
+            # Claude asked to read lines it wasn't shown (```read a-b) or to
+            # search the file (```find pattern); only offered for files too big
+            # to send whole. Send the result and let it continue in the same
+            # message.
+            if (stream_result$success && !is_fix_request &&
+                !is.null(edit_target) && length(edit_target$lines) > 0) {
+              # Up to two lookups (```read or ```find) per message, e.g. search
+              # then read; results build up so Claude keeps what it found
+              lookups <- character(0)
+              round_text <- full_response
+              for (round in 1:2) {
+                wanted <- .rgent_lookup_request(round_text)
+                if (is.null(wanted)) break
+                got <- if (identical(wanted$type, "read")) {
+                  r <- .rgent_read_lines(edit_target$lines, wanted$from, wanted$to)
+                  if (!is.null(r)) paste0("LINES ", r$from, "-", r$to, " OF ", edit_target$name,
+                                          " (as you asked; same line numbers as the CURRENT FILE listing):\n", r$text)
+                } else {
+                  f <- .rgent_find_lines(edit_target$lines, wanted$pattern)
+                  paste0("SEARCH OF ", edit_target$name, " FOR ", f$pattern, " (", f$count,
+                         " matching lines; same line numbers as the CURRENT FILE listing):\n", f$text)
+                }
+                if (is.null(got)) break
+                lookups <- c(lookups, got)
+                request_body$prompt <- paste0(
+                  enhanced_prompt,
+                  "\n\nYOUR REPLY SO FAR (the user has seen it):\n", full_response,
+                  "\n\n", paste(lookups, collapse = "\n\n"),
+                  "\n\nContinue your reply from where it stopped. Don't repeat what you already wrote.",
+                  if (round == 2) " Don't read or search again." else " You may read or search once more only if you really need to.")
+                ws$send(jsonlite::toJSON(list(action = "ai_response", streaming = TRUE, chunk = "\n\n"), auto_unbox = TRUE))
+                full_response <- paste0(full_response, "\n\n")
+                before <- nchar(full_response)
+                stream_result <- stream_httr_post(
+                  url = "https://rgent.onrender.com/chat/stream",
+                  body = request_body,
+                  headers = c("Accept" = "text/event-stream"),
+                  timeout = 60,
+                  chunk_callback = chunk_callback
+                )
+                if (!stream_result$success) break
+                round_text <- substr(full_response, before + 1L, nchar(full_response))
+              }
+            }
+
             if (stream_result$success) {
               # Add AI response to conversation history
               if (nchar(full_response) > 0) {
-                add_to_conversation_history("ai", full_response)
+                add_to_conversation_history("ai", .rgent_strip_read(full_response))
               }
               
               # Send finish signal
@@ -1871,14 +1937,8 @@ start_websocket_server <- function() {
           
           if (!has_error) {
             # No error found
-            list(action = "get_last_error", message = "No errors found in the console. Everything looks good!")
+            list(action = "get_last_error", message = "I didn't find an error in the Console. Run the code that fails, then try Fix error again.")
           } else {
-            # Send a message to the AI chat that debugging is starting
-            debug_start_message <- list(
-              action = "chat_with_ai",
-              message = "Debugging error..."
-            )
-            ws$send(jsonlite::toJSON(debug_start_message, auto_unbox = TRUE))
             
             # Send debug info first
              debug_info <- list(
@@ -1922,6 +1982,7 @@ start_websocket_server <- function() {
               # Make streaming request to backend
               debug_chunk_buffer <- ""
               debug_full_response <- ""
+              debug_done_sent <- FALSE
               
               debug_chunk_callback <- function(json_data) {
                 tryCatch({
@@ -1984,6 +2045,7 @@ start_websocket_server <- function() {
                       streaming = FALSE
                     )
                     ws$send(jsonlite::toJSON(completion_response, auto_unbox = TRUE))
+                    debug_done_sent <<- TRUE
                     return(list(stop = TRUE))
                   }
                   
@@ -2010,6 +2072,23 @@ start_websocket_server <- function() {
                   error = paste("AI analysis failed:", debug_result$status_code)
                 )
                 ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
+              } else {
+                # The stream can end without a "done" chunk; flush and close it
+                if (!debug_done_sent) {
+                  if (nchar(debug_chunk_buffer) > 0) {
+                    ws$send(jsonlite::toJSON(list(action = "debug_ai_response", streaming = TRUE, chunk = debug_chunk_buffer), auto_unbox = TRUE))
+                  }
+                  ws$send(jsonlite::toJSON(list(action = "debug_ai_response", streaming = FALSE), auto_unbox = TRUE))
+                }
+                # Part of the conversation, so "apply that fix" works and the
+                # saved chat keeps it
+                if (nzchar(debug_full_response)) {
+                  tryCatch({
+                    add_to_conversation_history("user", paste0("Fix the last error: ", error_details$error_message,
+                      if (nzchar(paste(error_details$error_code, collapse = ""))) paste0("\nCode: ", paste(error_details$error_code, collapse = "\n")) else ""))
+                    add_to_conversation_history("ai", debug_full_response)
+                  }, error = function(e) NULL)
+                }
               }
                           }, error = function(e) {
                # Silenced debug: Exception details
@@ -2034,6 +2113,7 @@ start_websocket_server <- function() {
           if (exists("conversation_history", envir = .GlobalEnv)) {
             .GlobalEnv$conversation_history <- list()
           }
+          chat_store_new()
           
           list(action = "new_conversation", status = "success", message = "Conversation history cleared. Workspace context refreshed.")
         },
@@ -2045,6 +2125,23 @@ start_websocket_server <- function() {
           } else {
             list(action = "conversation_history_added", status = "error", message = "Missing role or message")
           }
+        },
+        "chat_list" = {
+          list(action = "chat_list", data = tryCatch(chat_store_list(), error = function(e) list(chats = list(), bytes = 0, error = conditionMessage(e))))
+        },
+        "chat_open" = {
+          ch <- tryCatch(chat_store_open(request$id), error = function(e) NULL)
+          if (is.null(ch)) list(action = "chat_opened", ok = FALSE, error = "That chat couldn't be opened.")
+          else list(action = "chat_opened", ok = TRUE, id = ch$id, title = ch$title, messages = ch$messages)
+        },
+        "chat_delete" = {
+          tryCatch(chat_store_delete(request$id, all = isTRUE(request$all)), error = function(e) NULL)
+          list(action = "chat_list", data = tryCatch(chat_store_list(), error = function(e) list(chats = list(), bytes = 0)))
+        },
+        "chat_export" = {
+          md <- tryCatch(chat_store_markdown(request$id), error = function(e) NULL)
+          ok <- !is.null(md) && isTRUE(tryCatch({ rstudioapi::documentNew(md, type = "markdown"); TRUE }, error = function(e) FALSE))
+          list(action = "chat_exported", ok = ok)
         },
         "apply_debug_fix" = {
           # Apply the proposed fix to the code
@@ -2099,27 +2196,6 @@ start_websocket_server <- function() {
                    success = FALSE, 
                    message = analysis_result$message)
             } else {
-              # Send step 1 progress
-              progress_msg <- list(
-                action = "chat_with_ai",
-                message = "Step 2: Analyzing plot structure and data..."
-              )
-              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-              
-              # Step 2: Send step 2 progress
-              progress_msg <- list(
-                action = "chat_with_ai",
-                message = "Step 3: Running statistical analysis..."
-              )
-              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-              
-              # Step 3: Send step 3 progress
-              progress_msg <- list(
-                action = "chat_with_ai",
-                message = "Step 4: Generating insights and recommendations..."
-              )
-              ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-              
               # Get analysis data
               analysis <- analysis_result$analysis
               
@@ -2137,12 +2213,11 @@ start_websocket_server <- function() {
                 paste(names(analysis$analysis_results), ":", 
                       sapply(analysis$analysis_results, function(x) paste(x, collapse = "\n")), 
                       collapse = "\n\n"),
-                "\n\nPlease provide:\n",
-                "1. What the plot shows (distribution, trends, patterns)\n",
-                "2. Key statistical insights\n",
-                "3. Any outliers or unusual patterns\n",
-                "4. Suggestions for improvement\n",
-                "5. Code examples for better visualizations"
+                "\n\nExplain this plot briefly, for the person who made it:\n",
+                "- what it shows (the main pattern or trend, in plain words, with the key numbers)\n",
+                "- anything unusual (outliers, skew, missing values, overplotting)\n",
+                "- one or two concrete improvements, with the R code for them in a single ```r block\n",
+                "Keep it short: a few sentences per point, no headings."
               )
               
               # Send to AI for interpretation using streaming endpoint
@@ -2249,15 +2324,21 @@ start_websocket_server <- function() {
                   # Reset stop flag
                   .GlobalEnv$operation_stopped <- FALSE
                   
+                  if (nzchar(plot_full_response)) {
+                    tryCatch({
+                      add_to_conversation_history("user", paste0("Explain my last plot: ", analysis$plot_command))
+                      add_to_conversation_history("ai", plot_full_response)
+                    }, error = function(e) NULL)
+                  }
+                  
                   list(action = "plot_analysis_streaming_complete")
                   
                 } else {
-                  cat("Backend returned error status:", httr::status_code(response), "\n")
-                  error_content <- httr::content(response)
-                  cat("Error content:", toString(error_content), "\n")
                   list(action = "plot_analysis", 
                        success = FALSE,
-                       message = paste("AI analysis failed. Status:", httr::status_code(response)))
+                       message = paste("The plot analysis request failed",
+                                       if (!is.null(plot_result$status_code)) paste0("(status ", plot_result$status_code, ")") else "",
+                                       "- try again in a moment."))
                 }
               }, error = function(e) {
                 cat("Exception during plot analysis backend call:", e$message, "\n")
@@ -2757,6 +2838,9 @@ add_to_conversation_history <- function(role, message) {
     .GlobalEnv$conversation_history <- list()
   }
   
+  # Saved for the History list (on this computer only)
+  tryCatch(chat_store_record(role, message), error = function(e) NULL)
+
   # Add new message
   .GlobalEnv$conversation_history <- c(.GlobalEnv$conversation_history, list(
     list(
@@ -6175,8 +6259,9 @@ analyze_last_plot <- function() {
       stored_command <- get("last_plot_command", envir = .GlobalEnv)
       stored_timestamp <- get("last_plot_timestamp", envir = .GlobalEnv)
       
-      # Check if the stored command is recent (within last 5 minutes)
-      if (difftime(Sys.time(), stored_timestamp, units = "mins") < 5) {
+      # Plots made by code the chat ran are stored here (the Console history
+      # doesn't have them); use one from the last hour
+      if (difftime(Sys.time(), stored_timestamp, units = "mins") < 60) {
         plot_info <- list(found = TRUE, command = stored_command, source = "visualization_agent")
       }
     }
@@ -6189,7 +6274,7 @@ analyze_last_plot <- function() {
     if (!plot_info$found) {
       return(list(
         success = FALSE,
-        message = "No plot command found in recent history. Try creating a plot first!"
+        message = "I couldn't find a plot in your recent R history. Make a plot, then try Explain plot again."
       ))
     }
     
@@ -6474,8 +6559,8 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 #' Package onLoad hook - automatically sets up and starts Rgent
 .onLoad <- function(libname, pkgname) {
   tryCatch({
-    # Check for updates on session start (quiet mode to avoid double messages)
-    .check_for_updates_on_load(quiet = TRUE)
+    # (Updates are checked by run_rgent once the pane is open; see
+    # .rgent_schedule_update_check)
     
     # Set up .Rprofile for future auto-start (one-time setup)
     setup_rprofile_auto_start()
@@ -6645,8 +6730,8 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 #' Package onAttach hook - runs every time library(rstudioai) is called
 .onAttach <- function(libname, pkgname) {
   tryCatch({
-    # Check for updates every time the library is explicitly loaded
-    .check_for_updates_on_load(quiet = FALSE)
+    # Nothing to do: updates are checked once a day after Rgent's pane opens
+    invisible(NULL)
   }, error = function(e) {
     # Silently ignore errors during attach
     invisible(NULL)

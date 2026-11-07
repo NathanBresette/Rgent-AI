@@ -20,79 +20,12 @@
       }
       
       body { 
-        font-family: Arial, sans-serif; 
-        margin: 20px 20px 0 20px; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 14px;
+        margin: 0 14px;
         background-color: var(--bg-primary);
         color: var(--text-primary);
         transition: all 0.3s ease;
-      }
-      
-      /* Header Title */
-      .app-header {
-        text-align: left;
-        margin-bottom: 15px;
-        padding: 5px 0;
-      }
-      
-      .app-header h1 {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-      }
-      
-      /* Tab Navigation */
-      .tab-navigation {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-        justify-content: flex-end;
-      }
-      
-      .tab-btn {
-        padding: 8px 16px;
-        background-color: var(--bg-card) !important;
-        color: var(--text-primary) !important;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.3s ease;
-      }
-      
-      .tab-btn.active {
-        background-color: var(--text-primary) !important;
-        color: var(--bg-primary) !important;
-        border-color: var(--text-primary) !important;
-      }
-      
-      .tab-btn:hover:not(.active) {
-        background-color: var(--text-secondary) !important;
-        color: var(--text-primary) !important;
-        border-color: var(--text-secondary) !important;
-      }
-      
-      /* Ensure tab button text color never changes on hover - explicitly override any other rules */
-      button.tab-btn.active {
-        background-color: var(--text-primary) !important;
-        color: var(--bg-primary) !important;
-        border-color: var(--text-primary) !important;
-      }
-      button.tab-btn.active:hover {
-        background-color: var(--text-secondary) !important;
-        color: var(--bg-primary) !important;
-        border-color: var(--text-secondary) !important;
-      }
-      
-      button.tab-btn:not(.active) {
-        background-color: var(--bg-card) !important;
-        color: var(--text-primary) !important;
-        border: 1px solid var(--border-color);
-      }
-      button.tab-btn:not(.active):hover {
-        background-color: var(--text-secondary) !important;
-        color: var(--text-primary) !important;
-        border-color: var(--text-secondary) !important;
       }
       
       .tab-content {
@@ -173,13 +106,6 @@
         border-radius: 3px;
         font-family: monospace;
         font-size: 0.9em;
-      }
-      
-      /* Animated thinking dots */
-      .thinking-dots {
-        display: inline-block;
-        width: 1.2em;
-        text-align: left;
       }
       
       /* Live status while code runs: spinner ring + current step */
@@ -272,50 +198,6 @@
       /* Streaming message styles */
       .ai-message.streaming {
         min-height: 1.5em;
-      }
-      
-      .debug-button {
-        background-color: #dc3545 !important;
-        color: white !important;
-        border: none !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        font-size: 12px !important;
-      }
-      .debug-button:hover {
-        background-color: #c82333 !important;
-        color: white !important;
-      }
-      
-      .analyze-button {
-        background-color: #805ad5 !important;
-        color: white !important;
-        border: none !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        font-size: 12px !important;
-      }
-      
-      .analyze-button:hover {
-        background-color: #6b46c1 !important;
-      }
-      
-      .new-chat-button {
-        background-color: #6b7280 !important; /* Neutral gray */
-        color: white !important;
-        border: none !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        font-size: 12px !important;
-      }
-      
-      .new-chat-button:hover {
-        background-color: #4b5563 !important;
       }
       
       .access-button {
@@ -427,162 +309,6 @@
         border: 1px solid #bee5eb;
       }
       
-      .send-button {
-        background-color: #27ae60 !important;
-        color: white !important;
-        border: none !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        flex: 0 0 auto !important;
-        font-size: 12px !important;
-        min-width: fit-content !important;
-      }
-      
-      .send-button:hover {
-        background-color: #229954 !important;
-      }
-      
-      .send-button.stop-mode {
-        background-color: #e74c3c !important;
-        animation: pulse-stop 2s infinite;
-      }
-      
-      .send-button.stop-mode:hover {
-        background-color: #c0392b !important;
-      }
-      
-      /* Mode Selector (Auto Execute / Ask) - Simple toggle button */
-      .auto-execute-toggle {
-        display: flex !important;
-        align-items: stretch !important;
-        justify-content: stretch !important;
-        flex: 0 0 100px !important;
-        min-width: 100px !important;
-        max-width: 100px !important;
-      }
-      
-      .mode-selector-button {
-        width: 100% !important;
-        padding: 8px 16px !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        text-align: center !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        color: white !important;
-        transition: all 0.3s ease !important;
-        border: none !important;
-        background-color: #6b7280 !important;
-        white-space: nowrap !important;
-        user-select: none !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
-      
-      .mode-selector-button:hover {
-        background-color: #4b5563 !important;
-      }
-      
-      .mode-selector-button:active {
-        transform: scale(0.98);
-      }
-      
-      /* Override any tab-content button styles - match New Chat button exactly */
-      .tab-content .mode-selector-button {
-        background-color: #6b7280 !important;
-        color: white !important;
-        padding: 8px 16px !important;
-      }
-      
-      .tab-content .mode-selector-button:hover {
-        background-color: #4b5563 !important;
-        color: white !important;
-      }
-      
-      /* Match New Chat button styling exactly */
-      button.mode-selector-button {
-        background-color: #6b7280 !important;
-        color: white !important;
-      }
-      
-      button.mode-selector-button:hover {
-        background-color: #4b5563 !important;
-        color: white !important;
-      }
-      
-      /* Ensure input-row doesn't override */
-      .input-row .auto-execute-toggle {
-        flex: 0 0 100px !important;
-        min-width: 100px !important;
-        max-width: 100px !important;
-      }
-      
-      .input-row .mode-selector-button {
-        padding: 8px 16px !important;
-      }
-      
-      /* Most specific selectors to override everything */
-      #mode-selector-button {
-        padding: 8px 16px !important;
-        box-sizing: border-box !important;
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background-color: #6b7280 !important;
-        color: white !important;
-        border: none !important;
-      }
-      
-      #mode-selector-button:hover {
-        background-color: #4b5563 !important;
-        color: white !important;
-      }
-      
-      .input-row #mode-selector-button {
-        padding: 8px 16px !important;
-        box-sizing: border-box !important;
-        background-color: #6b7280 !important;
-        color: white !important;
-      }
-      
-      .input-row #mode-selector-button:hover {
-        background-color: #4b5563 !important;
-      }
-      
-      .tab-content .input-row .auto-execute-toggle {
-        flex: 0 0 100px !important;
-        min-width: 100px !important;
-        max-width: 100px !important;
-      }
-      
-      .tab-content .input-row #mode-selector-button {
-        padding: 8px 16px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background-color: #6b7280 !important;
-        color: white !important;
-        border: none !important;
-      }
-      
-      .tab-content .input-row #mode-selector-button:hover {
-        background-color: #4b5563 !important;
-        color: white !important;
-      }
-      
-      /* Keep hidden checkbox for compatibility */
-      .toggle-switch {
-        display: none;
-      }
-      
       /* Execute Cleaning Button Styles */
       .execute-cleaning-button {
         background-color: #27ae60 !important;
@@ -645,6 +371,51 @@
         max-width: 100%;
       }
       
+      /* Saved chats */
+      .chat-history { position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,0.35);
+        display: flex; align-items: flex-start; justify-content: center; padding: 60px 16px 16px; }
+      .chat-history-card { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);
+        border-radius: 8px; width: 100%; max-width: 560px; max-height: 75vh; display: flex; flex-direction: column;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.25); overflow: hidden; }
+      .chat-history-head, .chat-history-foot { display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 14px; background: var(--bg-secondary); font-size: 13px; gap: 8px; }
+      .chat-history-foot { font-size: 11px; color: var(--text-secondary); }
+      .chat-history-list { overflow-y: auto; flex: 1; }
+      .chat-history-row { display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+        border-top: 1px solid var(--border-color); cursor: pointer; }
+      .chat-history-row:first-child { border-top: none; }
+      .chat-history-row:hover, .chat-history-row:focus { background: var(--bg-secondary); outline: none; }
+      .chat-history-row.current { box-shadow: inset 3px 0 0 #38a169; }
+      .chat-history-title { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .chat-history-meta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+      .chat-history-empty { padding: 24px 14px; font-size: 13px; color: var(--text-secondary); text-align: center; }
+      button.chat-history-x, button.chat-history-link, button.chat-history-act {
+        background: none !important; border: none !important; color: var(--text-secondary) !important; cursor: pointer;
+        font-size: 12px; padding: 2px 6px; border-radius: 4px; }
+      button.chat-history-x { font-size: 18px; line-height: 1; }
+      button.chat-history-act:hover, button.chat-history-link:hover, button.chat-history-x:hover { color: var(--text-primary) !important; background: var(--bg-card) !important; }
+      button.chat-history-link.armed { color: #e05252 !important; }
+      .saved-chat-note { text-align: center; font-size: 11px; color: var(--text-secondary); margin: 8px 0 14px; }
+      .welcome-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .chat-container button.welcome-chip, button.welcome-chip { background: var(--bg-card) !important; color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important; border-radius: 14px; padding: 5px 11px; font-size: 12px;
+        cursor: pointer; text-align: left; max-width: 100%; }
+      button.welcome-chip:hover { border-color: var(--text-secondary) !important; background: var(--bg-secondary) !important; }
+      /* Code blocks share the edit cards' look: flush header bar, numbered
+         12px monospace lines, quiet buttons */
+      .code-block { padding: 0; white-space: normal; overflow: hidden; box-shadow: none; font-family: inherit; }
+      .code-block > div:not(.code-block-header) { font-family: 'Courier New', monospace; font-size: 12px;
+        white-space: pre; overflow-x: auto; padding: 6px 12px; }
+      .code-block > div.code-body { padding: 4px 0; }
+      .code-body .edit-line { padding-right: 12px; }
+      .code-body .edit-line > span:last-child { padding-left: 0.7em; border-left: 1px solid var(--border-color); }
+      .tab-content .code-block button.copy-button, .code-block button.copy-button {
+        background: var(--bg-card) !important; color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important; padding: 3px 10px; font-weight: bold; }
+      .tab-content .code-block button.copy-button:hover, .code-block button.copy-button:hover { border-color: var(--text-secondary) !important; }
+      .tab-content .code-block button.copy-button.copied, .code-block button.copy-button.copied {
+        background: #38a169 !important; border-color: #38a169 !important; color: #fff !important; }
+
       /* Proposed edits to the user's open file (```edit blocks) */
       .edit-card { border: 1px solid var(--border-color); border-radius: 8px; margin: 15px 0;
         background: var(--code-bg); color: var(--text-primary); overflow: hidden; white-space: normal; }
@@ -679,13 +450,13 @@
         justify-content: space-between;
         align-items: center;
         background-color: var(--bg-secondary);
-        margin: -15px -15px 10px -15px;
-        padding: 8px 15px;
-        border-radius: 8px 8px 0 0;
+        margin: 0;
+        padding: 8px 12px;
         color: var(--text-primary);
         font-size: 12px;
         font-weight: bold;
-        width: 100%;
+        font-family: inherit;
+        gap: 8px;
       }
       .code-block-actions {
         margin-left: auto;
@@ -812,7 +583,7 @@
         margin-bottom: 0 !important;
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         gap: 0 !important;
       }
       
@@ -821,65 +592,8 @@
         margin-bottom: 0 !important;
         display: flex !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         gap: 0 !important;
-      }
-      
-      .input-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 0;
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
-        padding-top: 0 !important;
-        flex-shrink: 0;
-      }
-      
-      .button-row {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-        padding-bottom: 0 !important;
-        padding-top: 0 !important;
-      }
-      
-      .input-row {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
-        background-color: var(--input-bg);
-        border-radius: 4px;
-        position: relative;
-      }
-      
-      .input-row:has(#user-input:focus) {
-        background-color: var(--bg-primary);
-      }
-      
-      .button-row {
-        display: flex;
-        gap: 10px;
-      }
-      
-      .button-row button {
-        margin-bottom: 0 !important;
-        padding-bottom: 8px;
-      }
-      
-      /* Button size ratios: Debug = 40, Analyze = 40, New Chat = 20 */
-      #debug-error-button {
-        flex: 40;
-      }
-      
-      #analyze-plot-button {
-        flex: 40;
-      }
-      
-      #new-conversation-button {
-        flex: 0 0 100px !important;
-        min-width: 100px !important;
-        max-width: 100px !important;
       }
       input[type="text"] { 
         flex: 1;
@@ -888,43 +602,6 @@
         border-radius: 4px;
         background-color: var(--input-bg);
         color: var(--text-primary);
-      }
-      
-      #user-input {
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-        padding: 8px; 
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background-color: transparent;
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: inherit;
-        resize: none;
-        height: 24px;
-        max-height: 150px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        line-height: 1.4;
-      }
-      
-      #user-input:focus {
-        outline: none;
-        border-color: var(--border-color);
-        background-color: transparent;
-        box-shadow: none;
-      }
-      
-      /* Specific button classes - each button type has its own explicit styling */
-      button.debug-button {
-        background-color: #dc3545 !important;
-      }
-      button.send-button {
-        background-color: #27ae60 !important;
-      }
-      button.analyze-button {
-        background-color: #805ad5 !important;
       }
       button.access-button {
         background-color: #8e44ad !important;
@@ -938,30 +615,16 @@
       button.execute-cleaning-button {
         background-color: #27ae60 !important;
       }
-      button.new-chat-button {
-        background-color: #6b7280 !important;
-      }
       
       /* Ensure buttons in tab content are not affected by tab hover */
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]) {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]):not(.welcome-chip):not([class*="chat-history"]):not([class*="cx-"]):not([class*="ux-"]):not([class*="gx-"]) {
         background-color: var(--text-primary) !important;
         color: var(--bg-primary) !important;
       }
       
-      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]):hover {
+      .tab-content button:not(.debug-button):not(.send-button):not(.analyze-button):not(.access-button):not(.copy-button):not(.insert-button):not(.execute-cleaning-button):not(.new-chat-button):not(.action-btn):not(.custom-dropdown-button):not([class*="xp-"]):not(.welcome-chip):not([class*="chat-history"]):not([class*="cx-"]):not([class*="ux-"]):not([class*="gx-"]):hover {
         background-color: var(--rgent-accent) !important;
         color: white !important;
-      }
-      
-      /* Override for specific buttons even inside tab-content */
-      .tab-content button.debug-button {
-        background-color: #dc3545 !important;
-      }
-      .tab-content button.send-button {
-        background-color: #27ae60 !important;
-      }
-      .tab-content button.analyze-button {
-        background-color: #805ad5 !important;
       }
       .tab-content button.access-button {
         background-color: #8e44ad !important;
@@ -971,9 +634,6 @@
       }
       .tab-content button.insert-button {
         background-color: #28a745 !important;
-      }
-      .tab-content button.new-chat-button {
-        background-color: #6b7280 !important;
       }
       .tab-content button.execute-cleaning-button {
         background-color: #27ae60 !important;
@@ -1418,7 +1078,7 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         position: relative;
       }
       
@@ -1430,7 +1090,7 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         position: relative;
       }
       
@@ -1455,7 +1115,7 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         position: relative;
       }
       
@@ -1488,7 +1148,7 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         position: relative;
       }
       
@@ -1500,7 +1160,7 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
         flex-direction: column;
-        height: calc(100vh - 100px);
+        height: calc(100vh - var(--chrome-h));
         position: relative;
       }
       
@@ -2135,6 +1795,11 @@
       .explorer-title-section { display: flex; align-items: center; gap: 12px; min-width: 0; }
       .explorer-title-section .dims-text { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
       .explorer-actions { align-items: center; }
+      /* Hover tips (after 1 s) for the explorer toolbar: the Viewer pane
+         doesn't reliably show native title tooltips */
+      .xp-tip { position: fixed; z-index: 3000; pointer-events: none; max-width: 260px;
+        background: var(--text-primary); color: var(--bg-primary); font-size: 12px; line-height: 1.35;
+        padding: 5px 9px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
       .xp-btn { height: 30px; padding: 0 10px; border: 1px solid var(--border-color); background: var(--bg-card);
         color: var(--text-primary); border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
       .xp-btn:hover:not(:disabled) { background: var(--bg-secondary); }
@@ -2207,6 +1872,11 @@
       .xp-colhead-menu { flex-shrink: 0; width: 20px; border: none; background: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; }
       .xp-colhead-menu:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
       .xp-table th.xp-pinned-col { box-shadow: inset 0 -2px 0 var(--rgent-accent); }
+      .xp-table th.xp-pinned-col { z-index: 4; }
+      .xp-table tbody td[data-j] { z-index: 0; }
+      .xp-colhead-name .xp-pin { color: var(--rgent-accent); flex-shrink: 0; }
+      .xp-table td.xp-sel, .xp-table tr:hover td.xp-sel { background: color-mix(in srgb, var(--rgent-accent) 30%, var(--bg-card)); }
+      .xp-table thead th.xp-col-sel, .xp-table tbody th.xp-row-sel { background: color-mix(in srgb, var(--rgent-accent) 35%, var(--bg-secondary)); color: var(--text-primary); }
       .xp-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 5; }
       .xp-resize:hover, .xp-resize.xp-dragging { background: var(--rgent-accent); opacity: 0.5; }
       .xp-empty { padding: 32px; text-align: center; color: var(--text-secondary); font-size: 13px; }
@@ -3042,39 +2712,263 @@
         opacity: 0.6;
       }
       
+
+      /* ===== Chat pane (2.4.2): one top bar, flat replies, one composer ===== */
+      :root { --chrome-h: 96px; --cx-accent: #8b5cf6; --cx-radius: 12px; }
+      .app-bar { display: flex; align-items: center; gap: 12px; height: 44px; margin: 0 0 8px;
+        border-bottom: 1px solid var(--border-color); position: relative; }
+      .app-top { display: flex; align-items: center; height: 44px; padding: 6px 2px 0; }
+      .app-logo { display: block; height: 32px; aspect-ratio: 276 / 144; background: var(--text-primary);
+        -webkit-mask: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARQAAACQCAYAAADJJpQDAAAZ6ElEQVR42u2de7Ql85XHP3XO6YemNW014xWCoA0ZCRNpryReoZdOMO0ZzIx3TIJ4JUESBJEYb9rEhEgGI4znQkKjhdBEQjDj3V5Juj2i0fTznnNq/ti/n7u71Lm3qk6dOufe2t+1at3bfe89p05V/fbvu/f+7r0Bqgg2AK4BZgPvAA8CX6MfNSDAYDAYBsG2wFtAGHPcAmyofrdql8tgMLTC6sqY9AFNdzTcEQLzgZOBkcqoGFsxGAwfwzRlTOIYSl19/ziwnbEVg8HQCnMUKwlbHM2IwbkMmOD+vuIOg8FgaGlE4g7tBr0O7M/SQVuDwVByLBqEncQdmq3cCqyvXs/YisFQYtzPx2MlSY6m+pv3gePoj6lYitlgKCm2VIahL6VRiRqih4FJWNDWYCg19gI+VAai2QZbqQPnAGMtxWwwlA+eRUwEbic+TpKGrXhj9BywKxa0NRhKa1RAMjevK+bRyGBYtDH6ObAalmI2GEoFvdgnIFqTMKKgzZping38s7EVg6HcbOVLwB9bBGCzsJXb6E8xB8ZWDIZyIFCGZRRSxzM/p6DtPOBYZUwsxWwwlJCt/D3w6xyCtv77B4F/tBSzwVA+tqJjHgch9T/ROEkatuKN0RLgDGAZSzEbDJQ2aLsqcFWObOVJYHtjKwZD+aDZyq7As5HMTla2EgKXAuONrRgM5Q3ajgV+EpHvt5NifhmYailmg4FSB20nATNzTDFfC6xpgjiDobxspQqcCHzQRoq5oYzRm8AhxlYMhnKylUDVBd3RJlvRf3Mn/Y2yTRBnMFDOoO3BwBttppi9YfkAON4EcQYDpU4xrwFcTX4p5t8Bn7MUs8FQbrayOzCrjSrmqCDuTEwQZzBQ5qDtisDFbVYxa7byNLCDsRWDgVKnmLcDnmgjaBs31mMl9T4WtDUYSsZWRgOnA4vbFMT5v3kFaWVpKWaDocRsZTPgtzkK4q4D1sIEcQZDqauYj0HGceQhiPsbcESErVjQ1mCgHClmv9jXR7q65SWIuxvYxIK2BgOlTjH/C+33XPGGZT5wCjDSUswGQ3kFcasBvyQ/QdwfgC8YWzEYys1WdgNeykkQ1wQuQPQwlmI2GChninkF4KIcxnr4v5kF7GFBW4OB0o/1eDzHFPOvgPXMDTIYyj3W4wf0C+LqbXaIex8ZEzIG064YDKVlK58BZuSYYn4mxg0yGAwlE8R9E5irDES7jbJvBNa1FLPBQGkFces6Q9Bu0NYzlrlIcyj9XgaDgXKlmPcEXszRDfo5UsRoRsVgKKkgbhxwFrAgp+mGD9DfGsGMisFAOYO2mwC3tOkGLXFfHwWWi7hZBoOB8gVtd0cyOFndoCUqWGtaFYPB3CCWRbQr8zNqV7xROdCMisFgbpDHxsCvM7AVL9t/FRHABeb6GAzmBnkcAbyb0qj435tqwjeDwRB1g9YH7lcMJEkNUBNJJZtBMRgKdDFq6msvVvJqY3BWQqPiGcpMxXoMBkOH6lX8AmsMwA6aPeL+eIxHGjmFKf5ulD02hhyZskbdDEr/YvOLcmtk+NYngHmIhuM2JMPSbaNSUe0hd0Lm+azjzn0w0ZpnKnPUazVsbRgyoNkjm2tPGhS/cy8HXInI36N4CQmE3ttFo1JzhmQUMg/oRMWokqSBQ/dZZ/SgyxMMck5h5Kuhe/cpBD4NfNatA58xXAzcDCwy+ia4UQUvo0cILERm8AQF6zi0unUz4LEMknzfevJ94O+6bFCCSHyqkvJa1FSMy+JA3dnAzyBemrDyUI/P1XIIwDaASUgvkXqLB7UPKbI7C/hygTtlTfmlJzpmMsr9X5rPXgdGAN8D3lCfu2gjog1h1FCMcyxxjDLYTedqznfGsBHDDv39ypOGd2pBDBeGtcA9U3q9vJfx8wXDyaD4D/MFdTGCFu8TOsMzAXg7EnfpFCupI+nhS4Ad1SJL87n7nDH5b6SvbbVAl62q3LK6ci0nOsq8KfApJF61ovvZKHUPvMr3Q0R387pzP59wx7NInCt63Zpt3htzrZIxRW3Qq8PhWucVlF1hEEvpfzYWWKXDBkWzksOAH7vzq6fscu/ZwAjgVmRWUCWHxZbUkDQVE1nNGcTJwFbA6ikM/ih3rIT0z91O/XwO8AiiHr4beC3mHLJ81pHuCHNmaQuGazCzjWd9dA8ZlTAvgzI/oxQ+b7eg4gzHmsi4jD3UDp/mszZUnOJy4OsFBTajhmR74CBgFzX6g4huZiADHg7iQq2KFE/u7ljMdOAXwB3KKKdx77wxPwE4UhnxPFydCjAFaVJeLXmGzV/nrwAX53id27k/ATA3L4PSSPGmozrg+1VVbGFf4HzHhBruQaymjJfUkKj78c5dCjpsTIJIGnpP4GjHRvQ1DhNoGUiYtmxE3n85ZVyedg/qfyFZh4r6uyTw+p68YRqgpbFch65zVoyt5Rhk6paYrqIi5OcC+6dMBxNZLDUXXzgcyQhVO+zmaGP4ReBUNeGwqQxxGHPtPgRednGR14C/IsFXzxjHOHdvVWAtF09aR/V20UZUv9cmjpkdA/wQuC7GnRzMKPuMX20Ao5j2Xpu78/Hr3Kc2zqyTJOI0MllCEvO7wVBGd2Ah7gZciAQn22ElOKN0ituZax1WL/rXXwHJgH1dXc+gBRv5E3AXUof0FDA75Xuu5gzGF1xcZnP12RsRQ7YREow+ADgOeC6hjihQxr6SY2/eEWZDlsJod01GdEAGkgUTusFQqjmykvHA2cChMYYhqe/nsz4vAf+GBCf9eRZhTLZEBIEbqIXsF62/Vm85lnAt8PuYnSOJpsTHXWa74y7gJESbs7dzFddQhkUHoCcjCuhjkOLINOJEv5HMA67JGPvw1+QvlkVaik0/DUxzz1ElQ+D8QLXBN91rzETmgFdT3uOKY8y5ZIn+NcFAc0+Dp7Th+mhjNFnNPM7SN1a3LbiS/qBnp4sZNdU8lP7mTX0xI1PnAN9Rgid93bMK07QwTmNFZCTJrJhrpMeTnDPAxuBf8yfqM/m/e9EIxUfX55SYtqRznaSiSG3JWzE9lI/uhQu0V4LeIv5nu2UwKHoRjgMuJX60aFLVqz+XN4F9ChxFqvuynBZzPnX1fxchgWV9rTvR07YSuRfj3LktiCifQ+difX6ABlMDGZSXXUyn5ih6LcMRmEGJfZ7SHP7aj0fkG1GDcpJKR2e5R7lcoKkJDIo/4X1TGhS9yHdyfnwerOQWF3MpcqCX/8znxDxQ/vo8j8xwLnqQe7QJ1T8AD6nrdZticcEgny/OoMxyNLvMrR96gaH4116+hUH5TjvJk1pOUuj5HXjPQMUxxgJnOkqeNVbitSjz3EW7LIPOIo+YyclIOrpPBdP857nVuY/vun83Cixp9wbXX/cnkcDtpUgK/aiCr1de7Cu0mMvQU8qmSectkyKDU0fEXRchGYdmhvPWIrX7gG8gkvNKigwVOWSk6kjw84yIQfTfX+rOrYiAcBLD4kWCh0eMfGMIBi8rlnIutlK4XSxKQdVqCWh3A9FKnA/c44xJPaWYK1QKwkXAt51xeta9R1E9KXxGan3gZ/RH0wNlTC5wxqTSQ31WmpHUbzCEdnr/HG7j3LSmTSoYWgYlzQIYM8Au7o3ADkhjpmMiqd20i6GGpMG2cn69lucX9WD797zSGclQGY0aovP4liqg7KWdNFSGNxyCkw72Bn6LlGI0rA9w7xuUMMJQKhl0KJqVLOtYyXTFSoKU56np+mnAtkj9RzcWrDcchzmjVlf5fR+nOLjAosOyYS4i4nsIUSHXh0m2yBhKC4aiWcmXkMrXdliJl6c/7gzJqUqkVe8C7W4iKthTlavjjcZiRFi00GTldDJG2HQM5W5n2Os2p3poxFCSVuNWY1jJuUjAdOM2WQnAjxD16UxlkJpdot0hEtRcRRkUb+DOQ3QdNetN2/FnfIm7zj9F4lWBxVV6n6Ekpetj3e8uQnpzPAIcmwMrecqxnJPc7l9VuhO6wE4aSEbriBg5/RtIyYA1ui72OW8gStA7Ec2HxVV61KAsTOFSLET0F+cjTavbZSWB2+0/jwTgaj2Q3vSuzXbA2oqd+GDxZYgepmJxk8LbaNaRNqQPI3VMdTMqvWdQkoiH/HtNAh7MKVbyv0gq+DhnqLrJSuLSllMjSt2aY2a/sLhJ15sTrec2oH0G6IVs6FKWZ4lzM5K817bAFqpEPysrudCxkvt6hJVoY1JHZObbqs/ojcfvkN4lZlC6H6xdFknbn6bcdour9IBSNk06tpmhEE/rSp5x7GZ6D6hKB5q9sg7S1CjaHOiuGCNTpoH1zTZEco2c2GdDBc2bwPcRmcJBwAcF9MExhjIIkjCUrK0LNSu5wLGS6T3GSuKu6URVQqCZ2GMlrS9p0D8+ok+NkUhzhDn37tVxlanAA0hfGour9EAtT967ra7beR4pTru7R1lJHNaOxJcqzui+QveaBLVqf9AoIJ40Dsl41dt4nVuRHh5ZGI5v9PQmosL+SoT51pGxJA8h+qA7C2j/aQaF1rNr+iI3jjZ7ZfpzuwSp0J2nNBtDIdW6Usz/veeObhmUZhcD1BPor/DOimedQWkn3R4i0xC+jVSw61lNDXff7kAC/edZcWHxBsXf3L4OsJKjXcxhMFYS9GBrwOVjdseFdGd2rd/RN0Qa6zQjAeQnndtKh+uCGm2OaejLyd0Zi/TwfQm4AqmxqqsYD4jYciNkHMgSG91R3CjSemRUZh6s5GKkCc28mFk1rSbrxf2bLnckbzd+lHdN0YVIkyqNxUgAeXaHK4qDHCdV5iFxqALXI60pr0fSyHVV81VH6qw2QJqC/cWCtZ0LylZUfcymSD5/LRUryBJ/qbmbu4uLl8xTu0LYooq3oYKe1ci/u415MQthuQGqrYtAn1osPjawuCBmF6rgfdpjkeq9mydbGoGMTNmK/kB/PaJX2RoRwW1jxYWdYSj6oh+PDCBfJqMx0axkmouVvDdIrETvov/kdo+J7r1fRIZT3dADbtAc4ke2TkCqYLvRXyRocXQ6blMB/oyM7ehr47PPzpmBekHbW8DOjsF9IyK4bCDFhfc49+eKyAxoQ5usBOeL39OiV2uSQ/eDfcGxkiSNov0CWB7pcdrq9X+mWEvQpV4cO0RGhvpr9NWCGmLHndMdMQxlHjIILA+XYqCesi91YaM8K6Z365sqvhXEPNtHxtwzPYng3Daamg/7nrKVlMrCJjKM6lFE8l7PoC4M1Q28HPgcMqy7mkBX4vUc1yPjOPrUzW6q4PDB9Ksfq13KpDyLBGGjfU23LmmjZj/kraKG1qc9OnnPfGnENMdW3lIxQl1ceKwzzCtZcWF6g6KFP2s5VjDNWbdGBn/SR+tnOYNwuHNxqglUkD44OwUp7vJNnvXDWY00g57UhUHS/jPOBv4vQvtx517WKuNmm0cRvXRrLp6yJf2NueqRtTAZ0atsaiK45AalqujeAYjCc0obNQ/eWLztbtbtKdWu3nDtTL8gabC2i1eoptgBxfdCuSvCyppIdfUWXXB7DOnierOQrv/Xq1hKqAzMBoiydqoVFw5sUHTGZAJwNfBL1T+inQvnjceHCVkJLUYoBgnT2RORhktFuz5+N70h0sjHG8Jvmvqy542KH625N5J4qKpArDcwY909/p56litmUOJZyRTHSr6WcyVm1RmFrJR/Zoru+r6hznYFuz7exXkSqS7WBWlNJDu1sXUN63n3zG+uP0CyiQuUXEIXF56OVC0vm6Edx7A1KLol44UuXrJWB+jcSGAU2YrLAkdB/5xwmLNPT16hOsUVRUsDNSUwiJzPSCRbEBpN7mnoAXHXIY2uZ0XiKt7A7IPosdYrc1ylor7WkSDmw4iwrNkha5tV++Dp5PtIpimJDsDHLdZG6jKKZAS+d+wdjlVVFUtpIIrVQ9x1H2Frd0jEVR5DsnT3KqOi4yqbIcHaL5dVBFdRi+4kF2T6dMahWkmj8KMUQwkyLNKaW6SXJ5RC+3jKIc6NK9L18YzkWxGdjM/yXIRkCvosUzAkjIrvB7wzUuhYiykuXBmpVD6qjB32vTE5B6m8rGZgJWk7r7WrzvQ7/3HAy5GCrsF6vP4Hoh8oKnjmGcmjjiHV1PUKkAzUzcBqln5kqPR08ZvBkUh8Tm8Qus/Khe55q5UpVlZBVKrHZ7CmetTnHEcHB5K6ByqGMjIHnceHiIAtSU9bbzhXQ9ohNAvcNfzDdBLwB2VU/EO4NvAbRK1qRoUhMy+55hjmZEQKERXB+bnQd7vnrhQiuAr9Kcw0zKGhqkfvRdSuN6Wos6jmsFPUgPvdzp+ktLyqgmf7FLh4Q1UYtyf9CkwdT9kEmIGkua0AjSERrPX36S4XV3kiEqz1338RiUtOQooch7VepeIe4jQui2clCx2z2REp7V4mhbhtTI7uxMmIIrWWIkh7iWMEjYKYimcpryK1PPNjjMoGyDSA3SLBPkPvB2tfQERw/xMjgmsg2dIZSM/axnAuKkwzF0bXO8xE1K7nIhmKilskRfay1XOVD1Y3MUzweVdCpsgVmbb1rOoRZ1Q+jBiVpjuvm53/PS4i+R4Ou1rQ5tHLIrgPHAM9MyKC8/d2FCJf+O5wd3meT5ClqavF+ENkPMSfIkWDfSmMQF5yeL9IH0UqS9O4PlOUIaoWvKPd65jdnIjv7e/DUcAfkZIHIjteZQgbl6b6jGGGo9dFcBWkknh/VRjaiBSIngWckHML1p4yKFcO0J9Ca1GeQRSn31cLoB7p/EXKcvo8Mymns3TQM0nX8/OATxYcpK0rprKVmsHcjGQM1kVKHmYC+zk3sR5hitrADGZkemGXr7ZRbVwdAnEVv1auQcbivhLpauhZyziGcYOlG5H2AbsggcOKMjDegv7UWdUP1IJtxozSSMtQyNH1qTsf9THVxm+gAsImUjX9n0jvkmqBO6GPQ73ignZnI1oV/TNvOLZwD+gspG7kJqQKtj5Ae4e46xN2qcLZn8+aSClCmLHBUgDs5V6jl/u71hVr3gq41t3jujKkw1ohHTjffUYMxXwdqTsZiFl4o3MAgzdb8j/btQNMxZ/HCap5zWAU2v/O0V2ioHrx74hkCsJIc6JGzDV9xhnCg4DNkcLNYJD3Ga/ucZENlsIcjy0TPjdpGyx1sqnVCBWva0RifeFwa7Dk/+gdpGHS/u7BHuGo9tXuZwM1ik7DUDxGd+DCedfn3118ZJsE8RG/0/0I0Qs8W/DIBO17T3ds5Egke7Z6JA2v4ygT3XEI/eM53gT+5r5vqOu7vHtQV3FGhRwaiif5XPUYFtVsU3vUaOM8QtXlnwJFcF6P8hySxAhUG0y6cF5RNlWPsNdmnlYrS7zD/3z3FAxl3w4xAr/jfwrJotQTBAD9OT2sfPWgS/EF1Eyf49xDGD1XPwNpSWTnTXPohTa3Awzl4pyZiT+2TslQzo95jcUqhlHEfQ7U+U52Rr/VPVm5QIYyrgWDPDUPhhLGjMIIUg7VWtylGEqc3uNF5/pMSyBgq6rCyO/Sn/Yr2kfXJQzvuN3sUvcQ7ueCfONjPm8jYexHp1+r6iFfMccH2O9uMxzLbeQoEQiAvyZsPO7P4373rOlyhw9SJhDyrFi+0zHnI9XG5T/bAncUhcXIaN/lIqNFZnZxKNxSu8X2CRiKt4iHdjhm4V/3NwmbaPsdewnwmR7ophY3w2ZlROdwOfC0e/iy7vRNRGR3s3u4R5syt3AWio3RGHyHTULXQqTnShGxicOQrMDyg6SG/e41Akmjb6F2tW7oH8JIvw0Qyf4N7gBRX67vjnWd2zLBXdtRykdeALyLVMm+6tjbc0hh5aICJiTkzeLCNs8j7GKGqDHItan3wPovon9vorjFeipm0RyEoRxQQFbFv/aBGbI+Z/Wg8CjqquS1Y5q830AvCuQCRKwVqilv0Vk8Pqj4yYL6RPjFclNK16dB8hRlt4yL7vJfUxqHIMPvGQw96RtuqUZb6oyEzkacXeBC9fRyFSStGqcDiDN8oXMLxlg3c4Ohu67P9oieI7pQFzpjUil4h6yqsaVpXZ+LhmvNhcHQyZx03h3gRiMCuc+6Xf5lpCDuJboXfK4jtTEHJCwI9OnmHZGxq9WSDucyGHp6eFg3e+euiJQTNBO6Pj69urzFHQyG7mckaixdFUsPxHl2TuH6+CDuleb6GAyGVlmfaRniKV+18aEGgyGOOS2LCLzCFK7PHEQ41inRlsFgYOimuLeNKeUfzPX5lbk+BoOhletzTgbXZz9zfQwGQ5zrMwp4KqHr4zND7yC9SgJzfQwGQ9T12dyxjzSuz+3m+hgMJSynZuCK3hoyU6iCNOAerH+H78C1ITAbaYpd7fGO7AaDoQt6md+nLCCcB6xjro/BYIhT9m6M9AdJ4/rcp1wfU9EazOWxS/CR6/MGUsC4cwrXZ13HVB5OOArVYDCUyPUJkD6kaVyfhcBGBfV3MRgMQ8z1WRdpZNxI4fo8orqpmetjMJfH8JHr8w4yWmJKCtfnE+7r/eb6GAyGuG7zd6Z0ffqAzcxQGwyGuP64azimkqZt5JPASHN9DAZDnCu4f4Zan7NNRWswGGhRQHhDStenSfKRmQaDoUSuTwWZ2PdGStfnBaTnirk+BoOh5SD4NK7PJeb6GAyGVq7PVQldH/07O5nrYzAY4lyfFYDXSNcx/zVgHNYx32AwxLg+Oym3ppnQ9bnKWIrBYGjl+lyaIZ4y2YyKwWAgpoBwDJLFSdI20qeRH7DiQYPB0Mr12TqiOxlImxIiitsVOzT+1WAwDAPX58cJXJ+mO95BgrpmUAwGQ6zrMxKp3RkoleyNzXRzeQwGw2Cuz2b0x1G0+9NUxqQJTLKgrMFgSGJU9gMWtGAobwN7GDsxGAxpjMoWwC3AW864vAJcBqxnzMRQJvw/UM+A74P2mxEAAAAASUVORK5CYII=") no-repeat left center / contain;
+        mask: url("data:image/png;base64,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") no-repeat left center / contain; }
+      .tab-navigation { display: flex; gap: 2px; align-self: stretch; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+      .tab-navigation::-webkit-scrollbar { display: none; }
+      button.tab-btn { background: none !important; border: none !important; border-radius: 0 !important;
+        color: var(--text-secondary) !important; font: inherit; font-size: 13px; font-weight: 500; padding: 0 9px !important;
+        cursor: pointer; white-space: nowrap; box-shadow: inset 0 -2px 0 transparent; transition: color .15s, box-shadow .15s; }
+      button.tab-btn:hover { color: var(--text-primary) !important; }
+      button.tab-btn.active { color: var(--text-primary) !important; box-shadow: inset 0 -2px 0 var(--text-primary); }
+      .app-bar-actions { margin-left: auto; display: flex; gap: 2px; }
+      @media (max-width: 400px) { .app-bar { gap: 4px; } button.tab-btn { padding: 0 7px !important; } }
+      button.cx-icon { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+        border: none; background: none; border-radius: 7px; color: var(--text-secondary); cursor: pointer; padding: 0; }
+      button.cx-icon:hover:not(:disabled) { background: var(--bg-secondary); color: var(--text-primary); }
+      button.cx-icon:disabled, button.cx-chip:disabled { opacity: .4; cursor: default; }
+
+      #chat-tab, #chat-tab.active { height: calc(100vh - var(--chrome-h)) !important; }
+      #chat-tab .chat-container { height: auto; max-height: none; min-height: 0; flex: 1 1 auto; border: none; border-radius: 0;
+        background: transparent; padding: 10px 2px 18px; }
+      #chat-container .message { margin-bottom: 16px; box-shadow: none; transition: none; }
+      #chat-container .ai-message { background: transparent; border: none; padding: 0 2px; max-width: 100%; line-height: 1.55; }
+      #chat-container .user-message { background: var(--bg-secondary); background: color-mix(in srgb, var(--text-primary) 7%, var(--bg-primary));
+        color: var(--text-primary); border: 1px solid var(--border-color); border-color: color-mix(in srgb, var(--text-primary) 10%, transparent);
+        border-radius: 16px 16px 4px 16px; padding: 8px 13px; max-width: 85%; width: fit-content; margin-left: auto; margin-right: 0; line-height: 1.45; }
+      /* a line break right after a code block or edit card only adds an empty line */
+      #chat-container .code-block + br, #chat-container .edit-card + br, #chat-container .output-block + br { display: none; }
+      #chat-container .ai-message.code-question { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: var(--bg-card); }
+      #chat-container .code-block, #chat-container .edit-card { border-radius: 10px; }
+
+      /* Thinking / working indicator */
+      #chat-container .thinking-row { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; min-height: 22px; }
+      .think-spark { width: 14px; height: 14px; flex: 0 0 auto; color: var(--cx-accent); animation: think-spin 2.4s ease-in-out infinite; }
+      .think-label { font-weight: 500; color: var(--text-secondary);
+        background: linear-gradient(90deg, var(--text-secondary) 0 35%, var(--text-primary) 50%, var(--text-secondary) 65% 100%);
+        background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        animation: think-shimmer 2s linear infinite; }
+      .think-time { font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+      @keyframes think-shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+      @keyframes think-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(.75); } 100% { transform: rotate(360deg) scale(1); } }
+      #chat-container .exec-status { font-size: 13px; }
+      @media (prefers-reduced-motion: reduce) {
+        .think-spark { animation: none; } .think-label { animation: none; background: none; -webkit-text-fill-color: currentColor; }
+      }
+
+      /* Composer */
+      .input-container { flex-shrink: 0; padding: 0 0 12px; }
+      .composer { position: relative; border: 1px solid var(--border-color); border-radius: var(--cx-radius);
+        background: var(--input-bg); transition: border-color .15s, box-shadow .15s; }
+      .composer:focus-within { border-color: var(--text-secondary); box-shadow: 0 0 0 3px rgba(127,127,127,.12); }
+      .composer .input-row { position: relative; padding: 10px 12px 2px; }
+      #user-input { display: block; width: 100%; box-sizing: border-box; border: none; outline: none; background: transparent;
+        color: var(--text-primary); font: inherit; font-size: 14px; line-height: 1.45; resize: none; padding: 0;
+        min-height: 21px; height: 21px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; }
+      #user-input::placeholder { color: var(--text-secondary); opacity: .8; }
+      .composer-bar { display: flex; align-items: center; gap: 4px; padding: 6px 8px 8px; }
+      .cx-spacer { flex: 1; }
+      button.cx-pill, button.cx-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+        border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text-secondary);
+        font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+      button.cx-pill { border-color: var(--border-color); }
+      button.cx-pill:hover, button.cx-chip:hover:not(:disabled) { background: var(--bg-secondary); color: var(--text-primary); }
+      button.cx-chip svg { width: 14px; height: 14px; flex: 0 0 auto; }
+      .cx-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+      .cx-pill.cx-auto .cx-dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+      button.cx-send { width: 30px; height: 30px; flex: 0 0 auto; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center;
+        background: var(--text-primary); color: var(--bg-primary); cursor: pointer; padding: 0; transition: opacity .15s, transform .1s; }
+      button.cx-send:active:not(:disabled) { transform: scale(.94); }
+      button.cx-send.empty, button.cx-send:disabled { opacity: .3; cursor: default; }
+      @media (max-width: 440px) { button.cx-chip span { display: none; } button.cx-chip { padding: 0 8px; } }
+
+      /* Jump to latest (shown when the reader scrolled up) */
+      .input-container { position: relative; }
+      button.cx-jump { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translate(-50%, 6px); z-index: 20;
+        width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-primary); box-shadow: 0 4px 14px rgba(0,0,0,.16); display: inline-flex; align-items: center; justify-content: center;
+        padding: 0; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; }
+      button.cx-jump.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+      button.cx-jump:hover { background: var(--bg-secondary); }
+
+      /* Run code (Ask first) */
+      .run-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 2px; }
+      button.cx-run { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 10px; border-radius: 999px;
+        border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: 12px;
+        font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+      button.cx-run svg { color: #16a34a; }
+      button.cx-run:hover { background: var(--bg-secondary); border-color: var(--text-secondary); }
+      .run-note { font-size: 12px; color: var(--text-secondary); }
+
+      /* Saved chats: title above its date, so narrow panes keep the title readable */
+      .chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 4px; row-gap: 1px; align-items: center; }
+      .chat-history-row .chat-history-title { grid-column: 1; grid-row: 1; }
+      .chat-history-row .chat-history-meta { grid-column: 1; grid-row: 2; }
+      .chat-history-row .chat-history-act { grid-row: 1 / span 2; }
+      #chat-history-clear { white-space: nowrap; }
+
+      .cx-fade { animation: cx-fade-in .25s ease-out; }
+      @keyframes cx-fade-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .cx-fade { animation: none; } }
+      /* While signing in with a saved code, show only the status */
+      #access-section.ax-busy .form-group, #access-section.ax-busy .access-button, #access-section.ax-busy .access-help { display: none; }
+      #access-section.ax-busy #access-status { margin-top: 8px; }
+      .ux-account { text-align: center; margin: 4px 0 2px; }
+      #usage-tab button.ux-link { background: none !important; border: none !important; color: var(--text-secondary) !important; font: inherit;
+        font-size: 12px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; padding: 4px; }
+      #usage-tab button.ux-link:hover { color: var(--text-primary) !important; }
+
+      /* Slash commands */
+      .slash-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 50; background: var(--bg-card);
+        border: 1px solid var(--border-color); border-radius: 10px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+      .slash-item { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+      .slash-item.active { background: var(--bg-secondary); }
+      .slash-item b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; min-width: 64px; color: var(--text-primary); }
+      .slash-item span { color: var(--text-secondary); }
+
+      /* Usage tab */
+      #usage-tab .usage-container.ux { width: 100%; max-width: none; margin: 0; padding: 8px 2px 24px; overflow-y: auto; height: 100%;
+        box-sizing: border-box; border: none; border-radius: 0; background: transparent; display: block; flex: 1 1 auto; min-height: 0; }
+      #usage-tab .usage-container.ux > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+      .ux-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 14px; }
+      .ux-head h3 { margin: 0; font-size: 16px; font-weight: 650; color: var(--text-primary); }
+      .ux-plan { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-color); color: var(--text-primary); }
+      .ux-card { border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: var(--bg-card); }
+      .ux-card-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+      .ux-meter-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+      .ux-big { font-size: 24px; font-weight: 650; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+      .ux-of { font-size: 13px; font-weight: 400; color: var(--text-secondary); letter-spacing: 0; }
+      .ux-pct { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+      #usage-tab .ux-bar { height: 8px; width: 100%; border-radius: 999px; overflow: hidden; border: none; padding: 0; margin: 0;
+        background: var(--bg-secondary); background: color-mix(in srgb, var(--text-primary) 9%, transparent); }
+      #usage-tab .ux-bar .progress-fill { height: 100%; width: 0; border-radius: 999px; background: #22c55e; font-size: 0; color: transparent;
+        padding: 0; min-width: 0; transition: width .3s ease; }
+      #usage-status.status { font-size: 12px; color: var(--text-secondary); background: none; border: none; padding: 0 2px 10px; }
+      #usage-tab .ux-bar.ux-warn .progress-fill { background: #f59e0b; }
+      #usage-tab .ux-bar.ux-full .progress-fill { background: #ef4444; }
+      .ux-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; font-size: 12px; color: var(--text-secondary); }
+      .ux-sub b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+      .ux-sub a, .gx a { color: var(--text-primary); }
+      .ux-rows { display: flex; flex-direction: column; }
+      .ux-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13px; color: var(--text-primary);
+        border-top: 1px solid var(--border-color); }
+      .ux-row:first-child { border-top: none; padding-top: 0; }
+      .ux-row span:last-child { color: var(--text-secondary); text-align: right; }
+      .ux-status.ux-active { color: #16a34a !important; font-weight: 600; }
+      .tab-content button.ux-guide, button.ux-guide { display: inline-flex; align-items: center; gap: 7px; margin: 6px auto 0; padding: 8px 14px;
+        background: none !important; color: var(--text-primary) !important; border: 1px solid var(--border-color) !important; border-radius: 999px;
+        font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+      #usage-tab .usage-container.ux > button.ux-guide { display: flex; width: fit-content; margin-top: 6px; }
+      #usage-tab button.ux-guide:hover { background: var(--bg-secondary) !important; color: var(--text-primary) !important; border-color: var(--text-secondary) !important; }
+
+      /* Guide & help */
+      #guide-modal { background: rgba(0,0,0,.4); align-items: flex-start; justify-content: center; padding: 48px 14px 14px; box-sizing: border-box; }
+      #guide-modal .modal-content.gx { width: 100%; max-width: 560px; max-height: calc(100vh - 70px); display: flex; flex-direction: column;
+        padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); color: var(--text-primary);
+        border: 1px solid var(--border-color); box-shadow: 0 12px 36px rgba(0,0,0,.28); margin: 0; }
+      .gx-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+      button.gx-close { background: none !important; border: none !important; color: var(--text-secondary) !important; font-size: 20px; line-height: 1;
+        width: 28px; height: 28px; border-radius: 7px; cursor: pointer; padding: 0; }
+      button.gx-close:hover { background: var(--bg-secondary) !important; color: var(--text-primary) !important; }
+      .gx-body { overflow-y: auto; padding: 4px 16px 16px; font-size: 13px; line-height: 1.5; }
+      .gx-body section { padding: 12px 0; border-top: 1px solid var(--border-color); }
+      .gx-body section:first-child { border-top: none; }
+      .gx-body h4 { margin: 0 0 6px; font-size: 13px; font-weight: 650; }
+      .gx-body p, .gx-body ul { margin: 0 0 6px; color: var(--text-secondary); }
+      .gx-body ul { padding-left: 18px; } .gx-body li { margin: 3px 0; } .gx-body li b { color: var(--text-primary); font-weight: 600; }
+      .gx-ex { font-size: 12.5px; margin: 5px 0; color: var(--text-primary); }
+      .gx-good, .gx-bad { display: inline-block; min-width: 44px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+      .gx-good { color: #16a34a; } .gx-bad { color: #dc2626; }
+      .gx-list { margin: 0; } .gx-list dt { font-weight: 600; margin-top: 8px; } .gx-list dd { margin: 2px 0 0; color: var(--text-secondary); }
+      .gx-keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; align-items: center; }
+      .gx-keys dt { white-space: nowrap; } .gx-keys dd { margin: 0; color: var(--text-secondary); }
+      .gx kbd, .gx-body kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+        border: 1px solid var(--border-color); border-bottom-width: 2px; background: var(--bg-secondary); color: var(--text-primary); }
+      .gx-body code { font-size: 12px; background: var(--bg-secondary); padding: 1px 4px; border-radius: 4px; color: var(--text-primary); }
+      .gx-contact { margin-top: 10px !important; }
+
+      /* Sign-in screen */
+      #access-section.access-section { position: fixed; inset: 0; transform: none; top: 0; left: 0; width: auto; max-width: none; min-height: 0;
+        margin: 0; padding: 12vh 16px 24px; border: none; border-radius: 0; box-shadow: none; background: var(--bg-primary);
+        z-index: 1000; overflow-y: auto; text-align: left; }
+      .ax-card { max-width: 560px; margin: 0 auto; padding: 40px 36px 30px; border: 1px solid var(--border-color); border-radius: 14px;
+        background: var(--bg-card); box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+      .ax-title { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; color: var(--text-primary); }
+      .ax-sub { font-size: 15px; color: var(--text-secondary); margin: 6px 0 28px; }
+      #access-section .form-group { margin-bottom: 14px; }
+      #access-section .form-group label { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
+      .ax-field { position: relative; display: flex; align-items: center; }
+      #access-section .ax-field input { width: 100%; box-sizing: border-box; padding: 14px 70px 14px 14px; font-size: 16px; border-radius: 10px;
+        border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      #access-section .ax-field input::placeholder { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+      #access-section .ax-field input:focus { outline: none; border-color: var(--text-secondary); box-shadow: 0 0 0 3px rgba(127,127,127,.15); }
+      button.ax-show { position: absolute; right: 6px; height: 28px; padding: 0 10px; border: none; border-radius: 7px; background: none;
+        color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+      button.ax-show:hover { background: var(--bg-secondary); color: var(--text-primary); }
+      #access-section button.access-button { width: 100%; margin-top: 6px; padding: 14px 16px !important; border-radius: 10px !important;
+        background: var(--text-primary) !important; color: var(--bg-primary) !important; font-size: 16px !important; font-weight: 600 !important; }
+      #access-section button.access-button:hover { opacity: .88; }
+      #access-section #access-status { font-size: 13px; border-radius: 8px; margin-top: 12px; }
+      #access-section #access-status:empty { display: none; }
+      #access-section .access-help { margin-top: 22px; text-align: center; font-size: 13px; color: var(--text-secondary); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+      #access-section .access-help a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
+      #access-section .access-help a:hover { color: var(--text-primary); }
+
+      /* Notices (instead of browser alerts, which freeze the Viewer) */
+      .cx-toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 8px); z-index: 4000; max-width: calc(100% - 32px);
+        background: var(--text-primary); color: var(--bg-primary); font-size: 13px; padding: 8px 14px; border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(0,0,0,.2); opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+      .cx-toast.show { opacity: 1; transform: translate(-50%, 0); }
+      #access-section .ax-card { width: 100%; box-sizing: border-box; align-self: center; }
+      #access-section.access-section { display: flex; flex-direction: column; justify-content: center; padding: 24px 16px; }
+      @media (max-width: 420px) { .ax-card { padding: 28px 20px 22px; } .ax-title { font-size: 22px; } }
+      #access-section button.access-button { transition: opacity .15s !important; }
     </style>
 </head>
-<body>
+<body class="chat-tab-active">
     <!-- Access Code Section -->
     <div id="access-section" class="access-section">
-      <h3 style="margin-top: 0; margin-bottom: 30px; text-align: center; color: var(--text-primary); font-size: 28px; font-weight: 600;">Rgent - Your RStudio AI Assistant</h3>
-      <div class="form-group">
-        <label for="access-code">Access Code:</label>
-        <div style="position: relative; display: flex; align-items: center;">
-          <input type="password" id="access-code" placeholder="Enter your access code" style="flex: 1; margin-right: 10px;">
-          <button type="button" id="toggleAccessCode" style="background: none; border: none; cursor: pointer; color: #925de8; font-size: 12px; padding: 8px 12px; font-weight: 500; text-decoration: underline; white-space: nowrap;">
-            Show
-          </button>
+      <div class="ax-card">
+        <div class="ax-title">Sign in to Rgent</div>
+        <div class="ax-sub">Your AI assistant for R and RStudio</div>
+        <div class="form-group">
+          <label for="access-code">Access code</label>
+          <div class="ax-field">
+            <input type="password" id="access-code" placeholder="Paste your access code" autocomplete="off" spellcheck="false">
+            <button type="button" id="toggleAccessCode" class="ax-show" title="Show access code">Show</button>
+          </div>
         </div>
-      </div>
-                <button onclick="validateAccess()" class="access-button">Validate Access</button>
-      <div id="access-status"></div>
-      <div class="access-help">
-        <p>Forgot your access code? <a href="https://rgentai.com/signin.html" target="_blank">Click here</a></p>
+        <button onclick="validateAccess()" class="access-button">Continue</button>
+        <div id="access-status"></div>
+        <div class="access-help">
+          <a href="https://rgentai.com/signin.html" target="_blank" rel="noopener">Forgot your access code?</a>
+          <span aria-hidden="true">·</span>
+          <a href="https://rgentai.com/plans.html" target="_blank" rel="noopener">Get one</a>
+        </div>
       </div>
     </div>
     
     <!-- Main Interface with Tabs -->
     <div id="main-interface" style="display: none;">
-      <div class="app-header">
-        <h1>Rgent - Your AI Assistant</h1>
-      </div>
-      <!-- Tab Navigation -->
-      <div class="tab-navigation">
-        <button class="tab-btn active" onclick="switchTab('chat')">Chat</button>
-        <button class="tab-btn" onclick="switchTab('explorer')">Data Explorer</button>
-        <button class="tab-btn" onclick="switchTab('agents')" id="agents-tab-btn">Agents</button>
-        <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
+      <div class="app-top"><span class="app-logo" role="img" aria-label="Rgent"></span></div>
+      <div class="app-bar">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation" role="tablist">
+          <button class="tab-btn active" onclick="switchTab('chat')">Chat</button>
+          <button class="tab-btn" onclick="switchTab('explorer')">Data Explorer</button>
+          <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
+        </div>
+        <div class="app-bar-actions" id="chat-actions">
+          <button onclick="switchTab('chat'); openChatHistory()" id="chat-history-button" disabled class="cx-icon" data-tip="Saved chats" aria-label="Saved chats"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></button>
+          <button onclick="switchTab('chat'); newConversation()" id="new-conversation-button" disabled class="cx-icon" data-tip="New chat" aria-label="New chat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        </div>
       </div>
       
       <!-- Chat Tab -->
@@ -3082,18 +2976,33 @@
         <div id="chat-container" class="chat-container">
         </div>
         <div class="input-container">
-          <div class="input-row">
-            <textarea id="user-input" placeholder="Ask me anything about your R project" disabled rows="1" style="resize: none; height: 24px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"></textarea>
-            <button onclick="sendMessage()" id="send-button" disabled class="send-button">Send</button>
-            <div class="auto-execute-toggle">
+          <button id="chat-jump" class="cx-jump" onclick="followChat()" data-tip="Jump to the latest message" aria-label="Jump to the latest message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+          <div class="composer">
+            <div id="slash-menu" class="slash-menu" role="listbox" style="display:none"></div>
+            <div class="input-row">
+              <textarea id="user-input" placeholder="Ask anything · / for commands" disabled rows="1"></textarea>
+            </div>
+            <div class="composer-bar">
               <input type="checkbox" id="auto-execute-toggle" checked style="display: none;">
-              <button class="mode-selector-button" id="mode-selector-button" onclick="toggleMode()">Auto Execute</button>
+              <button id="mode-selector-button" class="cx-pill cx-auto" onclick="toggleMode()" data-tip="Auto-run: code in replies runs in your R session. Click for Ask first."><span class="cx-dot"></span><span class="cx-mode-label">Auto-run</span></button>
+              <button onclick="debugLastError()" id="debug-error-button" disabled class="cx-chip" data-tip="Explain and fix the last error in the Console (/fix)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2l1.9 1.9M16 2l-1.9 1.9"/><path d="M9 7.1V6a3 3 0 1 1 6 0v1.1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Z"/><path d="M12 20v-9M6.5 13H3M21 13h-3.5M6 9.5 3.5 8M18 9.5 20.5 8M6 17l-2.5 1.5M18 17l2.5 1.5"/></svg><span>Fix error</span></button>
+              <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="cx-chip" data-tip="Explain the last plot you made (/plot)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg><span>Explain plot</span></button>
+              <span class="cx-spacer"></span>
+              <button onclick="sendMessage()" id="send-button" disabled class="cx-send" aria-label="Send" data-tip="Send (Enter)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
             </div>
           </div>
-          <div class="button-row">
-            <button onclick="debugLastError()" id="debug-error-button" disabled class="debug-button">Debug Last Error</button>
-            <button onclick="analyzeLastPlot()" id="analyze-plot-button" disabled class="analyze-button">Analyze Last Plot</button>
-            <button onclick="newConversation()" id="new-conversation-button" disabled class="new-chat-button">New Chat</button>
+        </div>
+        <div id="chat-history" class="chat-history" style="display:none" role="dialog" aria-label="Saved chats">
+          <div class="chat-history-card">
+            <div class="chat-history-head">
+              <strong>Saved chats</strong>
+              <button class="chat-history-x" onclick="closeChatHistory()" aria-label="Close">×</button>
+            </div>
+            <div id="chat-history-list" class="chat-history-list"></div>
+            <div class="chat-history-foot">
+              <span id="chat-history-usage"></span>
+              <button id="chat-history-clear" class="chat-history-link" onclick="deleteAllChats(this)">Delete all</button>
+            </div>
           </div>
         </div>
 
@@ -3101,140 +3010,61 @@
       
       <!-- Usage Tab -->
       <div id="usage-tab" class="tab-content">
-        <div class="usage-container">
-          <div class="section">
-            <h3>Usage Statistics</h3>
-            
-            <!-- Overall Stats -->
-            <div class="stats-section" id="paid-usage-section">
-              
-              <!-- Plan Type Display -->
-              <div class="plan-type-box">
-                <div class="plan-type-header">
-                  <h3>Current Plan</h3>
-                  <small>Your subscription</small>
-                </div>
-                <div class="plan-type-display" id="plan-type-display">-</div>
-              </div>
-              
-              <!-- Subscription Info -->
-              <div class="subscription-info-box">
-                <div class="subscription-header">
-                  <h3>Subscription Details</h3>
-                  <small>Billing information</small>
-                </div>
-                <div class="subscription-details">
-                  <div class="subscription-item">
-                    <span class="subscription-label">Status:</span>
-                    <span class="subscription-value" id="subscription-status">-</span>
-                </div>
-                  <div class="subscription-item">
-                    <span class="subscription-label">Next Billing:</span>
-                    <span class="subscription-value" id="subscription-end-date">-</span>
-                  </div>
-
-              </div>
-            </div>
-
-            </div>
-
-
-
-            <!-- Monthly Usage -->
-            <div class="stats-section" id="monthly-usage-section">
-              <h4>Monthly Usage</h4>
-              
-              <!-- Monthly Requests -->
-              <div class="stat-card">
-                <h4>Monthly Requests</h4>
-                <div id="monthly-requests">-</div>
-                <small id="monthly-requests-limit">-</small>
-              </div>
-              
-              <!-- Requests Remaining -->
-                <div class="stat-card">
-                <h4>Requests Remaining</h4>
-                <div id="requests-remaining">-</div>
-                <small>This month</small>
-                </div>
-              
-              <!-- Progress Bar -->
-                <div class="stat-card">
-                <h4>Progress</h4>
-                <div id="monthly-progress-bar">
-                  <div class="progress-fill" id="monthly-progress-fill"></div>
-                </div>
-                <small>Monthly usage progress</small>
-              </div>
-            </div>
-
-            <!-- Free Trial Stats -->
-            <div class="stats-section" id="free-trial-section" style="display: none;">
-              <h4>Free Trial Usage</h4>
-              <div class="stats">
-                <div class="stat-card">
-                  <h4>Requests Used</h4>
-                  <div id="free-requests-used">-</div>
-                  <small>Out of 25 free requests</small>
-                </div>
-                <div class="stat-card">
-                  <h4>Requests Remaining</h4>
-                  <div id="free-requests-remaining">-</div>
-                  <small>Free trial requests left</small>
-                </div>
-                <div class="stat-card">
-                  <h4>Progress</h4>
-                  <div id="free-progress-bar">
-                    <div class="progress-fill" id="free-progress-fill"></div>
-                  </div>
-                  <small>Free trial progress</small>
-                </div>
-              </div>
-            </div>
-
-            <div id="usage-status" class="status" style="display: none;"></div>
-            
-            <!-- API Usage Info -->
-            <div class="stats-section">
-              <h4>Requests per Feature</h4>
-              <div class="usage-breakdown">
-                <div class="usage-item">
-                  <span class="feature-name">Data Explorer</span>
-                  <span class="api-calls">0 requests</span>
-                </div>
-                <div class="usage-item">
-                  <span class="feature-name">Basic Chat</span>
-                  <span class="api-calls">1 request per message</span>
+        <div class="usage-container ux">
+          <div class="ux-head">
+            <h3>Usage</h3>
+            <span class="ux-plan" id="plan-type-display">-</span>
           </div>
-                <div class="usage-item">
-                  <span class="feature-name">Auto Execute</span>
-                  <span class="api-calls">1-3 requests</span>
-                </div>
-                <div class="usage-item">
-                  <span class="feature-name">Analyze Last Plot</span>
-                  <span class="api-calls">1 request when used</span>
-                </div>
-                <div class="usage-item">
-                  <span class="feature-name">Debug Last Error</span>
-                  <span class="api-calls">1 request when used</span>
-                </div>
-                <div class="usage-item">
-                  <span class="feature-name">Agent Workflows</span>
-                  <span class="api-calls">2-5 requests per workflow</span>
-                </div>
-              </div>
-              <small style="color: var(--text-secondary); font-style: italic;">
-                Agents use: 1 analysis request + 1 code generation request + up to 3 error fix requests if needed
-              </small>
+
+          <!-- This month (paid plans) -->
+          <section class="ux-card" id="monthly-usage-section">
+            <div class="ux-card-title">This month</div>
+            <div class="ux-meter-top">
+              <span class="ux-big"><span id="monthly-requests">-</span> <span class="ux-of" id="monthly-requests-limit"></span></span>
+              <span class="ux-pct" id="monthly-progress-pct"></span>
             </div>
-          </div>
-          
-          <!-- Guide Link -->
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center;">
-            <button onclick="event.stopPropagation(); openGuideModal();" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">
-              📖 View Guide & Help
-            </button>
-          </div>
+            <div class="ux-bar" id="monthly-progress-bar" role="progressbar" aria-label="Requests used this month"><div class="progress-fill" id="monthly-progress-fill"></div></div>
+            <div class="ux-sub"><span><b id="requests-remaining">-</b> requests left</span><span id="monthly-reset"></span></div>
+          </section>
+
+          <!-- Free trial -->
+          <section class="ux-card" id="free-trial-section" style="display: none;">
+            <div class="ux-card-title">Free trial</div>
+            <div class="ux-meter-top">
+              <span class="ux-big"><span id="free-requests-used">-</span> <span class="ux-of">of 25 requests</span></span>
+              <span class="ux-pct" id="free-progress-pct"></span>
+            </div>
+            <div class="ux-bar" id="free-progress-bar" role="progressbar" aria-label="Free trial requests used"><div class="progress-fill" id="free-progress-fill"></div></div>
+            <div class="ux-sub"><span><b id="free-requests-remaining">-</b> free requests left</span><a href="https://rgentai.com/plans.html" target="_blank" rel="noopener">See plans</a></div>
+          </section>
+
+          <!-- Subscription -->
+          <section class="ux-card" id="paid-usage-section">
+            <div class="ux-card-title">Subscription</div>
+            <div class="ux-rows">
+              <div class="ux-row"><span>Status</span><span class="ux-status" id="subscription-status">-</span></div>
+              <div class="ux-row"><span>Next billing</span><span id="subscription-end-date">-</span></div>
+            </div>
+          </section>
+
+          <div id="usage-status" class="status" style="display: none;"></div>
+
+          <!-- What uses requests -->
+          <section class="ux-card">
+            <div class="ux-card-title">What uses requests</div>
+            <div class="ux-rows">
+              <div class="ux-row"><span>A chat message</span><span>1</span></div>
+              <div class="ux-row"><span>Auto-run fixing an error</span><span>1 per try (up to 3)</span></div>
+              <div class="ux-row"><span>Fix error · Explain plot</span><span>1</span></div>
+              <div class="ux-row"><span>Data Explorer, History, edits</span><span>0</span></div>
+            </div>
+          </section>
+
+          <div class="ux-account"><button class="ux-link" onclick="signOut()" data-tip="Forget this access code on this computer and sign in with another (/logout)">Log out</button></div>
+          <button class="ux-guide" onclick="event.stopPropagation(); openGuideModal();" data-tip="Tips, features and troubleshooting">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17h.01"/></svg>
+            Guide &amp; help
+          </button>
         </div>
       </div>
       
@@ -4800,11 +4630,11 @@
                 <input type="text" id="xp-search-input" placeholder="Search values…" autocomplete="off" spellcheck="false">
                 <button id="xp-search-clear" class="xp-icon-btn" title="Clear search" style="display:none">×</button>
               </div>
-              <button class="xp-btn" id="xp-add-filter-btn" onclick="xpOpenFilter()" title="Add a filter">＋ Filter</button>
-              <button class="xp-btn" id="xp-clear-sort-btn" onclick="xpClearSorting()" title="Clear column sorting" disabled>Clear sorting</button>
-              <button class="xp-btn" id="xp-code-btn" onclick="xpShowCode()" title="R code that reproduces this view">&lt;/&gt; Code</button>
-              <button class="xp-btn xp-icon-only" id="xp-refresh-btn" onclick="xpRefresh()" title="Reload the data">↻</button>
-              <button class="xp-btn xp-icon-only" id="xp-summary-toggle" onclick="xpToggleSummary()" title="Show or hide the column summary">◧</button>
+              <button class="xp-btn" id="xp-add-filter-btn" onclick="xpOpenFilter()" data-tip="Adds a filter">＋ Filter</button>
+              <button class="xp-btn" id="xp-code-btn" onclick="xpShowCode()" data-tip="R code that reproduces this view">&lt;/&gt; Code</button>
+              <button class="xp-btn xp-icon-only" id="xp-refresh-btn" onclick="xpRefresh()" data-tip="Reloads the data">↻</button>
+              <button class="xp-btn xp-icon-only" id="xp-summary-toggle" onclick="xpToggleSummary()" data-tip="Shows or hides the column summary panel">◧</button>
+              <button class="xp-btn" id="xp-clear-sort-btn" onclick="xpClearSorting()" data-tip="Clears column sorting" disabled>Clear sorting</button>
             </div>
           </div>
 
@@ -4983,162 +4813,52 @@
     </div>
     
     <!-- Guide Modal -->
-    <div id="guide-modal" class="modal" style="display: none; z-index: 10000;">
-      <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-        <div class="modal-header">
-          <h3>Guide & Help</h3>
-          <span class="modal-close" onclick="closeGuideModal()">&times;</span>
+    <div id="guide-modal" class="modal" style="display: none; z-index: 10000;" role="dialog" aria-label="Guide and help">
+      <div class="modal-content gx">
+        <div class="gx-head">
+          <strong>Guide &amp; help</strong>
+          <button class="gx-close" onclick="closeGuideModal()" aria-label="Close" data-tip="Close">&times;</button>
         </div>
-        <div class="modal-body">
-          <div class="guide-container">
-            <div class="guide-section">
-              <h3>Getting Started</h3>
-              <div class="guide-card">
-                <h4>Be Specific</h4>
-                <ul>
-                  <li>"Create a function to calculate mean by group"</li>
-                  <li>"help me with data"</li>
-                  <li>"Debug this ggplot error: object not found"</li>
-                  <li>"it's not working"</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div class="guide-section">
-              <h3>Key Features</h3>
-              <div class="guide-card">
-                <h4>Smart Context Capture</h4>
-                <p>Automatically captures your entire R environment - data frames, functions, variables, plots, and active code.</p>
-              </div>
-              <div class="guide-card">
-                <h4>Real-time Streaming</h4>
-                <p>Watch AI responses stream in real-time. No waiting for complete responses.</p>
-              </div>
-              <div class="guide-card">
-                <h4>Code Insertion</h4>
-                <p>Click "Insert at Cursor" to add code directly into your R scripts. No copy-paste needed.</p>
-              </div>
-              <div class="guide-card">
-                <h4>Error Debugging</h4>
-                <p>Click "Debug Last Error" for instant analysis and step-by-step fixes.</p>
-              </div>
-              <div class="guide-card">
-                <h4>Plot Analysis</h4>
-                <p>Click "Analyze Last Plot" for statistical insights and improvement suggestions.</p>
-              </div>
-              <div class="guide-card">
-                <h4>Data Explorer</h4>
-                <p>Browse and explore your R objects in the Data Explorer tab. View data frames, matrices, vectors, and lists with sorting and pagination.</p>
-              </div>
-            </div>
-            
-            <div class="guide-section">
-              <h3>AI Agents</h3>
-              
-              <div class="guide-card">
-                <h4>What are Agents?</h4>
-                <p>Specialized AI workflows that guide you through complete data analysis tasks step-by-step.</p>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Data Cleaning Agent</h4>
-                <ul>
-                  <li>Automatically detects missing values, outliers, duplicates</li>
-                  <li>Provides intelligent imputation suggestions</li>
-                  <li>Standardizes column names and data types</li>
-                </ul>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Transformation Agent</h4>
-                <ul>
-                  <li>Smart mathematical transformations (log, sqrt)</li>
-                  <li>Automatic new variable creation</li>
-                  <li>Data reshaping and categorical encoding</li>
-                </ul>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Statistical Analysis Agent</h4>
-                <ul>
-                  <li>Intelligent test selection (t-test, ANOVA, chi-square)</li>
-                  <li>Effect size calculations (Cohen's d, eta-squared)</li>
-                  <li>Distribution analysis with assumption checking</li>
-                </ul>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Modeling Agent</h4>
-                <ul>
-                  <li>Smart algorithm recommendations by target type</li>
-                  <li>Automatic feature engineering</li>
-                  <li>Model comparison and interpretation</li>
-                </ul>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Visualization Agent</h4>
-                <ul>
-                  <li>Intelligent plot type recommendations</li>
-                  <li>Automatic statistical analysis of plots</li>
-                  <li>Smart variable filtering and validation</li>
-                </ul>
-              </div>
-              
-              <div class="guide-card">
-                <h4>Getting Started with Agents</h4>
-                <ol>
-                  <li>Click the <strong>Agents</strong> tab</li>
-                  <li>Select your data frame</li>
-                  <li>Choose your analysis type</li>
-                  <li>Follow the guided workflow</li>
-                  <li>Get AI analysis + executable code</li>
-                </ol>
-              </div>
-            </div>
-            
-            <div class="guide-section">
-              <h3>Performance Tips</h3>
-              <div class="guide-card">
-                <h4>Keep Environment Clean</h4>
-                <p>This will save tokens and cost:</p>
-                <ul>
-                  <li>Remove unused variables: <code>rm(unused_var)</code></li>
-                  <li>Clear large objects: <code>rm(large_dataframe)</code></li>
-                  <li>Restart R session: "Session > Restart R"</li>
-                  <li>Use <code>rm(list = ls())</code> for fresh start</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div class="guide-section">
-              <h3>Troubleshooting</h3>
-              <div class="guide-card">
-                <h4>Slow Responses?</h4>
-                <ul>
-                  <li>Your environment might be too large</li>
-                  <li>Try <code>rm(list = ls())</code> to clear workspace</li>
-                  <li>Restart R session for fresh start</li>
-                </ul>
-              </div>
-              <div class="guide-card">
-                <h4>Connection Issues?</h4>
-                <ul>
-                  <li>Check your internet connection</li>
-                  <li>Verify your access code is valid</li>
-                  <li>Try refreshing the page</li>
-                  <li>Restart the addin if needed</li>
-                </ul>
-              </div>
-              <div class="guide-card">
-                <h4>Need Anything?</h4>
-                <p>Contact us at <a href="mailto:founders@rgentai.com">founders@rgentai.com</a></p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-primary" onclick="closeGuideModal()">Close</button>
+        <div class="gx-body">
+          <section>
+            <h4>Ask well</h4>
+            <p>Name the data, the columns and what you want back. Rgent sees your workspace and the file you're editing, so you can say "this chunk" or "my survey data".</p>
+            <div class="gx-ex"><span class="gx-good">Good</span> Plot income by city from <code>survey</code>, skipping missing values</div>
+            <div class="gx-ex"><span class="gx-bad">Vague</span> help me with data</div>
+          </section>
+          <section>
+            <h4>In the chat</h4>
+            <dl class="gx-list">
+              <dt>Auto-run / Ask first</dt><dd>With Auto-run, code in replies runs in your R session and errors are fixed automatically. Ask first leaves running it to you.</dd>
+              <dt>Edits to your file</dt><dd>Changes to the open file show as red and green cards. Accept, Reject, or Undo each one. Your file isn't saved for you.</dd>
+              <dt>Fix error</dt><dd>Explains the last error in the Console and suggests a fix.</dd>
+              <dt>Explain plot</dt><dd>Describes the last plot you made and suggests improvements.</dd>
+              <dt>History</dt><dd>Chats are saved on your computer only (up to 100 chats, 5 MB). Reopen, export as Markdown, or delete them.</dd>
+            </dl>
+          </section>
+          <section>
+            <h4>Keyboard</h4>
+            <dl class="gx-keys">
+              <dt><kbd>Enter</kbd></dt><dd>Send</dd>
+              <dt><kbd>Shift</kbd> <kbd>Enter</kbd></dt><dd>New line</dd>
+              <dt><kbd>Tab</kbd></dt><dd>Complete an object name</dd>
+              <dt><kbd>/</kbd></dt><dd>Commands: /fix, /plot, /new, /history, /auto, /logout</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Close a menu or dialog</dd>
+            </dl>
+          </section>
+          <section>
+            <h4>Data Explorer</h4>
+            <p>Browse data frames with filters, sorting and search, and get the R code for the view. Lists, models and other objects open in a drill-down view.</p>
+          </section>
+          <section>
+            <h4>If something goes wrong</h4>
+            <ul>
+              <li><b>No reply:</b> check your internet connection, then reopen Rgent from the Addins menu.</li>
+              <li><b>Slow replies:</b> very large workspaces take longer to describe. Removing objects you no longer need helps.</li>
+              <li><b>Access code refused:</b> check it on <a href="https://rgentai.com" target="_blank" rel="noopener">rgentai.com</a>.</li>
+            </ul>
+            <p class="gx-contact">Questions? <a href="mailto:founders@rgentai.com">founders@rgentai.com</a></p>
+          </section>
         </div>
       </div>
     </div>
@@ -5249,6 +4969,7 @@
           if (response.ok && data.valid) {
             isAccessValid = true;
             accessCode = code;
+            setTimeout(() => refreshUsage(), 2000);   // ready before the Usage tab is opened
             
             if (isAutoLogin) {
               showAccessStatus('✓ Access code found! Automatically logged in.', 'success');
@@ -5289,6 +5010,7 @@
             }
             if (document.getElementById("new-conversation-button")) {
               document.getElementById("new-conversation-button").disabled = false;
+              document.getElementById("chat-history-button").disabled = false;
             }
             if (document.getElementById("debug-error-button")) {
               document.getElementById("debug-error-button").disabled = false;
@@ -5309,7 +5031,7 @@
               setTimeout(() => {
                 if (window.showWelcomeMessage && !window.welcomeMessageShown) {
                   window.welcomeMessageShown = true;
-                  typeMessage("👋 Hi! I'm your RStudio AI assistant. I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?", "ai", 15);
+                  typeMessage("👋 Hi, I'm Rgent. Ask me to write or fix code, explore your data, make plots, or edit your file.", "ai", 15);
                   window.showWelcomeMessage = false;
                 }
               }, 1000);
@@ -5350,12 +5072,76 @@
       // The working switchTab function is defined later in the file
       
       // Load usage statistics
-      async function loadStats() {
+      // Usage numbers: shown at once from the last answer (kept per access
+      // code, by a hash, never the code itself), then refreshed in the
+      // background unless they're under 30 s old
+      const USAGE_FRESH_MS = 30000;
+      let usageInflight = null;
+      function usageKey() {
+        let h = 5381; const s = String(accessCode || '');
+        for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+        return 'rgent-usage-' + h.toString(36);
+      }
+      function usageCached() { try { return JSON.parse(localStorage.getItem(usageKey()) || 'null'); } catch (e) { return null; } }
+      function refreshUsage(force) {
+        if (!isAccessValid) return Promise.resolve();
+        const c = usageCached();
+        if (!force && c && Date.now() - c.at < USAGE_FRESH_MS) return Promise.resolve();
+        if (!usageInflight) usageInflight = loadStats().finally(() => { usageInflight = null; });
+        return usageInflight;
+      }
+      // After each reply, refresh quietly (at most once a minute) so the
+      // Usage tab is already current when it's opened
+      let usageAfterReplyTimer = null;
+      function refreshUsageSoon() {
+        clearTimeout(usageAfterReplyTimer);
+        usageAfterReplyTimer = setTimeout(() => {
+          const c = usageCached();
+          if (!c || Date.now() - c.at > 60000) refreshUsage(true);
+        }, 4000);
+      }
+      
+      // Sign out: forget the saved code (R deletes it from disk, so the next
+      // start doesn't sign in by itself), clear this account's cached usage
+      // and the chat on screen, and show an empty sign-in form
+      function changeAccessCode() {
+        try { localStorage.removeItem(usageKey()); } catch (e) {}
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ action: 'clear_access_code' })); ws.send(JSON.stringify({ action: 'new_conversation' })); } catch (e) {}
+        }
+        isAccessValid = false;
+        accessCode = '';
+        const chat = document.getElementById('chat-container');
+        if (chat) chat.innerHTML = '';
+        window.welcomeMessageShown = false;
+        const input = document.getElementById('access-code');
+        document.getElementById('main-interface').style.display = 'none';
+        const s = document.getElementById('access-section');
+        s.classList.remove('ax-busy');
+        s.style.display = '';
+        showAccessStatus('Logged out. Enter an access code to sign in.', 'info');
+        if (input) { input.value = ''; input.type = 'password'; setTimeout(() => input.focus(), 0); }
+      }
+      const signOut = changeAccessCode;
+      
+      function showUsage() {
+        const c = usageCached();
+        if (c && c.data) loadStats(c.data);
+        refreshUsage();
+      }
+      
+      async function loadStats(fromCache) {
         if (!isAccessValid) return;
 
         try {
-          const response = await fetch(`https://rgent.onrender.com/usage?access_code=${accessCode}`);
-          const data = await response.json();
+          let response, data;
+          if (fromCache) {
+            response = { ok: true }; data = fromCache;
+          } else {
+            response = await fetch(`https://rgent.onrender.com/usage?access_code=${encodeURIComponent(accessCode)}`);
+            data = await response.json();
+            if (response.ok) { try { localStorage.setItem(usageKey(), JSON.stringify({ at: Date.now(), data })); } catch (e) {} }
+          }
 
           console.log('Stats response:', data);
 
@@ -5393,19 +5179,14 @@
             if (subscriptionStatusElement) {
               const statusDisplay = subscriptionStatus === 'active' ? 'Active' : 'Inactive';
               subscriptionStatusElement.textContent = statusDisplay;
+              subscriptionStatusElement.classList.toggle('ux-active', subscriptionStatus === 'active');
             }
             
             if (subscriptionEndDateElement) {
               if (subscriptionEndDate) {
                 const endDate = new Date(subscriptionEndDate);
-                const formattedDate = endDate.toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-                subscriptionEndDateElement.textContent = `${formattedDate} UTC`;
+                const formattedDate = endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                subscriptionEndDateElement.textContent = formattedDate;
               } else {
                 subscriptionEndDateElement.textContent = 'N/A';
               }
@@ -5437,13 +5218,12 @@
                 monthlyLimit = 100; // fallback
               }
               
-              monthlyRequestsLimitElement.textContent = `of ${monthlyLimit} requests`;
+              monthlyRequestsLimitElement.textContent = `of ${monthlyLimit.toLocaleString()} requests`;
               requestsRemainingElement.textContent = requestsRemaining;
               
               // Update progress bar
               const progressPercent = Math.min(100, (monthRequests / monthlyLimit) * 100);
-              monthlyProgressFill.style.width = `${progressPercent}%`;
-              monthlyProgressFill.textContent = `${Math.round(progressPercent)}%`;
+              setUsageBar('monthly', progressPercent);
             }
             
             // Show/hide sections based on plan type
@@ -5467,8 +5247,7 @@
               
               document.getElementById('free-requests-used').textContent = requestsUsed;
               document.getElementById('free-requests-remaining').textContent = requestsRemaining;
-              document.getElementById('free-progress-fill').style.width = `${progressPercent}%`;
-              document.getElementById('free-progress-fill').textContent = `${Math.round(progressPercent)}%`;
+              setUsageBar('free', progressPercent);
             } else {
               // Show paid usage sections, hide free trial section
               paidUsageSection.style.display = 'block';
@@ -5481,20 +5260,13 @@
 
             }
             
-            // Show success status
-            const statusDiv = document.getElementById('usage-status');
-            statusDiv.className = 'status success';
-            statusDiv.textContent = 'Stats updated successfully';
-            statusDiv.style.display = 'block';
-            setTimeout(() => {
-              statusDiv.style.display = 'none';
-            }, 3000);
+            document.getElementById('usage-status').style.display = 'none';
           }
         } catch (error) {
           console.error('Failed to load stats:', error);
           const statusDiv = document.getElementById('usage-status');
           statusDiv.className = 'status error';
-          statusDiv.textContent = 'Failed to load stats';
+          statusDiv.textContent = usageCached() ? "Couldn't refresh; showing the last numbers." : "Couldn't load your usage. Check your connection.";
           statusDiv.style.display = 'block';
         }
       }
@@ -5601,6 +5373,7 @@
                document.getElementById("user-input").disabled = false;
                document.getElementById("send-button").disabled = false;
                document.getElementById("new-conversation-button").disabled = false;
+               document.getElementById("chat-history-button").disabled = false;
                document.getElementById("debug-error-button").disabled = false;
                document.getElementById("analyze-plot-button").disabled = false;
                
@@ -5615,7 +5388,7 @@
                setTimeout(() => {
                  if (window.showWelcomeMessage && !window.welcomeMessageShown) {
                    window.welcomeMessageShown = true;
-                   typeMessage("👋 Hi! I'm your RStudio AI assistant. I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?", "ai", 15);
+                   typeMessage("👋 Hi, I'm Rgent. Ask me to write or fix code, explore your data, make plots, or edit your file.", "ai", 15);
                    window.showWelcomeMessage = false;
                  }
                }, 1000);
@@ -5633,6 +5406,7 @@
                document.getElementById("user-input").disabled = true;
                document.getElementById("send-button").disabled = true;
                document.getElementById("new-conversation-button").disabled = true;
+               document.getElementById("chat-history-button").disabled = true;
                document.getElementById("debug-error-button").disabled = true;
                document.getElementById("analyze-plot-button").disabled = true;
                
@@ -5685,6 +5459,7 @@
             document.getElementById("user-input").disabled = false;
             document.getElementById("send-button").disabled = false;
             document.getElementById("new-conversation-button").disabled = false;
+            document.getElementById("chat-history-button").disabled = false;
             document.getElementById("debug-error-button").disabled = false;
             document.getElementById("analyze-plot-button").disabled = false;
             
@@ -5700,7 +5475,7 @@
               setTimeout(() => {
                 if (window.showWelcomeMessage && !window.welcomeMessageShown) {
                   window.welcomeMessageShown = true;
-                  typeMessage("👋 Hi! I'm your RStudio AI assistant. I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?", "ai", 15);
+                  typeMessage("👋 Hi, I'm Rgent. Ask me to write or fix code, explore your data, make plots, or edit your file.", "ai", 15);
                   window.showWelcomeMessage = false;
                 }
               }, 1000);
@@ -5725,10 +5500,14 @@
             }
             accessCode = data.access_code;
             
-            // Show message that access code was found from past session
+            // Sign in with it right away (once per page load; "Change access
+            // code" on the Usage tab brings the form back)
             const accessSection = document.getElementById('access-section');
-            if (accessSection && window.getComputedStyle(accessSection).display !== 'none') {
-              showAccessStatus('✓ Access code found from past session.', 'info');
+            if (!isAccessValid && !window.rgentAutoSignInTried && accessSection && window.getComputedStyle(accessSection).display !== 'none') {
+              window.rgentAutoSignInTried = true;
+              accessSection.classList.add('ax-busy');
+              showAccessStatus('Signing in…', 'info');
+              Promise.resolve(validateAccess(true)).finally(() => accessSection.classList.remove('ax-busy'));
             }
             
             // If already validated, sync with backend but don't re-validate
@@ -6170,6 +5949,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
             case "get_last_error":
               if (data.message) {
+                removeAnimatedPlaceholder("ai-thinking");
+                removeAnimatedPlaceholder("ai-debugging");
                 addMessage(data.message, "ai");
               }
               // Reset AI responding flag and transform button back
@@ -6192,10 +5973,13 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               removeAnimatedPlaceholder("ai-analyzing-modeling");
               removeAnimatedPlaceholder("ai-analyzing-results");
               
-              if (data.streaming) {
+              if (data.error) {
+                removeAnimatedPlaceholder("ai-thinking");
+                addMessage("The request to fix the error failed. Try again in a moment.", "ai");
+                transformToSendButton();
+              } else if (data.streaming) {
                 addStreamingChunk(data.chunk);
               } else {
-                console.log("DEBUG: Finishing debug streaming");
                 finishStreaming();
                 // No buttons - just show the debug analysis
               }
@@ -6225,7 +6009,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                 const fullMessage = "**Plot Analysis Complete!**\n\n" + data.ai_interpretation;
                 addPlotAnalysisMessage(fullMessage);
               } else {
-                addMessage("**Plot Analysis Failed:** " + data.message, "ai");
+                removeAnimatedPlaceholder("ai-thinking");
+                addMessage(data.message || "I couldn't analyze the last plot.", "ai");
               }
               
               // Reset AI responding flag and transform button back
@@ -6277,6 +6062,16 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                 // Get column names for dataframes using existing get_dataframe_info pattern
                 generateWelcomeWithColumns(data.data, data.objects_info);
               }
+              break;
+            case "chat_list":
+              renderChatHistory(data.data);
+              break;
+            case "chat_opened":
+              showSavedChat(data);
+              break;
+            case "chat_exported":
+              if (!data.ok) addMessage("Couldn't open that chat in the editor.", 'ai');
+              else closeChatHistory();
               break;
             case "explorer_object":
               xpOnObject(data);
@@ -6340,7 +6135,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                     if (pending.received >= pending.count) {
                       console.log('📝 Welcome: All column data received, generating welcome message');
                       const welcomeText = generatePersonalizedWelcome(pending.objects, pending.objectsInfo, pending.columnData);
-                      typeMessage(welcomeText, "ai", 10);
+                      typeMessage(welcomeText, "ai", 6, addWelcomeSuggestions);
                       // Add to conversation history
                       if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({
@@ -6555,31 +6350,96 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       }
       
       // Reusable function to create animated placeholder messages
+      // "Thinking" row: a turning spark, a shimmering label and, after a few
+      // seconds, the elapsed time. removeAnimatedPlaceholder(id) clears it
+      // (and its timer) when the reply starts.
+      // The chat follows new output only while the reader is at the bottom.
+      // Scrolling up (wheel, touch, scrollbar, keys) stops it; scrolling back
+      // down, sending something or the jump arrow turns it back on. All the
+      // page's "scroll to the bottom" calls go through the guards below.
+      let chatFollow = true;
+      function chatAtBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 40; }
+      function updateChatJump() {
+        const el = document.getElementById('chat-container');
+        const jump = document.getElementById('chat-jump');
+        if (el && jump) jump.classList.toggle('show', !chatFollow && !chatAtBottom(el));
+      }
+      function followChat() {
+        chatFollow = true;
+        const el = document.getElementById('chat-container');
+        if (el) el.scrollTop = el.scrollHeight;
+        updateChatJump();
+      }
+      function setupChatFollow() {
+        const el = document.getElementById('chat-container');
+        if (!el || el.dataset.follow) return;
+        el.dataset.follow = '1';
+        const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
+        const scrollTo = Element.prototype.scrollTo;
+        Object.defineProperty(el, 'scrollTop', { configurable: true,
+          get() { return top.get.call(el); },
+          set(v) { if (!chatFollow && v >= top.get.call(el)) return; top.set.call(el, v); } });
+        el.scrollTo = function (...args) {
+          // scrollTo({ top }) or scrollTo(x, y); pass the arguments on as given
+          const t = (args[0] && typeof args[0] === 'object') ? args[0].top : args[1];
+          if (!chatFollow && t != null && t >= top.get.call(el)) { updateChatJump(); return; }
+          return scrollTo.apply(el, args);
+        };
+        // Moving up stops following at once (wheel and key scrolling are
+        // animated, so the position still reads "at the bottom" for a moment)
+        const movedUp = () => { if (el.scrollHeight > el.clientHeight) { chatFollow = false; updateChatJump(); } };
+        let dragging = false, touchY = null;
+        el.addEventListener('wheel', (e) => { if (e.deltaY < 0) movedUp(); }, { passive: true });
+        el.addEventListener('touchstart', (e) => { touchY = e.touches[0] ? e.touches[0].clientY : null; }, { passive: true });
+        el.addEventListener('touchmove', (e) => { const y = e.touches[0] ? e.touches[0].clientY : null; if (touchY != null && y != null && y > touchY + 4) movedUp(); touchY = y; }, { passive: true });
+        el.addEventListener('keydown', (e) => { if (/^(ArrowUp|PageUp|Home)$/.test(e.key)) movedUp(); });
+        el.addEventListener('pointerdown', (e) => { if (e.target === el) dragging = true; });   // the scrollbar
+        window.addEventListener('pointerup', () => { dragging = false; });
+        let lastTop = 0;
+        el.addEventListener('scroll', () => {
+          const now = top.get.call(el);
+          if (dragging) chatFollow = chatAtBottom(el);
+          else if (now > lastTop && chatAtBottom(el)) chatFollow = true;   // came back down
+          lastTop = now;
+          updateChatJump();
+        }, { passive: true });
+        // Content that grows while the reader is up there shows the arrow
+        new MutationObserver(updateChatJump).observe(el, { childList: true, subtree: true, characterData: true });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupChatFollow); else setupChatFollow();
+      
+      function createThinkingIndicator(id, label) {
+        followChat();   // the reader just asked for something: show it
+        if (document.getElementById(id)) removeAnimatedPlaceholder(id);
+        const row = document.createElement("div");
+        row.className = "message ai-message thinking-row";
+        row.id = id;
+        row.setAttribute("role", "status");
+        row.setAttribute("aria-live", "polite");
+        row.innerHTML = '<svg class="think-spark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2c.6 4.6 2.9 7.4 8 8.4v1.2c-5.1 1-7.4 3.8-8 8.4h-1c-.6-4.6-2.9-7.4-8-8.4v-1.2c5.1-1 7.4-3.8 8-8.4z"/></svg>' +
+          '<span class="think-label"></span><span class="think-time"></span>';
+        row.querySelector('.think-label').textContent = label || "Thinking";
+        const time = row.querySelector('.think-time');
+        const started = Date.now();
+        row.dataset.intervalId = setInterval(() => {
+          const sec = Math.floor((Date.now() - started) / 1000);
+          time.textContent = sec < 3 ? "" : sec < 60 ? sec + "s" : Math.floor(sec / 60) + "m " + (sec % 60) + "s";
+        }, 1000);
+        const chat = document.getElementById("chat-container");
+        if (chat) {
+          chat.appendChild(row);
+          chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+        }
+        return row;
+      }
+      
       function createAnimatedPlaceholder(id, text) {
-        const placeholder = document.createElement("div");
-        placeholder.className = "message ai-message";
-        placeholder.id = id;
-        const textSpan = document.createElement("span");
-        // Set as innerHTML to allow markdown processing
-        textSpan.innerHTML = text;
-        // Process markdown formatting (bold, italic, etc.)
-        processMarkdownFormatting(textSpan);
-        const dotsSpan = document.createElement("span");
-        dotsSpan.className = "thinking-dots";
-        placeholder.appendChild(textSpan);
-        placeholder.appendChild(dotsSpan);
-        document.getElementById("chat-container").appendChild(placeholder);
-        
-        // Animate the dots
-        let dotCount = 0;
-        const interval = setInterval(() => {
-          dotCount = (dotCount + 1) % 4; // Cycle 0, 1, 2, 3
-          dotsSpan.textContent = '.'.repeat(dotCount);
-        }, 500); // Update every 500ms
-        
-        // Store interval ID so we can clear it when response arrives
-        placeholder.dataset.intervalId = interval;
-        return placeholder;
+        // Older callers pass markdown with emoji ("📊 **Analyzing Results** ..."):
+        // keep the words for the label
+        const tmp = document.createElement("div");
+        tmp.innerHTML = String(text || "");
+        const label = tmp.textContent.replace(/\*\*/g, "").replace(/[\u{1F300}-\u{1FAFF}☀-➿]️?/gu, "").replace(/\s+/g, " ").trim();
+        return createThinkingIndicator(id, label);
       }
       
       // Helper function to remove animated placeholder
@@ -6758,8 +6618,9 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Transform send button to stop button
         transformToStopButton();
         
-        // Insert debugging placeholder with animated dots
-        createAnimatedPlaceholder("ai-debugging", "Debugging error");
+        document.querySelectorAll('.welcome-suggestions').forEach(el => el.remove());
+        addMessage("Fix the last error", "user");
+        createThinkingIndicator("ai-thinking", "Reading the last error");
         
         const message = {
           action: "get_last_error"
@@ -6779,39 +6640,17 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         // Clear any tab completion suggestion
         hideCompletionSuggestion();
         
+        document.querySelectorAll('.welcome-suggestions').forEach(el => el.remove());
         // Add user message
         addMessage(message, "user");
         input.value = "";
         // Reset textarea height after sending
         if (input) {
-          input.style.height = "24px";
+          input.style.height = "";
         }
         
-        // Insert AI placeholder while thinking with animated dots
-        const thinking = document.createElement("div");
-        thinking.className = "message ai-message";
-        thinking.id = "ai-thinking";
-        const thinkingText = document.createElement("span");
-        thinkingText.textContent = "Thinking";
-        const thinkingDots = document.createElement("span");
-        thinkingDots.className = "thinking-dots";
-        thinking.appendChild(thinkingText);
-        thinking.appendChild(thinkingDots);
-        const chatContainer = document.getElementById("chat-container");
-        chatContainer.appendChild(thinking);
-        
-        // Smooth scroll to show "Thinking..." indicator
-        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
-        
-        // Animate the dots
-        let dotCount = 0;
-        const thinkingInterval = setInterval(() => {
-          dotCount = (dotCount + 1) % 4; // Cycle 0, 1, 2, 3
-          thinkingDots.textContent = '.'.repeat(dotCount);
-        }, 500); // Update every 500ms
-        
-        // Store interval ID so we can clear it when response arrives
-        thinking.dataset.intervalId = thinkingInterval;
+        createThinkingIndicator("ai-thinking", "Thinking");
+        updateSendEmpty();
         
         // Reset stop flag for new operation
         operationStopped = false;
@@ -6837,36 +6676,124 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       
 
       
+      const SEND_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+      const STOP_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5" fill="currentColor"/></svg>';
+      // One round button: an arrow to send, a square to stop
+      function setSendButton(stop, onclick, tip) {
+        const sendBtn = document.getElementById('send-button');
+        if (!sendBtn) return;
+        sendBtn.innerHTML = stop ? STOP_ICON : SEND_ICON;
+        sendBtn.className = stop ? 'cx-send stop-mode' : 'cx-send';
+        sendBtn.setAttribute('aria-label', stop ? 'Stop' : 'Send');
+        sendBtn.dataset.tip = tip || (stop ? 'Stop' : 'Send (Enter)');
+        sendBtn.onclick = onclick;
+        updateSendEmpty();
+      }
+      // The arrow is dimmed while there's nothing to send
+      function updateSendEmpty() {
+        const sendBtn = document.getElementById('send-button');
+        const input = document.getElementById('user-input');
+        if (!sendBtn) return;
+        sendBtn.classList.toggle('empty', !sendBtn.classList.contains('stop-mode') && !(input && input.value.trim()));
+      }
+      
       // Transform stop button back to send button
       function transformToSendButton() {
-        const sendBtn = document.getElementById('send-button');
-        sendBtn.textContent = 'Send';
-        sendBtn.className = 'send-button';
-        sendBtn.onclick = sendMessage;
+        if (isAIResponding && typeof refreshUsageSoon === 'function') refreshUsageSoon();   // a reply just ended
+        setSendButton(false, sendMessage);
         isAIResponding = false;
         currentRequestId = null;
       }
       
       // Transform send button to stop button (generic, for chat/auto-execute/debug)
       function transformToStopButton() {
-        const sendBtn = document.getElementById('send-button');
-        if (sendBtn) {
-          sendBtn.textContent = 'Stop';
-          sendBtn.className = 'send-button stop-mode';
-          sendBtn.onclick = stopCurrentOperation;
-        }
+        setSendButton(true, stopCurrentOperation);
       }
       
       // Transform send button to agent stop button
       function transformToAgentStopButton() {
-        const sendBtn = document.getElementById('send-button');
-        if (sendBtn) {
-          sendBtn.textContent = 'Stop Agent';
-          sendBtn.className = 'send-button stop-mode';
-          sendBtn.onclick = stopAgentWorkflow;
+        if (document.getElementById('send-button')) {
+          setSendButton(true, stopAgentWorkflow, 'Stop agent');
           // Set AI responding flag when agent workflow starts
           isAIResponding = true;
         }
+      }
+      
+      // Slash commands in the composer: "/" at the start opens a small menu
+      const SLASH_COMMANDS = [
+        { cmd: "/fix", desc: "Explain and fix the last error in the Console", run: () => debugLastError() },
+        { cmd: "/plot", desc: "Explain the last plot you made", run: () => analyzeLastPlot() },
+        { cmd: "/new", desc: "Start a new chat", run: () => newConversation() },
+        { cmd: "/history", desc: "Open saved chats", run: () => openChatHistory() },
+        { cmd: "/auto", desc: "Switch between Auto-run and Ask first", run: () => toggleMode() },
+        { cmd: "/logout", desc: "Log out and use a different access code", run: () => signOut() }
+      ];
+      let slashState = { items: [], active: 0 };
+      function slashMatches(text) {
+        const m = /^\/([a-z]*)$/i.exec(text.trim());
+        if (!m) return [];
+        const q = m[1].toLowerCase();
+        return SLASH_COMMANDS.filter(c => c.cmd.slice(1).startsWith(q) && (!c.hidden || q.length > 1));
+      }
+      function renderSlashMenu() {
+        const menu = document.getElementById('slash-menu');
+        if (!menu) return;
+        if (!slashState.items.length) { menu.style.display = 'none'; menu.innerHTML = ''; return; }
+        menu.innerHTML = '';
+        slashState.items.forEach((c, i) => {
+          const row = document.createElement('div');
+          row.className = 'slash-item' + (i === slashState.active ? ' active' : '');
+          row.setAttribute('role', 'option');
+          row.innerHTML = '<b></b><span></span>';
+          row.querySelector('b').textContent = c.cmd;
+          row.querySelector('span').textContent = c.desc;
+          row.addEventListener('mousedown', (e) => { e.preventDefault(); runSlashCommand(c); });
+          row.addEventListener('mouseenter', () => { slashState.active = i; [...menu.children].forEach((r, j) => r.classList.toggle('active', j === i)); });
+          menu.appendChild(row);
+        });
+        menu.style.display = 'block';
+      }
+      function closeSlashMenu() { slashState = { items: [], active: 0 }; renderSlashMenu(); }
+      function runSlashCommand(c) {
+        const input = document.getElementById('user-input');
+        closeSlashMenu();
+        if (input) { input.value = ''; input.style.height = ''; }
+        updateSendEmpty();
+        if (isAIResponding && (c.cmd === '/fix' || c.cmd === '/plot')) return;
+        c.run();
+      }
+      function setupSlashCommands() {
+        const input = document.getElementById('user-input');
+        if (!input || input.dataset.slash) return;
+        input.dataset.slash = '1';
+        input.addEventListener('input', () => {
+          slashState = { items: slashMatches(input.value), active: 0 };
+          renderSlashMenu();
+        });
+        // Capture phase: runs before the composer's Enter-to-send handler
+        input.addEventListener('keydown', (e) => {
+          if (!slashState.items.length) {
+            // "/fix" typed out in full and Enter: run it instead of sending it
+            if (e.key === 'Enter' && !e.shiftKey) {
+              const exact = SLASH_COMMANDS.find(c => c.cmd === input.value.trim().toLowerCase());
+              if (exact) { e.preventDefault(); e.stopImmediatePropagation(); runSlashCommand(exact); }
+            }
+            return;
+          }
+          const n = slashState.items.length;
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault(); e.stopImmediatePropagation();
+            slashState.active = (slashState.active + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+            renderSlashMenu();
+          } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault(); e.stopImmediatePropagation();
+            runSlashCommand(slashState.items[slashState.active]);
+          } else if (e.key === 'Escape') {
+            e.preventDefault(); e.stopImmediatePropagation();
+            closeSlashMenu();
+          }
+        }, true);
+        input.addEventListener('blur', () => setTimeout(closeSlashMenu, 120));
       }
       
       // Stop current operation (chat/auto-execute/debug)
@@ -7100,6 +7027,15 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       // a bare line of at least as many backticks closes it. Inside an
       // ```edit block, R Markdown chunk fences (```{r ...} ... ```) are part
       // of the edit, so they nest instead of closing it.
+      // ```read 46-151 is Claude asking R for lines of a long file it wasn't
+      // shown; R sends them and the reply continues. Show it as a short note.
+      function readNote(block) {
+        const m = /^read\s+(\d+)\s*(?:-|to)\s*(\d+)$/i.exec(block.lang || '');
+        if (m) return `*Reading lines ${m[1]}-${m[2]} of the file…*`;
+        const f = /^find\s+(.+)$/i.exec(block.lang || '');
+        if (f) return `*Searching the file for \`${f[1].trim().replace(/^(["'`/])(.*)\1$/, '$2').replace(/`/g, '')}\`…*`;
+        return null;
+      }
       function splitFencedBlocks(text) {
         const out = [];
         const lines = String(text || '').split('\n');
@@ -7124,6 +7060,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
             if (info && block.isEdit) { block.depth++; block.body.push(line); return; }
             if (!info && block.depth > 0) { block.depth--; block.body.push(line); return; }
             if (!info) {
+              if (readNote(block)) { buf.push(readNote(block)); block = null; return; }
               const isR = /^[rR]$/.test(block.lang);
               out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n') + (block.body.length ? '\n' : ''), complete: true });
               block = null;
@@ -7132,6 +7069,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
           }
           block.body.push(line);
         });
+        if (block && readNote(block)) { buf.push(readNote(block)); block = null; }
         if (block) {
           const isR = /^[rR]$/.test(block.lang);
           out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n'), complete: false });
@@ -7163,6 +7101,32 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         return renderStreamingText(segment.content);
       }
       
+      // Code shown as numbered lines, like the edit cards' diffs. Edit
+      // blocks (they become cards) and plain output keep a plain body.
+      function fillCodeBody(body, code, label) {
+        if (/^(edit|output)\b/i.test(label || '')) { body.textContent = code; return false; }
+        body.className = 'code-body';
+        body.textContent = '';
+        const lines = String(code).replace(/\n$/, '').split('\n');
+        lines.forEach((ln, i) => {
+          const row = document.createElement('div');
+          row.className = 'edit-line';
+          const num = document.createElement('span'); num.className = 'edit-ln'; num.textContent = i + 1;
+          const txt = document.createElement('span'); txt.textContent = ln || ' ';
+          row.appendChild(num); row.appendChild(txt); body.appendChild(row);
+        });
+        return true;
+      }
+      function numberCodeBlocks(root) {
+        if (!root) return;
+        root.querySelectorAll('.code-block').forEach(cb => {
+          const body = [...cb.children].find(c => !c.classList.contains('code-block-header'));
+          if (!body || body.classList.contains('code-body')) return;
+          const label = (cb.querySelector('.code-block-header > span') || {}).textContent || '';
+          fillCodeBody(body, body.textContent, label);
+        });
+      }
+
       // Render code block with proper styling during streaming
       // MUST match the exact format that processMessageContent creates to avoid visual jump
       function renderStreamingCodeBlock(segment) {
@@ -7202,14 +7166,14 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
         
         // Create code content div - EXACTLY like processMessageContent
         const codeContent = document.createElement("div");
-        codeContent.textContent = segment.content; // Use textContent, not innerHTML!
+        const numbered = fillCodeBody(codeContent, segment.content, /^edit\b/i.test(segment.lang || '') ? 'edit' : languageLabel.textContent);
         codeDiv.appendChild(codeContent);
         
         // Add cursor if incomplete
         if (!segment.complete) {
           const cursor = document.createElement("span");
           cursor.className = "streaming-cursor";
-          codeContent.appendChild(cursor);
+          (numbered && codeContent.lastChild ? codeContent.lastChild : codeContent).appendChild(cursor);
         }
         
         return codeDiv.outerHTML;
@@ -7452,6 +7416,7 @@ Code only. Minimal chat. Provide executable R code that performs the requested d
       function addCopyInsertButtonsToCodeBlocks(messageDiv, rawContent) {
         // Find all code blocks in the message
         const codeBlocks = messageDiv.querySelectorAll('.code-block');
+        numberCodeBlocks(messageDiv);
         
         // Extract code blocks with their language info from raw content
         const codeInfos = splitFencedBlocks(rawContent).filter(sg => sg.type === 'code-block')
@@ -7902,12 +7867,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
       
       // Dynamic resize function for chat container
       function resizeChatContainer() {
-        const chatContainer = document.getElementById("chat-container");
-        if (chatContainer) {
-          const viewportHeight = window.innerHeight;
-          const availableHeight = viewportHeight - 250; // Account for header, input, margins
-          chatContainer.style.height = Math.max(250, Math.min(availableHeight, viewportHeight * 0.6)) + "px";
-        }
+        // The chat fills the space above the composer with flexbox (CSS)
       }
       
       // Add resize listener
@@ -8100,7 +8060,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               messageDiv.appendChild(textDiv);
             }
           }
-          
+          numberCodeBlocks(messageDiv);
           return;
         }
         
@@ -8130,7 +8090,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
           console.log('📝 Welcome: No dataframes found, generating simple welcome');
           // No dataframes, just generate welcome message
           const welcomeText = generatePersonalizedWelcome(objects, objectsInfo, {});
-          typeMessage(welcomeText, "ai", 10);
+          typeMessage(welcomeText, "ai", 6, addWelcomeSuggestions);
           // Add to conversation history
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
@@ -8171,26 +8131,25 @@ Include comments explaining each step. Code only. Minimal chat.`;
       function describeActiveFileForWelcome() {
         const f = window.welcomeActiveFile;
         if (!f || !f.name) return '';
-        const details = [];
-        if (typeof f.kind === 'string' && f.kind) details.push(f.kind);
-        if (typeof f.lines === 'number' && f.lines > 0) details.push(`${f.lines.toLocaleString()} line${f.lines === 1 ? '' : 's'}`);
-        let line = `📄 You're in ${f.name}`;
-        if (details.length) line += ` (${details.join(', ')})`;
+        const unsaved = /^an unsaved file$/.test(f.name);
+        const kind = typeof f.kind === 'string' && f.kind ? f.kind : '';
+        const parts = [unsaved ? (kind ? `Unsaved ${kind} file` : 'Unsaved file') : (kind ? `${f.name} (${kind})` : f.name)];
+        if (typeof f.lines === 'number' && f.lines > 0) parts.push(`${f.lines.toLocaleString()} line${f.lines === 1 ? '' : 's'}`);
         if (typeof f.cursor_line === 'number' && f.cursor_line > 0 && f.lines > 0) {
-          line += ` at line ${f.cursor_line.toLocaleString()}`;
-          if (typeof f.chunk === 'string' && f.chunk) {
-            line += f.chunk.startsWith('starting at') ? `, in the chunk ${f.chunk}` : `, in chunk ${f.chunk}`;
-          }
+          let at = `cursor on line ${f.cursor_line.toLocaleString()}`;
+          if (typeof f.chunk === 'string' && f.chunk) at += f.chunk.startsWith('starting at') ? ` (chunk ${f.chunk})` : ` (chunk ${f.chunk})`;
+          parts.push(at);
         }
-        line += '.';
-        if (typeof f.folder === 'string' && f.folder) line += `\n📁 ${f.folder}`;
+        let line = parts.join(' · ');
+        if (typeof f.folder === 'string' && f.folder) line += `\n${f.folder}`;
         return line + '\n\n';
       }
 
       // Function to generate personalized welcome message based on available objects
       function generatePersonalizedWelcome(objects, objectsInfo, columnData = {}) {
-        const greeting = "👋 Hi! I'm your RStudio AI assistant.\n\n" + describeActiveFileForWelcome();
-        const genericHelp = "I can help you write code, analyze data, create visualizations, debug errors, and more. What would you like to work on?";
+        const greeting = "👋 Hi, I'm Rgent. I can see your workspace and the file you're editing.\n\n" + describeActiveFileForWelcome();
+        const genericHelp = "Ask me to write or fix code, explore data, make plots, or edit your file.";
+        window.welcomeSuggestionList = welcomeSuggestions([], objects || []);
         if (!objects || objects.length === 0) {
           return greeting + genericHelp;
         }
@@ -8270,81 +8229,90 @@ Include comments explaining each step. Code only. Minimal chat.`;
           collectionType = "data objects";
         }
         
-        // Create message with bullet points
+        window.welcomeColumnData = columnData || {};
+        window.welcomeSuggestionList = welcomeSuggestions(dataframes, selectedObjects);
         if (selectedObjects.length === 0) {
           return greeting + genericHelp;
-        } else {
-          let message = greeting + `I see you have a few ${collectionType}:\n\n`;
-          
-          // Add bullet points for selected objects with their types and sizes
-          selectedObjects.forEach((objName, index) => {
-            const category = selectedCategories[index];
-            const objInfo = objectsInfo && objectsInfo[objName] ? objectsInfo[objName] : null;
-            const sizeInfo = objInfo && objInfo.size_info ? objInfo.size_info : null;
-            
-            let typeLabel = '';
-            let sizeLabel = '';
-            
-            if (category === 'dataframe') {
-              typeLabel = ' (dataframe)';
-              if (sizeInfo && sizeInfo.nrow !== undefined && sizeInfo.ncol !== undefined) {
-                sizeLabel = ` - ${sizeInfo.nrow} rows × ${sizeInfo.ncol} columns`;
-              }
-              message += `• ${objName}${typeLabel}${sizeLabel}\n`;
-              
-              // Add column names as indented bullet points using existing pattern
-              // Use columnData if available (from get_dataframe_info), otherwise try sizeInfo
-              const columns = columnData && columnData[objName] ? columnData[objName] : null;
-              
-              if (columns) {
-                // Get column names array and limit to 5
-                let columnNames = [];
-                if (Array.isArray(columns)) {
-                  columnNames = columns.slice(0, 5);
-                } else if (typeof columns === 'object') {
-                  // If it's an object (column_info format), use keys
-                  columnNames = Object.keys(columns).slice(0, 5);
-                }
-                
-                // Add as indented bullet points (using 4 spaces - will be converted to &nbsp; in escapeHtml)
-                columnNames.forEach(colName => {
-                  message += `    • ${colName}\n`;
-                });
-              }
-            } else if (category === 'list') {
-              typeLabel = ' (list)';
-              if (sizeInfo && sizeInfo.length !== undefined) {
-                sizeLabel = ` - length ${sizeInfo.length}`;
-              }
-              message += `• ${objName}${typeLabel}${sizeLabel}\n`;
-            } else if (category === 'vector') {
-              typeLabel = ' (vector)';
-              if (sizeInfo && sizeInfo.length !== undefined) {
-                sizeLabel = ` - length ${sizeInfo.length}`;
-              }
-              message += `• ${objName}${typeLabel}${sizeLabel}\n`;
-            } else if (category === 'matrix') {
-              typeLabel = ' (matrix)';
-              if (sizeInfo && sizeInfo.nrow !== undefined && sizeInfo.ncol !== undefined) {
-                sizeLabel = ` - ${sizeInfo.nrow} rows × ${sizeInfo.ncol} columns`;
-              }
-              message += `• ${objName}${typeLabel}${sizeLabel}\n`;
-            } else {
-              message += `• ${objName}${typeLabel}${sizeLabel}\n`;
-            }
-          });
-          
-          // Add "and more" as regular text if there are additional objects
-          if (hasMore) {
-            message += "\nand more\n";
-          }
-          
-          message += "\nI can help you analyze them, create visualizations, debug errors, and more. What would you like to work on?";
-          
-          return message;
         }
+        // One line per object: name, size, first columns
+        let message = greeting + "Your data:\n";
+        selectedObjects.forEach((objName, index) => {
+          const category = selectedCategories[index];
+          const objInfo = objectsInfo && objectsInfo[objName] ? objectsInfo[objName] : null;
+          const sizeInfo = objInfo && objInfo.size_info ? objInfo.size_info : null;
+          let desc = '';
+          if ((category === 'dataframe' || category === 'matrix') && sizeInfo && sizeInfo.nrow !== undefined && sizeInfo.ncol !== undefined) {
+            desc = `${Number(sizeInfo.nrow).toLocaleString()} × ${Number(sizeInfo.ncol).toLocaleString()}`;
+            if (category === 'matrix') desc += ' matrix';
+          } else if (sizeInfo && sizeInfo.length !== undefined) {
+            desc = `${category === 'list' ? 'list' : 'vector'}, length ${Number(sizeInfo.length).toLocaleString()}`;
+          } else if (category !== 'other') {
+            desc = category;
+          }
+          let cols = columnData && columnData[objName] ? columnData[objName] : null;
+          if (cols && !Array.isArray(cols) && typeof cols === 'object') cols = Object.keys(cols);
+          let colText = '';
+          if (Array.isArray(cols) && cols.length) {
+            colText = cols.slice(0, 5).join(', ') + (cols.length > 5 || (sizeInfo && sizeInfo.ncol > 5) ? ', …' : '');
+          }
+          message += `• ${objName}${desc ? ': ' + desc : ''}${colText ? ' (' + colText + ')' : ''}\n`;
+        });
+        const more = totalObjects - selectedObjects.length;
+        if (more > 0) message += `…and ${more} more object${more === 1 ? '' : 's'} (see Data Explorer)\n`;
+        message += "\nWhat would you like to work on?";
+        return message;
       }
-      
+
+      // Starter questions shown as buttons under the greeting
+      function welcomeSuggestions(dataframes, objects) {
+        // Common first questions, using the user's own data and file
+        const f = window.welcomeActiveFile;
+        const hasFile = f && f.name && f.lines > 0;
+        const isDoc = hasFile && (f.kind === 'R Markdown' || f.kind === 'Quarto');
+        const out = [];
+        const df = dataframes[0];
+        if (df) {
+          out.push(`Give me a quick overview of ${df}`);
+          out.push(`Plot the main patterns in ${df}`);
+        }
+        if (isDoc) out.push('Check this document for problems before I knit');
+        else if (hasFile) out.push(f.cursor_line > 1 ? `Explain the code around line ${f.cursor_line}` : 'Explain what this script does');
+        if (df) {
+          // A join only when two data frames share a column name
+          const cols = window.welcomeColumnData || {};
+          const other = dataframes.slice(1, 5).find(o => (cols[df] || []).some(c => (cols[o] || []).includes(c)));
+          out.push(other ? `How do I join ${df} and ${other}?` : `Clean up ${df}: types, missing values, duplicates`);
+        } else if (hasFile) {
+          out.push('Find bugs or problems in this file');
+        } else if (objects && objects[0]) {
+          out.push(`What is in ${objects[0]}?`);
+        }
+        if (!out.length) out.push('Read a CSV file and explore it', 'Make a ggplot2 chart from a built-in dataset', 'Help me start an analysis script');
+        return out.slice(0, 4);
+      }
+
+      // Buttons that send a starter question (removed once the user sends anything)
+      function addWelcomeSuggestions(messageDiv) {
+        const list = window.welcomeSuggestionList || [];
+        if (!messageDiv || !list.length) return;
+        const bar = document.createElement('div');
+        bar.className = 'welcome-suggestions';
+        list.forEach(q => {
+          const b = document.createElement('button');
+          b.className = 'welcome-chip';
+          b.textContent = q;
+          b.onclick = () => {
+            const input = document.getElementById('user-input');
+            if (!input || !isConnected) return;
+            input.value = q;
+            sendMessage();
+          };
+          bar.appendChild(b);
+        });
+        messageDiv.appendChild(bar);
+        document.getElementById('chat-container').scrollTop = 1e9;
+      }
+
       // Function to escape HTML characters and preserve newlines
       function escapeHtml(text) {
         // First, preserve leading spaces before bullet points by converting them to a placeholder
@@ -8365,7 +8333,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
       }
       
       // Function to type out a message character by character
-      function typeMessage(content, role, speed = 20) {
+      function typeMessage(content, role, speed = 20, onDone = null) {
         const container = document.getElementById("chat-container");
         const messageDiv = document.createElement("div");
         messageDiv.className = "message " + role + "-message";
@@ -8387,6 +8355,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
             if (role === "ai") {
               processMarkdownFormatting(messageDiv);
             }
+            if (onDone) onDone(messageDiv);
           }
         }, speed);
       }
@@ -8538,9 +8507,9 @@ Include comments explaining each step. Code only. Minimal chat.`;
               };
               
               const executeButton = document.createElement("button");
-              executeButton.className = "insert-button";
-              executeButton.style.backgroundColor = "#17a2b8";
-              executeButton.textContent = "Execute & Fix";
+              executeButton.className = "cx-run";
+              executeButton.innerHTML = RUN_ICON + "<span>Run &amp; fix</span>";
+              executeButton.dataset.tip = "Run this code and fix errors automatically";
               executeButton.onclick = function() {
                 executeAndFix(cleanCode);
               };
@@ -8658,8 +8627,12 @@ Include comments explaining each step. Code only. Minimal chat.`;
             el.appendChild(note);
             return;
           }
+          // lines: the block's exact lines, so an insert of one blank line
+          // isn't read as an empty (nothing to insert) block
+          const content = seg.content || '';
           blocks.push({ el: el, edit: { mode: head.mode, start: head.start, end: head.end,
-                                        code: (seg.content || '').replace(/\n$/, '') } });
+                                        code: content.replace(/\n$/, ''),
+                                        lines: content === '' ? [] : content.replace(/\n$/, '').split('\n') } });
         });
         if (blocks.length === 0 || !ws || ws.readyState !== WebSocket.OPEN) return;
         const msgId = 'em' + (++editMsgCounter);
@@ -8912,7 +8885,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
 
       function insertCode(code) {
         if (!isConnected) {
-          alert("Not connected to RStudio");
+          showToast("Not connected to RStudio. Reopen Rgent from the Addins menu.");
           return;
         }
         
@@ -8925,7 +8898,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
       
       function executeAndFix(code) {
         if (!isConnected) {
-          alert("Not connected to RStudio");
+          showToast("Not connected to RStudio. Reopen Rgent from the Addins menu.");
           return;
         }
         
@@ -8936,9 +8909,94 @@ Include comments explaining each step. Code only. Minimal chat.`;
         }));
       }
       
+      // ===== Saved chats (History) =====
+      // R saves each chat as a small JSON file on this computer (limits in
+      // R/chat_store.R); this panel lists, reopens, exports and deletes them.
+      let chatHistoryData = null;
+      function openChatHistory() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        document.getElementById('chat-history').style.display = 'flex';
+        document.getElementById('chat-history-list').innerHTML = '<div class="chat-history-empty">Loading…</div>';
+        const clear = document.getElementById('chat-history-clear');
+        clear.classList.remove('armed'); clear.textContent = 'Delete all';
+        ws.send(JSON.stringify({ action: 'chat_list' }));
+      }
+      function closeChatHistory() { document.getElementById('chat-history').style.display = 'none'; }
+      function chatWhen(iso) {
+        const d = new Date(String(iso || '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
+        if (isNaN(d)) return '';
+        const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        if (days < 1 && new Date().toDateString() === d.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        if (days < 7) return d.toLocaleDateString([], { weekday: 'short' });
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+      function fmtBytes(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
+      function renderChatHistory(data) {
+        chatHistoryData = data || {};
+        const list = document.getElementById('chat-history-list');
+        const chats = Array.isArray(chatHistoryData.chats) ? chatHistoryData.chats : [];
+        list.innerHTML = '';
+        if (!chats.length) list.innerHTML = '<div class="chat-history-empty">No saved chats yet. Chats are saved here as you talk.</div>';
+        chats.forEach(c => {
+          const row = document.createElement('div');
+          row.className = 'chat-history-row' + (c.id === chatHistoryData.current ? ' current' : '');
+          row.tabIndex = 0; row.dataset.id = c.id;
+          const title = document.createElement('span'); title.className = 'chat-history-title'; title.textContent = c.title || 'Untitled chat';
+          const meta = document.createElement('span'); meta.className = 'chat-history-meta';
+          meta.textContent = `${chatWhen(c.updated)} · ${c.messages} msg`;
+          const exp = document.createElement('button'); exp.className = 'chat-history-act'; exp.textContent = 'Export';
+          exp.title = 'Open as Markdown in a new editor tab';
+          exp.onclick = (e) => { e.stopPropagation(); ws.send(JSON.stringify({ action: 'chat_export', id: c.id })); };
+          const del = document.createElement('button'); del.className = 'chat-history-act'; del.textContent = 'Delete';
+          del.onclick = (e) => { e.stopPropagation(); ws.send(JSON.stringify({ action: 'chat_delete', id: c.id })); };
+          row.append(title, meta, exp, del);
+          row.onclick = () => ws.send(JSON.stringify({ action: 'chat_open', id: c.id }));
+          row.onkeydown = (e) => { if (e.key === 'Enter') row.click(); if (e.key === 'Escape') closeChatHistory(); };
+          list.appendChild(row);
+        });
+        const lim = chatHistoryData.limits || {};
+        document.getElementById('chat-history-usage').textContent =
+          `${chats.length} chat${chats.length === 1 ? '' : 's'} · ${fmtBytes(chatHistoryData.bytes || 0)}` +
+          (lim.max_chats ? ` · on this computer only` : '');
+        document.getElementById('chat-history-clear').style.display = chats.length ? '' : 'none';
+      }
+      function deleteAllChats(btn) {
+        if (!btn.classList.contains('armed')) { btn.classList.add('armed'); btn.textContent = 'Click again to delete all'; return; }
+        btn.classList.remove('armed'); btn.textContent = 'Delete all';
+        ws.send(JSON.stringify({ action: 'chat_delete', all: true }));
+      }
+      // Show a saved chat: messages are rendered like finished replies, but
+      // nothing runs and old edits aren't offered again
+      function showSavedChat(data) {
+        if (!data || !data.ok) { closeChatHistory(); addMessage((data && data.error) || "That chat couldn't be opened.", 'ai'); return; }
+        closeChatHistory();
+        const container = document.getElementById('chat-container');
+        container.innerHTML = '';
+        (data.messages || []).forEach(m => {
+          const text = String(m.text || '');
+          if (m.role === 'user') { addMessage(text, 'user'); return; }
+          const div = document.createElement('div');
+          div.className = 'message ai-message';
+          div.innerHTML = parseStreamingContent(text).map(renderStreamingSegment).join('');
+          div.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
+          div.querySelectorAll('.code-block-actions span').forEach(l => { if (/streaming/.test(l.textContent)) l.remove(); });
+          container.appendChild(div);
+          addCopyInsertButtonsToCodeBlocks(div, text);
+        });
+        const note = document.createElement('div');
+        note.className = 'saved-chat-note';
+        note.textContent = 'Reopened a saved chat. New messages continue it.';
+        container.appendChild(note);
+        container.scrollTop = container.scrollHeight;
+      }
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('chat-history')?.style.display === 'flex') closeChatHistory();
+      });
+      document.addEventListener('mousedown', (e) => { if (e.target && e.target.id === 'chat-history') closeChatHistory(); });
+
       function newConversation() {
         if (!isConnected) {
-          alert("Not connected to RStudio");
+          showToast("Not connected to RStudio. Reopen Rgent from the Addins menu.");
           return;
         }
         
@@ -9015,12 +9073,13 @@ Include comments explaining each step. Code only. Minimal chat.`;
           
           // Add active class to chat button
           document.querySelector('.tab-btn[onclick="switchTab(\'chat\')"]').classList.add('active');
+          document.body.classList.add('chat-tab-active');
         }
       }
       
       function applyDebugFix(lineNumber, newCode) {
         if (!isConnected) {
-          alert("Not connected to RStudio");
+          showToast("Not connected to RStudio. Reopen Rgent from the Addins menu.");
           return;
         }
         
@@ -9192,8 +9251,8 @@ Include comments explaining each step. Code only. Minimal chat.`;
         document.body.removeChild(measureSpan);
         
         // Calculate position offsets
-        const paddingTop = parseFloat(computedStyle.paddingTop) || 8;
-        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 8;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
         const verticalOffset = currentLineIndex * lineHeight;
         const horizontalOffset = textWidth;
         
@@ -9343,23 +9402,14 @@ Include comments explaining each step. Code only. Minimal chat.`;
           }
         });
         
-        // Auto-resize textarea - only expand when text wraps to a new line
+        // Grow with the text (up to the CSS max-height); the send arrow dims while empty
         userInput.addEventListener("input", function() {
-          // Reset height to auto to get accurate scrollHeight
           this.style.height = "auto";
-          
-          // Calculate single-line height: base height (24px) + padding (8px top + 8px bottom = 16px) + line height
-          // Single line scrollHeight should be around 40-42px with padding and line height
-          const singleLineHeight = 40;
-          
-          // Only expand if content has wrapped (scrollHeight exceeds single-line height)
-          if (this.scrollHeight > singleLineHeight) {
-            this.style.height = Math.min(this.scrollHeight, 150) + "px";
-          } else {
-            // Keep at base height when content fits on one line
-            this.style.height = "24px";
-          }
+          this.style.height = Math.min(this.scrollHeight, 180) + "px";
+          updateSendEmpty();
         });
+        updateSendEmpty();
+        setupSlashCommands();
         
         // Close completion suggestion when clicking outside
         document.addEventListener("click", function(e) {
@@ -9502,28 +9552,16 @@ Include comments explaining each step. Code only. Minimal chat.`;
       // Analyze Last Plot functionality
       function analyzeLastPlot() {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          alert("Not connected to RStudio");
+          addMessage("Not connected to RStudio.", "ai");
           return;
         }
-        
-        // Reset stop flag for new operation
         operationStopped = false;
-        
-        // Set AI responding flag
         isAIResponding = true;
-        
-        // Transform send button to stop button
         transformToStopButton();
-        
-        // Add initial message showing we're starting analysis
-        addMessage("**Starting Plot Analysis:**\n\nStep 1: Scanning R history for plot commands:", "ai");
-        
-        // Send the analyze request
-        ws.send(JSON.stringify({
-          action: "analyze_last_plot"
-        }));
-        
-
+        document.querySelectorAll('.welcome-suggestions').forEach(el => el.remove());
+        addMessage("Explain my last plot", "user");
+        createThinkingIndicator("ai-thinking", "Looking at your plot");
+        ws.send(JSON.stringify({ action: "analyze_last_plot" }));
       }
       
       // Special function for plot analysis messages
@@ -9753,6 +9791,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
           console.log(`  Tab ${tabId}: wasActive=${wasActive}, now active=${tab.classList.contains('active')}, display=${tab.style.display}`);
         });
         buttons.forEach(btn => btn.classList.remove('active'));
+        document.body.classList.toggle('chat-tab-active', tabName === 'chat');
         
         // Hide all agent configs and views when switching away from agents tab
         if (tabName !== 'agents') {
@@ -9857,7 +9896,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         
         // Special handling for usage tab
         if (tabName === 'usage') {
-          loadStats();
+          showUsage();
         }
         
         // Special handling for explorer tab
@@ -11867,37 +11906,29 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           toggle.checked = !toggle.checked;
           
           // Update button text based on current state
-          if (toggle.checked) {
-            button.textContent = 'Auto Execute';
-          } else {
-            button.textContent = 'Ask';
-          }
-          
-          // Update mode status indicator
+          showModeOnButton(button, toggle.checked);
           updateModeStatus();
           
           console.log('🔧 Mode changed to:', toggle.checked ? 'Auto Execute' : 'Ask');
         }
       }
       
-      // Track last mode to avoid duplicate messages
+      function showModeOnButton(button, auto) {
+        button.classList.toggle('cx-auto', auto);
+        const label = button.querySelector('.cx-mode-label');
+        if (label) label.textContent = auto ? 'Auto-run' : 'Ask first'; else button.textContent = auto ? 'Auto-run' : 'Ask first';
+        button.dataset.tip = auto
+          ? 'Auto-run: code in replies runs in your R session. Click for Ask first.'
+          : 'Ask first: code in replies waits for you to run it. Click for Auto-run.';
+      }
+      
+      // Track last mode
       let lastModeStatus = null;
       
-      // Update mode status indicator in chat
+      // The pill shows the mode; no chat message
       function updateModeStatus() {
         const toggle = document.getElementById('auto-execute-toggle');
-        
-        if (toggle) {
-          const currentMode = toggle.checked ? 'auto' : 'ask';
-          
-          // Only add message if mode changed
-          if (lastModeStatus !== null && lastModeStatus !== currentMode) {
-            const modeText = toggle.checked ? 'Auto Execute On' : 'Ask Mode On';
-            addMessage(`**Mode Changed:** ${modeText}`, 'ai');
-          }
-          
-          lastModeStatus = currentMode;
-        }
+        if (toggle) lastModeStatus = toggle.checked ? 'auto' : 'ask';
       }
       
       // Set mode (for initialization and programmatic changes)
@@ -11906,13 +11937,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         const button = document.getElementById('mode-selector-button');
         
         if (toggle && button) {
-          if (mode === 'auto') {
-            toggle.checked = true;
-            button.textContent = 'Auto Execute';
-          } else {
-            toggle.checked = false;
-            button.textContent = 'Ask';
-          }
+          toggle.checked = mode === 'auto';
+          showModeOnButton(button, toggle.checked);
           
           // Update mode status indicator
           updateModeStatus();
@@ -12325,46 +12351,27 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
       }
       
       // Helper function to add execute button to a code block
+      // "Run code" bar under a reply when Ask first is on (nothing ran yet)
+      const RUN_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>';
+      function makeRunBar(onRun) {
+        const bar = document.createElement('div');
+        bar.className = 'run-bar';
+        const btn = document.createElement('button');
+        btn.className = 'cx-run';
+        btn.innerHTML = RUN_ICON + '<span>Run code</span>';
+        btn.dataset.tip = 'Run the code in this reply in your R session';
+        btn.onclick = () => { bar.remove(); onRun(); };
+        const note = document.createElement('span');
+        note.className = 'run-note';
+        note.textContent = 'Ask first is on, so nothing has run.';
+        bar.appendChild(btn);
+        bar.appendChild(note);
+        return bar;
+      }
+      
+      // Helper function to add execute button to a code block
       function addExecuteButtonToCodeBlock(codeBlock, code) {
-        console.log('🔍 Adding execute button to code block');
-        console.log('🔍 Code block element:', codeBlock);
-        console.log('🔍 Code block classes:', codeBlock.className);
-        console.log('🔍 Code block children count:', codeBlock.children.length);
-        
-        // Add manual mode indicator and execute button
-        const manualModeDiv = document.createElement('div');
-        manualModeDiv.style.marginTop = '15px';
-        manualModeDiv.style.padding = '10px';
-        manualModeDiv.style.backgroundColor = 'var(--bg-secondary)';
-        manualModeDiv.style.borderRadius = '6px';
-        manualModeDiv.style.border = '1px solid var(--border-color)';
-        
-        const manualModeText = document.createElement('div');
-        manualModeText.innerHTML = '<strong>Auto Execute Off</strong>';
-        manualModeText.style.marginBottom = '10px';
-        manualModeText.style.color = 'var(--text-primary)';
-        
-        const executeButton = document.createElement('button');
-        executeButton.textContent = 'Execute Code';
-        executeButton.className = 'execute-cleaning-button';
-        executeButton.onclick = () => {
-          executeCleaningCodeWithErrorHandling(code);
-          // Remove the manual mode section after clicking
-          manualModeDiv.remove();
-        };
-        
-        manualModeDiv.appendChild(manualModeText);
-        manualModeDiv.appendChild(executeButton);
-        codeBlock.appendChild(manualModeDiv);
-        
-        console.log('✅ Execute button added to code block');
-        console.log('🔍 Manual mode div added:', manualModeDiv);
-        console.log('🔍 Execute button added:', executeButton);
-        console.log('🔍 Code block children count after:', codeBlock.children.length);
-        
-        // Force a visual update
-        manualModeDiv.style.display = 'block';
-        executeButton.style.display = 'inline-block';
+        codeBlock.appendChild(makeRunBar(() => executeCleaningCodeWithErrorHandling(code)));
       }
       
       // Setup checkbox interactions
@@ -14772,26 +14779,8 @@ cat("\\nModeling workflow completed successfully!\\n")
             if (lastAIMessage) {
               console.log('🔍 Last AI message found, adding execute button...');
               
-              // Create a simple execute button container
-              const buttonContainer = document.createElement('div');
-              buttonContainer.style.marginTop = '15px';
-              buttonContainer.style.padding = '10px';
-              buttonContainer.style.backgroundColor = '#f8f9fa';
-              buttonContainer.style.borderRadius = '6px';
-              buttonContainer.style.border = '1px solid #e9ecef';
-              buttonContainer.style.textAlign = 'center';
-              
-              const executeButton = document.createElement('button');
-              executeButton.textContent = 'Execute Code';
-              executeButton.className = 'execute-cleaning-button';
-              executeButton.onclick = () => {
-                executeCleaningCodeWithErrorHandling(originalCode);
-                // Remove the button after clicking
-                buttonContainer.remove();
-              };
-              
-              buttonContainer.appendChild(executeButton);
-              lastAIMessage.appendChild(buttonContainer);
+              lastAIMessage.querySelectorAll('.run-bar').forEach(b => b.remove());
+              lastAIMessage.appendChild(makeRunBar(() => executeCleaningCodeWithErrorHandling(originalCode)));
               
               console.log('✅ Execute button added to last AI message');
             } else {
@@ -16549,7 +16538,7 @@ Reply with the corrected code as one R code block and at most two sentences. Use
           const type = info ? info.type : (XP_KIND_LABEL[xp.kinds[c]] || '');
           head += `<th data-j="${j}" class="${xp.pinned.includes(c) ? 'xp-pinned-col' : ''}" title="${xpEsc(c)} (${xpEsc(type)})">` +
                   `<div class="xp-colhead"><div class="xp-colhead-main" data-j="${j}">` +
-                  `<div class="xp-colhead-name"><span>${xpEsc(c)}</span>${sortMark}</div>` +
+                  `<div class="xp-colhead-name">${xp.pinned.includes(c) ? '<svg class="xp-pin" viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-label="Pinned"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg>' : ''}<span>${xpEsc(c)}</span>${sortMark}</div>` +
                   `<div class="xp-colhead-type">${xpEsc(type)}</div></div>` +
                   `<button class="xp-colhead-menu" data-j="${j}" title="Column menu">▾</button>` +
                   `<div class="xp-resize" data-j="${j}"></div></div></th>`;
@@ -16575,6 +16564,7 @@ Reply with the corrected code as one R code block and at most two sentences. Use
         document.getElementById('xp-tbody').innerHTML = parts.join('');
         const total = labelWidth + cols.reduce((a, c) => a + xpColWidth(c), 0);
         document.getElementById('xp-table').style.width = total + 'px';
+        xpFreezePinned(labelWidth);
         const empty = document.getElementById('xp-empty');
         if (n === 0) {
           empty.style.display = 'block';
@@ -16593,6 +16583,7 @@ Reply with the corrected code as one R code block and at most two sentences. Use
       }
       function xpPaintSelection() {
         document.querySelectorAll('#xp-tbody td.xp-sel, #xp-tbody td.xp-cursor').forEach(td => td.classList.remove('xp-sel', 'xp-cursor'));
+        setTimeout(xpSelectionStatus, 0);
         if (!xp.sel) return;
         const r0 = Math.min(xp.sel.i0, xp.sel.i1), r1 = Math.max(xp.sel.i0, xp.sel.i1);
         const c0 = Math.min(xp.sel.j0, xp.sel.j1), c1 = Math.max(xp.sel.j0, xp.sel.j1);
@@ -16607,6 +16598,37 @@ Reply with the corrected code as one R code block and at most two sentences. Use
           const td = rows[xp.cursor.i] && rows[xp.cursor.i].cells[xp.cursor.j + 1];
           if (td) { td.classList.add('xp-cursor'); td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
         }
+      }
+      // Pinned columns come first (R orders them); make them sticky after the row labels
+      function xpFreezePinned(labelWidth) {
+        let css = '', left = labelWidth, last = -1;
+        xp.cols.forEach((c, j) => {
+          if (!xp.pinned.includes(c)) return;
+          css += `#xp-table [data-j="${j}"]:is(th, td) { position: sticky; left: ${left}px; }\n`;
+          left += xpColWidth(c); last = j;
+        });
+        if (last >= 0) css += `#xp-table [data-j="${last}"]:is(th, td) { box-shadow: 2px 0 0 0 var(--rgent-accent); }\n`;
+        let st = document.getElementById('xp-freeze-style');
+        if (!st) { st = document.createElement('style'); st.id = 'xp-freeze-style'; document.head.appendChild(st); }
+        st.textContent = css;
+      }
+      function xpSelectionStatus() {
+        document.querySelectorAll('#xp-thead th.xp-col-sel, #xp-tbody th.xp-row-sel').forEach(e => e.classList.remove('xp-col-sel', 'xp-row-sel'));
+        if (!xp.sel) { if (typeof xpUpdateStatus === 'function') xpUpdateStatus(); return; }
+        const r0 = Math.min(xp.sel.i0, xp.sel.i1), r1 = Math.max(xp.sel.i0, xp.sel.i1);
+        const c0 = Math.min(xp.sel.j0, xp.sel.j1), c1 = Math.max(xp.sel.j0, xp.sel.j1);
+        const n = xp.data[xp.cols[0]] ? xp.data[xp.cols[0]].length : 0;
+        const keys = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘C' : 'Ctrl+C';
+        for (let j = c0; j <= c1; j++) { const th = document.querySelector(`#xp-thead th[data-j="${j}"]`); if (th && r0 === 0 && r1 === n - 1) th.classList.add('xp-col-sel'); }
+        const rows = document.getElementById('xp-tbody').rows;
+        if (c0 === 0 && c1 === xp.cols.length - 1) for (let i = r0; i <= r1 && i < rows.length; i++) rows[i].cells[0].classList.add('xp-row-sel');
+        const cells = (r1 - r0 + 1) * (c1 - c0 + 1);
+        let what;
+        if (cells === 1) return xpUpdateStatus && xpUpdateStatus();
+        if (c0 === c1 && r0 === 0 && r1 === n - 1) what = `Column ${xp.cols[c0]} selected · ${xpFmtInt(n)} values on this page`;
+        else if (r0 === r1 && c0 === 0 && c1 === xp.cols.length - 1) what = `Row ${xp.rowLabels[r0] !== undefined ? xp.rowLabels[r0] : r0 + 1} selected`;
+        else what = `${xpFmtInt(cells)} cells selected`;
+        xpStatus(`${what} · ${keys} copies`);
       }
       function xpSelect(i0, j0, i1, j1, cursor) {
         xp.sel = { i0, j0, i1: i1 === undefined ? i0 : i1, j1: j1 === undefined ? j0 : j1 };
@@ -16752,6 +16774,74 @@ Reply with the corrected code as one R code block and at most two sentences. Use
       function xpSetPageSize(v) { xp.pageSize = parseInt(v, 10) || 100; xp.page = 1; xpRequestPage(); }
 
       // ---- Search ---------------------------------------------------------
+      // Hover tips (after 1 s) for every button: its data-tip, else its
+      // aria-label or title, else a description of its label (TIP_BY_TEXT),
+      // else the label itself. The Viewer pane doesn't reliably show title.
+      const TIP_BY_TEXT = {
+        "Copy": "Copy this code", "Copied!": "Copied", "Insert": "Insert this code where your cursor is in the editor",
+        "Insert at Cursor": "Insert this code where your cursor is in the editor",
+        "Execute Code": "Run this code in your R session", "Execute & Fix": "Run this code and fix errors automatically",
+        "Accept": "Apply this change to your file", "Accept & run": "Apply this change and run the new lines",
+        "Accept all": "Apply every change above", "Accept all & run": "Apply every change above and run the new code",
+        "Reject": "Discard this change", "Reject all": "Discard every change above", "Undo": "Put the file back the way it was",
+        "Export": "Open this chat as Markdown in a new editor tab", "Delete": "Delete this saved chat",
+        "Delete all": "Delete every saved chat (click twice)", "Click again to delete all": "Click again to delete every saved chat",
+        "×": "Close", "Close": "Close", "Show": "Show the access code", "Hide": "Hide the access code",
+        "Validate Access": "Check your access code and start Rgent",
+        "Chat": "Ask Rgent about your data and code", "Data Explorer": "Browse your data frames and other objects",
+        "Usage": "Your plan and the requests you've used this month",
+        "Copy path": "Copy an R expression for this part", "Copy code": "Copy the R code for this view",
+        "Copy values": "Copy these values", "Ask Rgent": "Ask Rgent about this", "Code": "Show the R code for this view",
+        "▾": "More options"
+      };
+      // Small notice that fades out (browser alerts freeze the Viewer pane)
+      function showToast(msg, ms) {
+        let t = document.getElementById('cx-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'cx-toast'; t.className = 'cx-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+        t.textContent = msg;
+        requestAnimationFrame(() => t.classList.add('show'));
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), ms || 3200);
+      }
+      
+      function tipFor(el) {
+        if (el.title) { el.dataset.tip = el.title; el.removeAttribute('title'); }
+        if (el.dataset.tip) return el.dataset.tip;
+        const aria = el.getAttribute('aria-label');
+        if (aria) return aria;
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!text) return '';
+        if (TIP_BY_TEXT[text]) return TIP_BY_TEXT[text];
+        if (/^Show more/.test(text)) return 'Show more values';
+        if (el.closest('.code-question')) return 'Answer "' + text + '"';
+        return text.length > 60 ? text.slice(0, 60) + '…' : text;
+      }
+      (function xpSetupTips() {
+        let timer = null, tip = null, cur = null;
+        const hide = () => { clearTimeout(timer); timer = null; cur = null; if (tip) { tip.remove(); tip = null; } };
+        const show = (el) => {
+          if (!el.isConnected || !el.offsetParent) return;
+          tip = document.createElement('div');
+          tip.className = 'xp-tip'; tip.id = 'xp-tip'; tip.setAttribute('role', 'tooltip');
+          tip.textContent = tipFor(el);
+          document.body.appendChild(tip);
+          const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+          const left = Math.max(6, Math.min(r.left + r.width / 2 - t.width / 2, window.innerWidth - t.width - 6));
+          const top = r.bottom + 6 + t.height > window.innerHeight ? r.top - t.height - 6 : r.bottom + 6;
+          tip.style.left = left + 'px'; tip.style.top = top + 'px';
+        };
+        document.addEventListener('mouseover', (e) => {
+          const el = e.target.closest && e.target.closest('[data-tip], button, [role="button"], .slash-item');
+          if (el === cur) return;
+          hide();
+          if (!el || el.classList.contains('slash-item') || !tipFor(el)) return;
+          cur = el; timer = setTimeout(() => show(el), 1000);
+        });
+        document.addEventListener('mousedown', hide, true);
+        document.addEventListener('scroll', hide, true);
+        window.addEventListener('blur', hide);
+      })();
+
       (function xpSetupSearch() {
         const input = document.getElementById('xp-search-input');
         const clear = document.getElementById('xp-search-clear');
@@ -16995,6 +17085,7 @@ Reply with the corrected code as one R code block and at most two sentences. Use
       function xpTogglePin(c) {
         const k = xp.pinned.indexOf(c);
         if (k >= 0) xp.pinned.splice(k, 1); else xp.pinned.push(c);
+        if (typeof xpToast === 'function') xpToast(k >= 0 ? `Unpinned ${c}` : `Pinned ${c}: it stays on the left as you scroll`);
         xpRequestPage();
         xpRenderSummary();
       }
@@ -17987,15 +18078,20 @@ Reply with the corrected code as one R code block and at most two sentences. Use
       
       
       // Open guide modal
+      // Usage bars: green, amber from 75%, red from 90%
+      function setUsageBar(which, pct) {
+        const bar = document.getElementById(which + '-progress-bar');
+        const fill = document.getElementById(which + '-progress-fill');
+        const label = document.getElementById(which + '-progress-pct');
+        const p = Math.max(0, Math.min(100, Number(pct) || 0));
+        if (fill) { fill.style.width = p + '%'; fill.textContent = ''; }
+        if (bar) { bar.classList.toggle('ux-warn', p >= 75 && p < 90); bar.classList.toggle('ux-full', p >= 90); bar.setAttribute('aria-valuenow', Math.round(p)); }
+        if (label) label.textContent = Math.round(p) + '% used';
+      }
+      
       function openGuideModal() {
-        console.log('📖 Opening guide modal');
         const modal = document.getElementById('guide-modal');
-        if (modal) {
-          modal.style.display = 'flex';
-          console.log('📖 Guide modal display set to flex');
-        } else {
-          console.error('📖 Guide modal not found!');
-        }
+        if (modal) modal.style.display = 'flex';
       }
       
       // Close guide modal
@@ -18006,6 +18102,8 @@ Reply with the corrected code as one R code block and at most two sentences. Use
           modal.style.display = 'none';
         }
       }
+      
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = document.getElementById('guide-modal'); if (m && m.style.display === 'flex') closeGuideModal(); } });
       
       // Close guide modal when clicking outside
       document.addEventListener('click', function(e) {

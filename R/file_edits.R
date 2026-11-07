@@ -67,9 +67,86 @@ edit_instructions <- function(file_name, outline = "") {
 #' A short map of a long document, so Claude knows where every chunk and
 #' section starts and ends even when the listing shows only part of the file
 #' @keywords internal
-document_outline <- function(lines, name, min_lines = 150L, max_items = 80L) {
+# Mirrors the backend's _format_file_context(): it sends the whole file when the
+# numbered listing fits FILE_CONTEXT_WHOLE_CHARS (lines cut at 300 characters,
+# plus 8 for the "  123| " prefix). Keep the numbers in sync with backend/main.py.
+.rgent_listing_chars <- function(lines) sum(pmin(nchar(lines, type = "chars", allowNA = TRUE, keepNA = FALSE), 300L) + 8L)
+.rgent_listing_fits <- function(lines, budget = 14000L) .rgent_listing_chars(lines) <= budget
+
+# Numbered lines a-b of the document as Claude saw it, for a ```read request.
+# Capped at `budget` characters so one request can't blow up the prompt.
+.rgent_read_lines <- function(lines, from, to, budget = 14000L) {
   n <- length(lines)
-  if (n <= min_lines) return("")
+  from <- max(1L, as.integer(from)); to <- min(n, as.integer(to))
+  if (is.na(from) || is.na(to) || from > to) return(NULL)
+  cost <- cumsum(pmin(nchar(lines[from:to], allowNA = TRUE, keepNA = FALSE), 300L) + 8L)
+  to <- from + max(1L, sum(cost <= budget)) - 1L
+  txt <- lines[from:to]
+  long <- nchar(txt, allowNA = TRUE, keepNA = FALSE) > 300L
+  txt[long] <- paste0(substr(txt[long], 1L, 300L), " \u2026")
+  list(from = from, to = to, text = paste(sprintf("%5d| %s", from:to, txt), collapse = "\n"))
+}
+
+# ```read a-b at the end of a reply: Claude asking for lines it wasn't shown
+.rgent_read_request <- function(reply) {
+  m <- regmatches(reply, regexec("(?m)^ {0,3}```+ *read +(\\d+) *(?:-|to) *(\\d+) *\n(?:[^`]*\n)?```+ *$", reply, perl = TRUE))[[1]]
+  if (length(m) < 3) return(NULL)
+  list(from = as.integer(m[2]), to = as.integer(m[3]))
+}
+
+# ```find <pattern> at the end of a reply: Claude searching the open file
+.rgent_find_pattern_re <- "(?m)^ {0,3}```+ *find +(.+?) *\n(?:[^`]*\n)?```+ *$"
+.rgent_find_request <- function(reply) {
+  m <- regmatches(reply, regexec(.rgent_find_pattern_re, reply, perl = TRUE))[[1]]
+  if (length(m) < 2) return(NULL)
+  p <- trimws(m[2])
+  # "ggplot", `ggplot` and /ggplot/ all mean the same search
+  p <- sub("^([\"`'/])(.*)\\1$", "\\2", p)
+  if (!nzchar(p)) return(NULL)
+  list(pattern = p)
+}
+
+# The last lookup Claude asked for in this text (a read or a find), or NULL
+.rgent_lookup_request <- function(reply) {
+  r <- .rgent_read_request(reply); f <- .rgent_find_request(reply)
+  last_at <- function(re) { g <- gregexpr(re, reply, perl = TRUE)[[1]]; if (g[1] < 0) -1L else max(g) }
+  if (!is.null(r) && !is.null(f)) {
+    if (last_at(.rgent_find_pattern_re) > last_at("(?m)^ {0,3}```+ *read +\\d")) r <- NULL else f <- NULL
+  }
+  if (!is.null(r)) return(c(list(type = "read"), r))
+  if (!is.null(f)) return(c(list(type = "find"), f))
+  NULL
+}
+
+# Lines of the file matching a pattern (a regular expression, ignoring case;
+# taken literally if it isn't a valid one), numbered like the listing and
+# capped so a broad search stays small
+.rgent_find_lines <- function(lines, pattern, max_matches = 60L, budget = 6000L) {
+  hit <- tryCatch(suppressWarnings(grepl(pattern, lines, perl = TRUE, ignore.case = TRUE)),
+                  error = function(e) grepl(tolower(pattern), tolower(lines), fixed = TRUE))
+  idx <- which(hit)
+  if (!length(idx)) return(list(pattern = pattern, count = 0L, text = "(no matching lines)"))
+  txt <- lines[idx]
+  long <- nchar(txt, allowNA = TRUE, keepNA = FALSE) > 200L
+  txt[long] <- paste0(substr(txt[long], 1L, 200L), " …")
+  rows <- sprintf("%5d| %s", idx, txt)
+  keep <- seq_along(rows) <= max_matches & cumsum(nchar(rows) + 1L) <= budget
+  keep[1] <- TRUE
+  out <- paste(rows[keep], collapse = "\n")
+  if (any(!keep)) out <- paste0(out, "\n(", sum(!keep), " more matches not shown; search for something narrower)")
+  list(pattern = pattern, count = length(idx), text = out)
+}
+
+# In the saved history a read or find request becomes a short note, so later
+# requests don't carry stale requests (or a block that looks like an option)
+.rgent_strip_read <- function(reply) {
+  reply <- gsub("(?m)^ {0,3}```+ *read +(\\d+) *(?:-|to) *(\\d+) *\n(?:[^`]*\n)?```+ *$", "(read lines \\1-\\2 of the file)", reply, perl = TRUE)
+  gsub(.rgent_find_pattern_re, "(searched the file for \\1)", reply, perl = TRUE)
+}
+
+document_outline <- function(lines, name, budget = 14000L, max_items = 80L) {
+  n <- length(lines)
+  if (.rgent_listing_fits(lines, budget)) return("")
   items <- character(0)
   if (.rgent_is_markdown(name, lines)) {
     if (n > 1 && grepl("^---\\s*$", lines[1])) {
@@ -112,14 +189,18 @@ document_outline <- function(lines, name, min_lines = 150L, max_items = 80L) {
     items <- c(items, sprintf("%d %s", secs, substr(trimws(lines[secs]), 1, 80)))
     items <- items[order(as.integer(sub("^(\\d+).*", "\\1", items)))]
   }
-  if (!length(items)) return("")
   more <- length(items) > max_items
   items <- utils::head(items, max_items)
   paste0("\n\nOUTLINE of ", name, " (", n, " lines; the CURRENT FILE listing may show only part of it):\n",
-         paste0("  ", items, collapse = "\n"), if (more) "\n  ..." else "",
+         if (length(items)) paste0("  ", items, collapse = "\n") else "  (no chunks, sections or definitions found)",
+         if (more) "\n  ..." else "",
          "\nTo replace or delete a whole chunk or section, use its range from this outline, ",
          "including lines the listing doesn't show; the user sees every affected line before accepting. ",
-         "Never cut a chunk's opening fence without its closing fence or the reverse.")
+         "Never cut a chunk's opening fence without its closing fence or the reverse. ",
+         "You can look at the rest of the file: end your reply with an empty ```read 46-151 block (a line range) ",
+         "or ```find ggplot|geom_ block (a regular expression, ignoring case; you get every matching line with its number), ",
+         "and nothing after it; the result is sent and you continue. For questions about the whole file ",
+         "(\"which plots do I have\", \"where is x defined\"), search or read first; never tell the user you can't see part of the file.")
 }
 
 .rgent_inside_chunk <- function(lines) {
@@ -244,6 +325,13 @@ preview_file_edits <- function(edits) {
     code <- if (is.null(e$code)) "" else paste(.rgent_as_lines(e$code), collapse = "\n")
     code <- sub("\n$", "", code)
     new_code <- if (nzchar(code)) strsplit(code, "\n", fixed = TRUE)[[1]] else character(0)
+    # Newer pages send the block's exact lines: a block holding one blank line
+    # inserts a blank line (`code` alone can't tell it from an empty block).
+    # A replace made only of blank lines still means delete.
+    if (!is.null(e$lines)) {
+      exact <- .rgent_as_lines(e$lines)
+      new_code <- if (mode == "replace" && !any(nzchar(trimws(exact)))) character(0) else exact
+    }
 
     if (is.na(start)) return(fail("The edit has no line number."))
     if (mode == "replace") {

@@ -13,7 +13,7 @@
   ".rgent_update_checked", "auto_capture_active", "conversation_history",
   "current_access_code", "current_session_id", "currentStepCode",
   "last_context_state", "last_error_context", "last_error_message",
-  "last_plot_command", "operation_stopped", "websocket_server", "workspace_index"
+  "last_plot_command", "last_plot_timestamp", "operation_stopped", "websocket_server", "workspace_index"
 )
 
 .rgent_explorer_cache <- new.env(parent = emptyenv())

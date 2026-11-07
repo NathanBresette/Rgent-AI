@@ -1010,6 +1010,10 @@ describe_active_file <- function() {
   kind <- switch(ext, rmd = "R Markdown", qmd = "Quarto", r = "R script", rnw = "Sweave",
                  md = "Markdown", py = "Python", sql = "SQL", NULL)
   lines <- ctx$contents
+  # Unsaved tabs have no extension: recognize R Markdown by its chunk fences
+  if (is.null(kind) && !nzchar(path) && isTRUE(tryCatch(.rgent_is_markdown(name, lines), error = function(e) FALSE))) {
+    kind <- "R Markdown"; ext <- "rmd"
+  }
   # RStudio reports an empty buffer as one empty line
   n_lines <- if (length(lines) == 1 && !nzchar(lines)) 0L else length(lines)
   if (!nzchar(path) && n_lines == 0) return(NULL)  # empty Untitled tab: nothing to say
