@@ -506,7 +506,52 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
 
 #' Launch Rgent
 #' @export
+# What this R session loaded, kept from load time (2.4.7). An update installs
+# new files on disk, but a running session keeps the old R code until R
+# restarts; serving the page from disk then paired a new page with old code
+# (a 2.4.6 page talking to 2.4.3 code: new buttons that did nothing).
+.rgent_loaded <- new.env(parent = emptyenv())
+
+# The page as it was when the package loaded (NULL if it couldn't be read)
+.rgent_remember_page <- function(libname, pkgname) {
+  f <- file.path(libname, pkgname, "public", "websocket_chat.html")
+  .rgent_loaded$page <- tryCatch(if (file.exists(f)) readBin(f, "raw", file.info(f)$size) else NULL,
+                                 error = function(e) NULL)
+  invisible(NULL)
+}
+
+# The version installed on disk now (it changes when an update installs)
+.rgent_installed_version <- function() {
+  path <- tryCatch(getNamespaceInfo("rstudioai", "path"), error = function(e) "")
+  v <- tryCatch(read.dcf(file.path(path, "DESCRIPTION"), fields = "Version")[1, 1], error = function(e) NA)
+  if (is.na(v)) NULL else as.character(v)
+}
+
+# Running vs installed: `stale` when a newer version is installed than the one running
+.rgent_version_status <- function() {
+  running <- as.character(getNamespaceVersion("rstudioai"))
+  installed <- .rgent_installed_version()
+  stale <- !is.null(installed) &&
+    isTRUE(tryCatch(package_version(installed) > package_version(running), error = function(e) FALSE))
+  list(action = "version_status", running = running, installed = if (is.null(installed)) running else installed,
+       stale = stale)
+}
+
+.rgent_send_version_status <- function(ws = .rgent_loaded$ws) {
+  if (is.null(ws)) return(invisible(FALSE))
+  tryCatch({ ws$send(jsonlite::toJSON(.rgent_version_status(), auto_unbox = TRUE)); TRUE },
+           error = function(e) FALSE)
+}
+
+# Restart R and open Rgent again. RStudio keeps the global environment on a
+# restart but not options, so `rgent.started` tells whether .Rprofile's
+# auto-start already opened it.
+.rgent_restart_r <- function() {
+  rstudioapi::restartSession(command = 'if (is.null(getOption("rgent.started"))) rstudioai::run_rgent()')
+}
+
 run_rgent <- function() {
+  options(rgent.started = TRUE)
   # Check if RStudio API is available
   if (!requireNamespace("rstudioapi", quietly = TRUE) || !rstudioapi::isAvailable()) {
     stop("RStudio API is not available. Please run this in RStudio.")
@@ -577,7 +622,8 @@ run_rgent <- function() {
       dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
       writeLines(as.character(as.numeric(Sys.time())), f)
       if (isTRUE(check_and_update_package(auto_update = TRUE, quiet = TRUE))) {
-        cat("\nRgent was updated. Restart RStudio to use the new version.\n")
+        cat("\nRgent was updated. Restart R (Session > Restart R) to use the new version.\n")
+        .rgent_send_version_status()   # the chat shows the Restart R banner
       }
     }, error = function(e) invisible(NULL))
   }
@@ -776,6 +822,11 @@ start_websocket_server <- function() {
     
       # Handle different actions
       response <- switch(request$action,
+        "restart_r" = {
+          # The banner's Restart R: load the installed version
+          ok <- isTRUE(tryCatch({ .rgent_restart_r(); TRUE }, error = function(e) FALSE))
+          list(action = "restart_r", ok = ok)
+        },
         "clear_access_code" = {
           clear_saved_access_code()
           list(action = "access_code_cleared", status = "success")
@@ -1797,6 +1848,8 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
+          .rgent_loaded$ws <- ws
+          .rgent_send_version_status(ws)
           # Send theme information immediately upon connection
           tryCatch({
             theme_info <- get_rstudio_theme()
@@ -1849,6 +1902,8 @@ start_websocket_server <- function() {
           8889,
           list(
             onWSOpen = function(ws) {
+              .rgent_loaded$ws <- ws
+              .rgent_send_version_status(ws)
               tryCatch({
                 theme_info <- get_rstudio_theme()
                 theme_message <- list(
@@ -1916,9 +1971,15 @@ launch_html_interface <- function() {
     return(invisible(FALSE))
   }
   
-  # Open directly in the RStudio viewer pane (localhost file)
+  # Open directly in the RStudio viewer pane (localhost file). Use the page
+  # that was installed when this code loaded, so the page and the R code match
+  # even after an update replaced the files on disk.
   temp_file <- tempfile(fileext = ".html")
-  file.copy(html_file, temp_file)
+  if (length(.rgent_loaded$page) && identical(html_file, possible_paths[[1]])) {
+    writeBin(.rgent_loaded$page, temp_file)
+  } else {
+    file.copy(html_file, temp_file)
+  }
   rstudioapi::viewer(temp_file)
 }
 
@@ -5680,6 +5741,7 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
 
 #' Package onLoad hook - automatically sets up and starts Rgent
 .onLoad <- function(libname, pkgname) {
+  tryCatch(.rgent_remember_page(libname, pkgname), error = function(e) NULL)
   tryCatch({
     # (Updates are checked by run_rgent once the pane is open; see
     # .rgent_schedule_update_check)

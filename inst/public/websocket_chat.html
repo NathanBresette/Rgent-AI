@@ -2838,6 +2838,18 @@
       button.cx-run svg { color: #16a34a; }
       button.cx-run:hover { background: var(--bg-secondary); border-color: var(--text-secondary); }
       .run-note { font-size: 12px; color: var(--text-secondary); }
+      /* A newer Rgent is installed than the one running (2.4.7) */
+      .cx-update { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; margin: 6px 12px 0; padding: 8px 10px 8px 12px;
+        border: 1px solid var(--border-color); border-left: 3px solid #d97706; border-radius: 8px; background: var(--bg-card);
+        font-size: 12px; color: var(--text-primary); }
+      .cx-update[hidden] { display: none; }
+      .cx-update-text { flex: 1 1 auto; min-width: 0; }
+      button.cx-update-restart { flex: 0 0 auto; height: 26px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-color);
+        background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+      button.cx-update-restart:hover:not(:disabled) { background: var(--bg-secondary); border-color: var(--text-secondary); }
+      button.cx-update-restart:disabled { opacity: .6; cursor: default; }
+      button.cx-update-close { border: none; background: none; color: var(--text-secondary); font-size: 16px; line-height: 1;
+        cursor: pointer; padding: 2px 4px; }
 
       /* Saved chats: title above its date, so narrow panes keep the title readable */
       .chat-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 4px; row-gap: 1px; align-items: center; }
@@ -3005,6 +3017,11 @@
       
       <!-- Chat Tab -->
       <div id="chat-tab" class="tab-content active">
+        <div id="update-banner" class="cx-update" role="status" hidden>
+          <span class="cx-update-text"></span>
+          <button type="button" class="cx-update-restart" data-tip="Restart R so the new version of Rgent runs. Your objects stay in the workspace.">Restart R</button>
+          <button type="button" class="cx-update-close" aria-label="Hide this message" data-tip="Hide until Rgent opens again">&times;</button>
+        </div>
         <div id="chat-container" class="chat-container">
         </div>
         <div class="input-container">
@@ -4634,6 +4651,12 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
             case "chat_opened":
               showSavedChat(data);
+              break;
+            case "version_status":
+              showVersionStatus(data);
+              break;
+            case "restart_r":
+              if (!data.ok) showToast("Couldn't restart R from here. Use Session > Restart R.");
               break;
             case "chat_exported":
               if (!data.ok) addMessage("Couldn't open that chat in the editor.", 'ai');
@@ -7918,6 +7941,25 @@ Include comments explaining each step. Code only. Minimal chat.`;
         }
       });
       
+      // A newer Rgent is installed than the one running: an update installs new
+      // files, but R keeps the old code until it restarts (2.4.7)
+      function showVersionStatus(data) {
+        const banner = document.getElementById('update-banner');
+        if (!banner) return;
+        if (!data || !data.stale || banner.dataset.dismissed === '1') { banner.hidden = true; return; }
+        banner.querySelector('.cx-update-text').textContent =
+          `Rgent ${data.installed} is installed, but R is still running ${data.running}. Restart R to use the new version.`;
+        const restart = banner.querySelector('.cx-update-restart');
+        restart.disabled = false; restart.textContent = 'Restart R';
+        restart.onclick = () => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Not connected to RStudio.'); return; }
+          restart.disabled = true; restart.textContent = 'Restarting…';
+          ws.send(JSON.stringify({ action: 'restart_r' }));
+        };
+        banner.querySelector('.cx-update-close').onclick = () => { banner.dataset.dismissed = '1'; banner.hidden = true; };
+        banner.hidden = false;
+      }
+
       // Explain on a plot card: that plot, not the last one drawn
       function explainPlotCard(src, index, count, code) {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
