@@ -5609,6 +5609,18 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           if (runAt >= 0 && runAt === buf.length - 1) { run.push(n); buf[runAt] = lookupLine(run); return; }
           run = [n]; buf.push(lookupLine(run)); runAt = buf.length - 1;
         };
+        const editContinuesAfter = (from) => {
+          let depth = 0, chunks = 0;
+          for (let j = from; j < lines.length; j++) {
+            const g = lines[j].match(/^ {0,3}(`{3,})\s*(.*)$/);
+            if (!g || g[1].length < block.fence) continue;
+            const inf = g[2].trim();
+            if (inf) { if (inf.charCodeAt(0) !== 123) return false; depth++; chunks++; continue; }   // a chunk opens; ```edit or ```r is a new block
+            if (depth > 0) { depth--; continue; }
+            return chunks > 0;   // the edit's own closing fence, with whole chunks before it
+          }
+          return false;
+        };
         lines.forEach((line, k) => {
           const last = k === lines.length - 1;
           const nl = last ? '' : '\n';
@@ -5627,6 +5639,11 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             const info = f[2].trim();
             if (info && block.isEdit) { block.depth++; block.body.push(line); return; }
             if (!info && block.depth > 0) { block.depth--; block.body.push(line); return; }
+            // An edit that starts inside a chunk can begin by closing it (new lines:
+            // the chunk's last line, its ```, then new chunks). Claude should use four
+            // backticks then, but sometimes doesn't: a bare fence followed by whole
+            // chunks and one more bare fence (the edit's end) belongs to the edit.
+            if (!info && block.isEdit && editContinuesAfter(k + 1)) { block.body.push(line); return; }
             if (!info) {
               if (readNote(block)) { pushNote(block); block = null; return; }
               const isR = /^[rR]$/.test(block.lang);

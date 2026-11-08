@@ -23,15 +23,26 @@ test_that("inspect_data refuses anything that writes, runs other code or reaches
   e <- new.env(parent = globalenv())
   e$x <- 1:3
   e$myfun <- function() stop("never run")
+  e$fns <- list(go = function(...) stop("never run"))
   bad <- c("x[1] <- 2", "x <<- 5", "x$a <- 1", "print <- system; print('ls')", "c <- function() system('ls')",
            "f <- system; f('ls')", "1; system('ls')", "addmargins(table(1), FUN = unlink)", "mapply(unlink, 'a')",
            "outer(1, 1, unlink)", "assign('x', 1)", "rm(x)", "file.remove('a')", "unlink('a')", "system('ls')",
            "Sys.setenv(A = 1)", "options(warn = 2)", "setwd('/')", "library(dplyr)", "eval(parse(text = 'rm(x)'))",
-           "get('x')", "do.call('rm', list('x'))", "sapply(list('x'), rm)", "sapply(x, 'unlink')", "x %>% rm",
+           "do.call('rm', list('x'))", "sapply(list('x'), rm)", "sapply(x, 'unlink')", "x %>% rm",
            "Map(file.remove, 'a')", "Reduce(function(a, b) unlink(a), 1:2)", "(function(f = unlink('a')) 1)()",
            "base::unlink('a')", "rstudioai:::.rgent_state", "utils::download.file('u', 'f')", "myfun()",
            "sapply(1:2, myfun)", "readLines('~/.Renviron')", "Sys.getenv('CLAUDE_API_KEY')", "for (i in 1:3) i",
-           "{x; rm(x)}", "with(list(), q())", "local(rm(x))", "on.exit(rm(x))")
+           "{x; rm(x)}", "with(list(), q())", "local(rm(x))", "on.exit(rm(x))",
+           # a function reached through an expression (these ran in 2.4.12-2.4.13)
+           "identity(unlink)('a')", "(unlink)('a')", "list(unlink)[[1]]('a')", "fns$go('a')", "fns[[1]]('a')",
+           "(function(g) g)(unlink)('a')", "rev(list(unlink))[[1]]('a')", "sapply('a', identity(unlink))",
+           "sapply('a', fns$go)", "sapply(X = 'a', FUN = fns[[1]])", "Map(identity(unlink), 'a')",
+           "mapply(fns$go, 'a')", "Filter(fns$go, 'a')", "Reduce(function(a, b) b, list(1, unlink))('a')",
+           # get() is allowed (2.4.14) but what it returns can't be called; temporary variables can't be passed as functions
+           "get('unlink')('a')", "s <- get('unlink'); s('a')", "s <- fns$go; sapply('a', s)", "s <- get('unlink'); 'a' %>% s",
+           "sapply('a', get('unlink'))", "purrr::map('a', fns$go)", "Map(get('unlink'), 'a')", "mget('unlink', envir = globalenv())[[1]]('a')",
+           "jitter(1)", "set.seed(1)", "sample(3)", "cat('x', file = 'a')", "dput(x, file = 'a')", "capture.output(x, file = 'a')",
+           "update(lm(x ~ 1))", "match.fun('unlink')('a')")
   for (b in bad) {
     r <- inspect(b, e)
     expect_true(r$is_error, info = b)

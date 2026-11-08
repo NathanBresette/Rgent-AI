@@ -68,12 +68,107 @@
   "identical", "all.equal", "rbind", "cbind", "merge", "outer", "rank", "rle", "pmin", "pmax", "cumprod",
   "cummax", "cummin", "weighted.mean", "scale", "as.POSIXlt", "strftime", "rowsum", "mapply", "Map",
   "nchar", "rev", "head", "str_replace", "str_replace_all", "str_extract", "str_count", "str_split",
-  "parse_number", "is.na", "as.Date"
+  "parse_number", "is.na", "as.Date",
+  # More reading functions (2.4.14). Safe to add only because a function reached
+  # through an expression can't be called (see .rgent_inspect_check). Never add one
+  # that writes files (cat, dput, capture.output, sink, write.*), changes options,
+  # the working directory or the random seed (sample, rnorm, set.seed, kmeans), or
+  # evaluates text (eval, parse, source, do.call, match.fun).
+  # the workspace (get() can return a function, but nothing can call it)
+  "ls", "objects", "get", "mget", "get0", "globalenv", "environment", "search", "apropos", "find",
+  "is.environment", "is.vector", "is.atomic", "is.matrix", "is.array", "is.integer", "is.double",
+  "is.complex", "is.primitive", "is.ordered", "is.unsorted", "is.object", "isS4", "oldClass", "methods",
+  "nargs", "missing", "exists", "hasName",
+  # arithmetic and maths
+  "%*%", "%o%", "xor", "isTRUE", "log1p", "expm1", "sign", "cos", "sin", "tan", "acos", "asin", "atan",
+  "atan2", "choose", "factorial", "gamma", "lgamma", "beta", "lbeta", "cumall", "crossprod", "tcrossprod",
+  "solve", "det", "diag", "outer", "kronecker", "norm", "rowsum", "zapsmall", 
+  # vectors, lists, matrices
+  "append", "head", "rev", "sort.int", "order", "rank", "rev.default", "unique", "union", "intersect",
+  "setdiff", "is.element", "match", "pmatch", "charmatch", "findInterval", "cut", "tabulate", "rle",
+  "inverse.rle", "embed", "array", "matrix", "as.matrix", "as.array", "aperm", "cbind", "rbind",
+  "row", "col", "nrow", "ncol", "rowMeans", "colMeans", "max.col", "lower.tri", "upper.tri", "which",
+  "arrayInd", "rapply", "vapply", "Position", "Find", "Map", "mapply", "sweep", "ave", "by", "stack",
+  "unstack", "expand.grid", "interaction", "combn", "modifyList", "rev", "lengths", "rep_len",
+  "seq.int", "rev", "head", "tail", "unsplit", "split", "do.call.safe_never", "structure", "unclass",
+  "as.ordered", "relevel", "reorder", "addNA", "levels", "nlevels", "table", "margin.table",
+  "marginSums", "rowSums", "colSums", "prop.table", "transform", "within", "merge", "na.omit",
+  "na.exclude", "complete.cases", "type.convert", "trimws", "toupper", "tolower", "casefold",
+  "sprintf", "gettextf", "shQuote", "noquote", "encodeString", "format.Date", "formatC", "prettyNum",
+  "format", "nchar", "substr", "substring", "strtoi", "chartr", "rev", "utf8ToInt", "intToUtf8",
+  "make.names", "make.unique", "abbreviate", "basename", "dirname", "file_ext",
+  "agrep", "agrepl", "regexpr", "gregexpr", "regmatches", "grep", "grepl", "sub", "gsub", "strsplit",
+  "sprintf", "toupper", "startsWith", "endsWith", "Sys.Date", "Sys.time", "date", "ISOdate", "ISOdatetime",
+  "as.POSIXct", "as.POSIXlt", "strptime", "strftime", "difftime", "as.difftime", "weekdays", "months",
+  "quarters", "julian", "seq.Date", "cut.Date", "trunc", "round.Date", "OlsonNames", "Sys.timezone",
+  "nlevels", "droplevels", "as.numeric_version", "R.version.string", "getRversion", "packageVersion",
+  "is.na<-never",
+  # statistics (stats): summaries, tests, models (none touch the random seed)
+  "sd", "var", "cor", "cov", "cov2cor", "median", "mad", "IQR", "fivenum", "quantile", "weighted.mean",
+  "scale", "ecdf", "density", "approx", "spline", "cumsum", "cumprod", "cummax", "cummin", "range",
+  "t.test", "wilcox.test", "chisq.test", "fisher.test", "cor.test", "shapiro.test", "kruskal.test",
+  "prop.test", "binom.test", "ks.test", "var.test", "bartlett.test", "fligner.test", "mcnemar.test",
+  "friedman.test", "mantelhaen.test", "oneway.test", "pairwise.t.test", "pairwise.wilcox.test",
+  "p.adjust", "TukeyHSD", "aov", "anova", "lm", "glm", "nls", "loess", "lowess", "smooth.spline",
+  "coef", "coefficients", "residuals", "resid", "fitted", "fitted.values", "predict", "confint", "vcov",
+  "AIC", "BIC", "logLik", "deviance", "df.residual", "nobs", "formula", "terms", "model.frame",
+  "model.matrix", "influence.measures", "cooks.distance",
+  "hatvalues", "rstandard", "rstudent", "dfbetas", "binomial", "poisson", "gaussian", "Gamma",
+  "quasibinomial", "quasipoisson", "family", "dist", "hclust", "cutree", "prcomp", "princomp",
+  "cmdscale", "cor", "dnorm", "pnorm", "qnorm", "dbinom", "pbinom", "qbinom", "dpois", "ppois",
+  "qpois", "dt", "pt", "qt", "dchisq", "pchisq", "qchisq", "df", "pf", "qf", "dunif", "punif", "qunif",
+  "dexp", "pexp", "qexp", "embed", "filter.never", "acf", "pacf", "ts", "time", "frequency", "window",
+  "aggregate", "xtabs", "ftable", "addmargins", "setNames", "na.omit", "complete.cases", "reshape",
+  "relevel", "reorder", "median", "mahalanobis", "optimize", "uniroot", "integrate", "nlm", "optim",
+  # dplyr / tidyr / tibble / stringr / lubridate / forcats / purrr: more reading verbs
+  "slice", "relocate", "rename_with", "add_count", "add_tally", "rowwise", "group_keys", "group_split",
+  "group_vars", "groups", "group_size", "n_groups", "cur_group_id", "cur_group_rows", "if_any", "if_all",
+  "num_range", "last_col", "right_join", "full_join", "nest_join", "bind_cols", "dense_rank",
+  "min_rank", "percent_rank", "cume_dist", "ntile", "cumany", "cummean", "recode", "consecutive_id",
+  "complete", "expand", "crossing", "nesting", "fill", "replace_na", "separate", "separate_wider_delim",
+  "separate_longer_delim", "unite", "uncount", "chop", "unchop", "hoist", "enframe", "deframe",
+  "tribble", "add_row", "add_column", "rownames_to_column", "column_to_rownames", "has_name",
+  "str_pad", "str_squish", "str_starts", "str_ends", "str_which", "str_locate", "str_locate_all",
+  "str_extract_all", "str_match", "str_match_all", "str_remove", "str_remove_all", "str_to_title",
+  "str_to_sentence", "str_glue", "str_c", "str_flatten", "str_dup", "str_trunc", "str_wrap",
+  "str_sort", "str_order", "str_unique", "str_subset", "str_like", "str_equal", "fixed", "regex",
+  "coll", "boundary", "ymd_hm", "ydm", "myd", "dym", "hms", "hm", "ms", "make_date", "make_datetime",
+  "floor_date", "ceiling_date", "round_date", "hour", "minute", "second", "week", "isoweek", "quarter",
+  "yday", "mday", "qday", "days_in_month", "leap_year", "as_date", "as_datetime", "today", "now",
+  "interval", "duration", "period", "time_length", "int_length", "tz", "with_tz", "force_tz",
+  "fct_count", "fct_infreq", "fct_inorder", "fct_rev", "fct_lump", "fct_lump_n", "fct_lump_prop",
+  "fct_collapse", "fct_recode", "fct_relevel", "fct_reorder", "fct_explicit_na", "fct_na_value_to_level",
+  "fct_drop", "fct_unique", "fct_other", "as_factor", "map", "map_dbl", "map_chr", "map_lgl", "map_int",
+  "map_df", "map_dfr", "map_dfc", "map2", "map2_dbl", "map2_chr", "pmap", "imap", "keep", "discard",
+  "compact", "pluck", "detect", "detect_index", "every", "some", "none", "reduce", "accumulate",
+  "flatten", "list_rbind", "list_cbind", "transpose", "set_names", "tabyl", "clean_names", "get_dupes",
+  "remove_empty", "adorn_totals", "adorn_percentages", "adorn_pct_formatting", "adorn_ns",
+  # phyloseq / vegan (microbiome objects): read-only accessors and summaries
+  "nsamples", "ntaxa", "sample_names", "taxa_names", "sample_data", "otu_table", "tax_table",
+  "phy_tree", "refseq", "sample_variables", "rank_names", "get_variable", "get_taxa", "get_sample",
+  "taxa_sums", "sample_sums", "taxa_are_rows", "estimate_richness", "psmelt", "diversity", "specnumber",
+  "rarecurve.never", "vegdist", "betadisper"
 )
+# names above that only document what must never be added
+.rgent_inspect_fns <- setdiff(unique(.rgent_inspect_fns), grep("never", .rgent_inspect_fns, value = TRUE))
 # Packages `pkg::fn` may name (the function must be on the list as well)
 .rgent_inspect_pkgs <- c("base", "utils", "stats", "methods", "dplyr", "tibble", "tidyr", "skimr",
-                         "pillar", "stringr", "lubridate", "forcats", "purrr", "data.table", "janitor")
+                         "pillar", "stringr", "lubridate", "forcats", "purrr", "data.table", "janitor",
+                         "tools", "phyloseq", "vegan")
 # Higher-order functions: a function they call by name ("FUN = 'rm'") is checked too
+# Which argument of each is the function it calls: that one must be a name, a
+# string, pkg::fn, function(...) or a formula, never an expression that evaluates
+# to some function (sapply(x, fns$go), Map(identity(system), x) ran system())
+.rgent_inspect_hof_fun <- list(sapply = "FUN", vapply = "FUN", lapply = "FUN", apply = "FUN", tapply = "FUN",
+                               mapply = "FUN", Map = "f", Filter = "f", Reduce = "f", Negate = "f", outer = "FUN",
+                               aggregate = "FUN", addmargins = "FUN", across = ".fns", sweep = "FUN", ave = "FUN",
+                               by = "FUN", rapply = "f", Position = "f", Find = "f", if_any = ".fns", if_all = ".fns",
+                               rename_with = ".fn", map = ".f", map_dbl = ".f", map_chr = ".f", map_lgl = ".f",
+                               map_int = ".f", map_df = ".f", map_dfr = ".f", map_dfc = ".f", map2 = ".f",
+                               map2_dbl = ".f", map2_chr = ".f", pmap = ".f", imap = ".f", keep = ".p", discard = ".p",
+                               detect = ".f", detect_index = ".f", every = ".p", some = ".p", none = ".p",
+                               reduce = ".f", accumulate = ".f", optimize = "f", uniroot = "f", integrate = "f",
+                               nlm = "f", optim = "fn")
 .rgent_inspect_hof <- c("sapply", "vapply", "lapply", "apply", "mapply", "Map", "tapply", "aggregate", "addmargins",
                         "Filter", "Reduce", "Negate", "across", "with", "subset", "outer")
 
@@ -109,8 +204,13 @@
         deny(sprintf("`%s::%s` isn't one of the reading functions inspect_data allows", pkg, f))
       return(invisible())
     }
-    fname <- ""
-    if (is.name(fn)) {
+    fname <- ""; fpkg <- NULL
+    # pkg::fn(...): checked above as a reference; then treated like fn(...), so
+    # purrr::map(x, f) gets the same function-argument check as map(x, f)
+    if (is.call(fn) && is.name(fn[[1]]) && identical(as.character(fn[[1]]), "::")) {
+      walk(fn); if (!is.null(bad)) return(invisible())
+      fpkg <- as.character(fn[[2]]); fname <- as.character(fn[[3]])
+    } else if (is.name(fn)) {
       fname <- as.character(fn)
       # A temporary variable (x <- ...) goes into the lookup's own scratch
       # environment, never the user's; only a plain name may be assigned
@@ -123,15 +223,36 @@
       }
       if (fname %in% c("<<-", "->>", "assign")) return(deny("inspect_data only reads: no assignment outside the lookup"))
       if (!ok_fun(fname)) return(deny(sprintf("`%s()` isn't one of the reading functions inspect_data allows", fname)))
-    } else {
+    } else if (is.call(fn) && is.name(fn[[1]]) && as.character(fn[[1]]) %in% c("function", "::", ":::") ||
+               is.call(fn) && identical(fn[[1]], as.name("(")) && is.call(fn[[2]]) && identical(fn[[2]][[1]], as.name("function"))) {
       walk(fn)   # (function(x) ...)(1) or pkg::fn(...)
+    } else {
+      # f(x)(y), (f)(y), fns$go(y), list(system)[[1]](y): the function called is
+      # whatever that expression evaluates to, which could be anything
+      return(deny("only functions named directly can be called (not the result of an expression)"))
     }
     if (identical(fname, "function")) {
       for (d in as.list(e[[2]])) if (!missing(d)) walk(d)   # default values run too
       return(walk(e[[3]]))
     }
     args <- as.list(e)[-1]
-    if (identical(fname, "%>%") && length(args) == 2 && (is.name(args[[2]]) || is.character(args[[2]]))) check_fun_ref(args[[2]])
+    if (!is.null(.rgent_inspect_hof_fun[[fname]])) {
+      def <- tryCatch(if (is.null(fpkg)) get(fname, envir = env, mode = "function") else getExportedValue(fpkg, fname),
+                      error = function(err) NULL)
+      m <- if (is.function(def)) tryCatch(match.call(def, e), error = function(err) NULL)
+      if (is.null(m)) return(deny(sprintf("couldn't tell which function `%s()` would call", fname)))
+      f_arg <- as.list(m)[[.rgent_inspect_hof_fun[[fname]]]]
+      # by name: an allowed function only (a temporary variable could hold any
+      # function: s <- fns$go; sapply(x, s))
+      if ((is.name(f_arg) || (is.character(f_arg) && length(f_arg) == 1)) && !ok_fun(as.character(f_arg)))
+        return(deny(sprintf("`%s` isn't one of the reading functions inspect_data allows", as.character(f_arg))))
+      if (!is.null(f_arg) && !is.name(f_arg) && !is.character(f_arg) &&
+          !(is.call(f_arg) && is.name(f_arg[[1]]) && as.character(f_arg[[1]]) %in% c("function", "::", "~")))
+        return(deny(sprintf("pass `%s()` a function by name or write function(x) ... (not an expression that returns one)", fname)))
+    }
+    # x %>% f: f is called, so it must be an allowed function (not a temporary variable)
+    if (identical(fname, "%>%") && length(args) == 2 && (is.name(args[[2]]) || is.character(args[[2]])) && !ok_fun(as.character(args[[2]])))
+      return(deny(sprintf("`%s` isn't one of the reading functions inspect_data allows", as.character(args[[2]]))))
     for (a in args) {
       if (missing(a)) next
       if (fname %in% .rgent_inspect_hof) check_fun_ref(a)
