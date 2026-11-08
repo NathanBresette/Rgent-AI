@@ -4768,14 +4768,17 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               if (wrapupReplying) { wrapupReplying = false; break; }
               console.log('🔍 Streaming complete, checking for R code in final message');
               // Check if we have a complete message with R code - use same detection as ai_response
-              if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
+              // ```r blocks that repeat an edit's code are left out: Auto-run already
+              // applies that edit and runs its code (otherwise it all ran twice)
+              const toRun = withoutRepeatsOfEdits(window.lastCompleteMessage);
+              if (toRun && hasCodeBlock(toRun)) {
                 console.log('🔍 Detected R code in complete streaming message');
                 
                 // Add a small delay to let the user see the complete message before execution
                 // This prevents jarring UX where code executes while still reading
                 setTimeout(() => {
                   console.log('🔍 Handling code after brief display delay');
-                  handleCleaningCodeResponse(window.lastCompleteMessage, 'data_cleaning_agent_code');
+                  handleCleaningCodeResponse(toRun, 'data_cleaning_agent_code');
                 }, 800); // 800ms delay to allow reading
               }
               break;
@@ -5160,6 +5163,9 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           message: message
         };
         if (extra && typeof extra === 'object') Object.assign(chatPayload, extra);
+        // so the edit instructions say what happens to an edit (applied by itself or waits for Accept)
+        chatPayload.auto_run = isAutoExecuteEnabled();
+        chatPayload.run_edits = isRunEditsEnabled();
         if (lastCodeOutput) {
           chatPayload.last_output = lastCodeOutput;
         }
@@ -5518,6 +5524,25 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           if (/^edit\b/i.test(sg.lang || '')) return '';
           return '```' + (sg.lang || '') + '\n' + sg.content + (sg.complete ? '```' : '');
         }).join('\n');
+      }
+
+      // With Auto-run and run-edits on, a reply's edits are applied and their code
+      // runs by itself; drop ```r blocks whose code is already inside an edit
+      // (chunk fences, blank lines and indentation ignored)
+      function withoutRepeatsOfEdits(text) {
+        if (!text || !/```+\s*edit\b/i.test(text) || !isAutoExecuteEnabled() || !isRunEditsEnabled()) return text;
+        const norm = c => String(c || '').split('\n').map(l => l.trim())
+          .filter(l => l && !/^`{3,}/.test(l)).join('\n');
+        const segs = splitFencedBlocks(text);
+        const edits = segs.filter(sg => sg.type !== 'text' && /^edit\b/i.test(sg.lang || '')).map(sg => norm(sg.content));
+        let dropped = false;
+        const out = segs.map(sg => {
+          if (sg.type === 'text') return sg.content;
+          const code = norm(sg.content);
+          if (/^r$/i.test((sg.lang || '').trim()) && code && edits.some(e => e.includes(code))) { dropped = true; return ''; }
+          return '```' + (sg.lang || '') + '\n' + sg.content + (sg.complete ? '```' : '');
+        }).join('\n');
+        return dropped ? out : text;
       }
 
       // Render a single segment with appropriate formatting

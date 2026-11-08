@@ -1341,7 +1341,8 @@ start_websocket_server <- function() {
               edit_target <- remember_edit_target()
               if (!is.null(edit_target) && length(edit_target$lines) > 0 &&
                   any(nzchar(edit_target$lines))) {
-                enhanced_prompt <- paste0(enhanced_prompt, edit_instructions(edit_target$name, document_outline(edit_target$lines, edit_target$name)))
+                enhanced_prompt <- paste0(enhanced_prompt, edit_instructions(edit_target$name, document_outline(edit_target$lines, edit_target$name),
+                                                                              auto_run = isTRUE(request$auto_run), run_edits = !isFALSE(request$run_edits)))
               }
             }
             

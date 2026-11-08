@@ -18,13 +18,22 @@
 
 #' Instructions appended to a chat request when a file is open
 #' @keywords internal
-edit_instructions <- function(file_name, outline = "") {
+edit_instructions <- function(file_name, outline = "", auto_run = FALSE, run_edits = TRUE) {
+  # Auto-run applies edits by itself (and runs their code with /runedits on), so
+  # Claude mustn't say "once you accept" or repeat the code in a ```r block
+  # (it ran twice: once from the edit, once from the ```r block)
+  review <- if (isTRUE(auto_run)) paste0(
+    "Auto-run is on: your edits are applied to the file as soon as your reply ends",
+    if (!isFALSE(run_edits)) " and their R code runs" else "",
+    ", so describe them as done (not \"once you accept\"), and never repeat an edit's code in a ```r block. ",
+    "The user can Undo an edit on its card (point them there to revert). "
+  ) else "The user accepts each edit and can Undo it on its card (point them there to revert). "
   paste0(
     "\n\n(To change the open file", if (nzchar(file_name)) paste0(" ", file_name) else "",
     ", use ```edit blocks, not ```r: ```edit 12-15 replaces lines 12-15 (empty block = delete); ",
     "```edit after 12 inserts after line 12 (0 = top). Line numbers from the CURRENT FILE listing",
     " or OUTLINE; one block per change. If the new lines contain ``` fences, wrap the edit in ````. ",
-    "The user accepts each edit and can Undo it on its card (point them there to revert). ",
+    review,
     "Edit when asked to change the file, or when the user asks why something in it is wrong: explain briefly ",
     "and include the fix as an edit in the same reply (they can reject it). ```r is for code to run now.)",
     outline

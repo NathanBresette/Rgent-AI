@@ -158,3 +158,15 @@ test_that("an edit that adds or rewrites whole chunks is runnable and runs those
   off <- c("```{r slow, eval = FALSE}", "fit_everything()", "```")
   expect_false(rstudioai:::.rgent_edit_runnable(t, "after", 11, 11, off))
 })
+
+test_that("the edit instructions follow Auto-run / Ask first", {
+  ask <- rstudioai:::edit_instructions("report.Rmd")
+  expect_match(ask, "The user accepts each edit", fixed = TRUE)
+  expect_false(grepl("Auto-run is on", ask, fixed = TRUE))
+  auto <- rstudioai:::edit_instructions("report.Rmd", auto_run = TRUE)
+  expect_match(auto, "applied to the file as soon as your reply ends and their R code runs", fixed = TRUE)
+  expect_match(auto, "never repeat an edit's code in a ```r block", fixed = TRUE)
+  expect_false(grepl("The user accepts each edit", auto, fixed = TRUE))
+  no_run <- rstudioai:::edit_instructions("report.Rmd", auto_run = TRUE, run_edits = FALSE)
+  expect_false(grepl("their R code runs", no_run, fixed = TRUE))
+})
