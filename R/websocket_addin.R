@@ -50,13 +50,23 @@ if (!exists("global_env") || !is.environment(global_env)) {
 }
 
 # Global flag to track if current operation should be stopped
-if (!exists("operation_stopped", envir = .GlobalEnv)) {
-  .GlobalEnv$operation_stopped <- FALSE
+if (is.null(.rgent_state$operation_stopped)) {
+  .rgent_state$operation_stopped <- FALSE
 }
 
 # Helper function to make streaming POST requests with httr
 # Uses httr::write_stream() to process chunks as they arrive (like ChatGPT/Gemini)
+# For testing a backend on this computer: options(rgent.backend = "http://127.0.0.1:8890")
+# sends chat requests there instead of rgent.onrender.com. Only localhost
+# addresses are accepted, so the access code can't be sent anywhere else.
+.rgent_backend_url <- function(url) {
+  b <- getOption("rgent.backend")
+  if (!is.character(b) || length(b) != 1 || !grepl("^http://(127\\.0\\.0\\.1|localhost)(:[0-9]+)?/?$", b)) return(url)
+  sub("https://rgent.onrender.com", sub("/$", "", b), url, fixed = TRUE)
+}
+
 stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_callback) {
+  url <- .rgent_backend_url(url)
   # Accumulate buffer for incomplete lines (use environment for proper scoping)
   stream_env <- new.env()
   stream_env$line_buffer <- ""  # Use text buffer for simplicity
@@ -68,6 +78,9 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
   
   # Create write_stream callback that processes chunks as they arrive
   write_stream_callback <- function(x) {
+    # The Stop button (stop.R): end the stream here; the connection closes
+    # and the backend stops Claude
+    if (.rgent_stop_requested()) stop(.rgent_stopped_condition())
     # This MUST be called if write_stream is working
     stream_env$callback_called <- TRUE
     stream_env$total_bytes <- stream_env$total_bytes + length(x)
@@ -142,6 +155,13 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
       body = body,
       encode = "json",
       httr::timeout(timeout),
+      # Reads the page's messages while waiting (stop.R), and gives up before
+      # the first byte when the user pressed Stop. Once data flows it must not
+      # abort (an error there escapes tryCatch); the write callback does that.
+      httr::config(noprogress = FALSE, xferinfofunction = function(down, up) {
+        .rgent_poll_messages()
+        !(.rgent_stop_requested() && !stream_env$callback_called)
+      }),
       httr::write_stream(write_stream_callback)
     )
     
@@ -154,8 +174,10 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
       }
     }
     
-    # Call POST with all arguments
-    response <- do.call(httr::POST, post_args)
+    # Call POST with all arguments ("Callback aborted" after a Stop isn't news)
+    response <- withCallingHandlers(do.call(httr::POST, post_args), warning = function(w) {
+      if (.rgent_stop_requested()) invokeRestart("muffleWarning")
+    })
     
     
     # Debug: Check if callback was called
@@ -214,7 +236,13 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
       response = response,
       full_response = stream_env$full_response
     ))
+  }, rgent_stopped = function(e) {
+    list(success = FALSE, stopped = TRUE, status_code = NULL, full_response = stream_env$full_response)
   }, error = function(e) {
+    # Stopped before the first byte: curl reports "cannot open the connection"
+    if (.rgent_stop_requested()) {
+      return(list(success = FALSE, stopped = TRUE, status_code = NULL, full_response = stream_env$full_response))
+    }
     cat("ERROR in stream_httr_post:", e$message, "\n")
     cat("ERROR stack trace:", paste(capture.output(traceback()), collapse = "\n"), "\n")
     return(list(
@@ -227,8 +255,8 @@ stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_call
 }
 
 # Initialize conversation history
-if (!exists("conversation_history") || !is.list(conversation_history)) {
-  .GlobalEnv$conversation_history <- list()
+if (!is.list(.rgent_state$conversation_history)) {
+  .rgent_state$conversation_history <- list()
   
 }
 
@@ -291,7 +319,7 @@ clear_saved_access_code <- function() {
   tryCatch({
     p <- get_access_code_path()
     if (file.exists(p)) unlink(p)
-    if (exists("current_access_code", envir = .GlobalEnv)) rm("current_access_code", envir = .GlobalEnv)
+    if (!is.null(.rgent_state$current_access_code)) .rgent_state$current_access_code <- NULL
     invisible(TRUE)
   }, error = function(e) invisible(FALSE))
 }
@@ -321,8 +349,8 @@ load_access_code_from_disk <- function() {
 
 # Helper function to get current access code
 get_current_access_code <- function() {
-  if(exists("current_access_code", envir = .GlobalEnv)) {
-    .GlobalEnv$current_access_code
+  if(!is.null(.rgent_state$current_access_code)) {
+    .rgent_state$current_access_code
   } else {
     stop("No access code set. Please validate your access code in the interface first.")
   }
@@ -562,15 +590,18 @@ run_rgent <- function() {
     stop("httpuv package is required. Install with: install.packages('httpuv')")
   }
   
+  # Earlier versions kept the access code and the chat in the global
+  # environment (and so in saved .RData files): take them out (state.R)
+  tryCatch(.rgent_clear_old_globals(), error = function(e) NULL)
   # Load access code from disk if available (persistent across sessions)
   saved_access_code <- load_access_code_from_disk()
   if (!is.null(saved_access_code)) {
-    .GlobalEnv$current_access_code <- saved_access_code
+    .rgent_state$current_access_code <- saved_access_code
   }
   
   # Initialize auto-capture system
-  .GlobalEnv$auto_capture_active <- TRUE
-  .GlobalEnv$last_error_message <- ""
+  .rgent_state$auto_capture_active <- TRUE
+  .rgent_state$last_error_message <- ""
   
   # Set up task callback to detect errors
   error_callback <- function(expr, value, ok, visible) {
@@ -579,8 +610,8 @@ run_rgent <- function() {
       current_error <- geterrmessage()
       
       # Check if this is a new error
-      if (current_error != "" && current_error != .GlobalEnv$last_error_message) {
-        .GlobalEnv$last_error_message <- current_error
+      if (current_error != "" && current_error != .rgent_state$last_error_message) {
+        .rgent_state$last_error_message <- current_error
         auto_capture_error()
       }
     }
@@ -614,17 +645,21 @@ run_rgent <- function() {
 }
 
 .rgent_schedule_update_check <- function(delay = 3) {
-  if (exists(".rgent_update_checked", envir = .GlobalEnv) || !.rgent_update_due()) return(invisible(FALSE))
-  assign(".rgent_update_checked", TRUE, envir = .GlobalEnv)
+  if (isTRUE(.rgent_state$update_checked) || !.rgent_update_due()) return(invisible(FALSE))
+  .rgent_state$update_checked <- TRUE
   run <- function() {
+    # Not in the middle of a reply or a run (the Stop button's polling runs
+    # waiting callbacks, stop.R): try again a little later
+    if (isTRUE(.rgent_stream_state$active) && requireNamespace("later", quietly = TRUE)) {
+      later::later(run, 5)
+      return(invisible(NULL))
+    }
     tryCatch({
       f <- .rgent_update_stamp()
       dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
       writeLines(as.character(as.numeric(Sys.time())), f)
-      if (isTRUE(check_and_update_package(auto_update = TRUE, quiet = TRUE))) {
-        cat("\nRgent was updated. Restart R (Session > Restart R) to use the new version.\n")
-        .rgent_send_version_status()   # the chat shows the Restart R banner
-      }
+      # In a separate R process: installing used to block the Console here
+      .rgent_update_in_background()
     }, error = function(e) invisible(NULL))
   }
   if (requireNamespace("later", quietly = TRUE)) later::later(run, delay) else run()
@@ -801,16 +836,16 @@ get_rstudio_theme <- function() {
 start_websocket_server <- function() {
   tryCatch(.rgent_install_error_tracker(), error = function(e) NULL)
   # Stop any existing server
-  if (!is.null(.GlobalEnv$websocket_server)) {
+  if (!is.null(.rgent_state$websocket_server)) {
     tryCatch({
-      httpuv::stopServer(.GlobalEnv$websocket_server)
+      httpuv::stopServer(.rgent_state$websocket_server)
     }, error = function(e) {
       # no-op
     })
   }
   
   # Clear any existing server reference
-  .GlobalEnv$websocket_server <- NULL
+  .rgent_state$websocket_server <- NULL
   
   # Define message handler function
     message_handler <- function(ws, isBinary, data) {
@@ -833,10 +868,10 @@ start_websocket_server <- function() {
         },
         "set_access_code" = {
           # Check if access code is different from what's already stored
-          current_code <- if(exists("current_access_code", envir = .GlobalEnv)) .GlobalEnv$current_access_code else NULL
+          current_code <- if(!is.null(.rgent_state$current_access_code)) .rgent_state$current_access_code else NULL
           if (is.null(current_code) || current_code != request$access_code) {
             # Store access code from frontend in globalenv (for current session)
-            .GlobalEnv$current_access_code <- request$access_code
+            .rgent_state$current_access_code <- request$access_code
             # Also save to disk for persistence across sessions
             save_access_code_to_disk(request$access_code)
           }
@@ -1036,7 +1071,8 @@ start_websocket_server <- function() {
                confirm_reason = why, code = request$code)
         } else {
           # Store the code for error handling
-          .GlobalEnv$currentStepCode <- request$code
+          .rgent_state$currentStepCode <- request$code
+          .rgent_stream_state$run_stopped <- NULL
           
           # Execute code using proven execution engine approach
           tryCatch({
@@ -1079,7 +1115,9 @@ start_websocket_server <- function() {
               answers = result$answers,
               # Where to continue after the answer, and the output of the
               # lines that already ran, so they don't run twice
-              resume = result$resume
+              resume = result$resume,
+              # Stopped with the Stop button before statement `before` of `of`
+              stopped = .rgent_stream_state$run_stopped
             )
           }, error = function(e) {
             list(
@@ -1297,7 +1335,8 @@ start_websocket_server <- function() {
             # Optionally inspect context components (silent)
             
             # Get access code from global environment or use default
-            current_access_code <- if (!is.null(.GlobalEnv$current_access_code)) .GlobalEnv$current_access_code else "DEMO123"
+            # (never a made-up code: "DEMO123" was sent when the code was missing)
+            current_access_code <- .rgent_state$current_access_code %||% load_access_code_from_disk() %||% ""
             
             # Ensure workspace_objects is always an array, not a named list
             workspace_objects_array <- if (is.list(current_context$workspace_objects) && !is.null(names(current_context$workspace_objects))) {
@@ -1326,6 +1365,9 @@ start_websocket_server <- function() {
             # so its line numbers can be mapped back.
             edit_target <- NULL
             is_plot_explain <- isTRUE(request$plot_explain) && !is_fix_request && !is_wrapup
+            # Claude may look things up first (tools.R); not for automatic fixes
+            # or the message after a run, which are sent lean
+            tools_on <- .rgent_tools_on() && !is_fix_request && !is_wrapup
             if (!is.null(fix_note)) {
               enhanced_prompt <- paste0(enhanced_prompt, fix_note)
             }
@@ -1341,7 +1383,7 @@ start_websocket_server <- function() {
               edit_target <- remember_edit_target()
               if (!is.null(edit_target) && length(edit_target$lines) > 0 &&
                   any(nzchar(edit_target$lines))) {
-                enhanced_prompt <- paste0(enhanced_prompt, edit_instructions(edit_target$name, document_outline(edit_target$lines, edit_target$name),
+                enhanced_prompt <- paste0(enhanced_prompt, edit_instructions(edit_target$name, document_outline(edit_target$lines, edit_target$name, tools = tools_on),
                                                                               auto_run = isTRUE(request$auto_run), run_edits = !isFALSE(request$run_edits)))
               }
             }
@@ -1366,6 +1408,7 @@ start_websocket_server <- function() {
             # produced the code: the backend doesn't count it as a new request
             # (2.4.5; older backends ignore the field)
             if (is_fix_request || is_wrapup) request_body$continuation <- TRUE
+            if (tools_on) request_body$tools <- 1L
 
             # Explain plot: Claude also sees the picture (backend 2026-11 and later
             # reads `image`; older backends ignore it)
@@ -1386,12 +1429,37 @@ start_websocket_server <- function() {
             # Initialize chunk buffer and full response for streaming
             current_chunk_buffer <- ""
             full_response <- ""
+            tool_event <- NULL
             
             # Define chunk callback for streaming
             chunk_callback <- function(json_data) {
               
               tryCatch({
+                # Claude called tools (tools.R): kept for after the stream; parsed
+                # without simplifying, so the calls and Claude's turn stay as sent
+                # Claude started a lookup: show it now (the words so far first)
+                if (startsWith(json_data, "{\"tool_start\"")) {
+                  ev <- jsonlite::fromJSON(json_data)
+                  if (nchar(current_chunk_buffer) > 0) {
+                    ws$send(jsonlite::toJSON(list(action = "ai_response", streaming = TRUE, chunk = current_chunk_buffer), auto_unbox = TRUE))
+                    current_chunk_buffer <<- ""
+                  }
+                  ws$send(jsonlite::toJSON(list(action = "tool_status", state = "looking", tool = as.character(ev$tool_start %||% "")[1]), auto_unbox = TRUE))
+                  return(NULL)
+                }
+                if (grepl("\"tool_calls\"", json_data, fixed = TRUE)) {
+                  ev <- jsonlite::fromJSON(json_data, simplifyVector = FALSE)
+                  if (is.list(ev$tool_calls) && is.character(ev$assistant)) {
+                    tool_event <<- ev
+                    return(NULL)
+                  }
+                }
                 chunk_data <- jsonlite::fromJSON(json_data)
+                # The backend's own refusals ("Your subscription has expired...")
+                # come as {"error": "..."} with no text: show them as the reply
+                if (is.null(chunk_data$chunk) && is.character(chunk_data$error) && nzchar(chunk_data$error[1])) {
+                  chunk_data$chunk <- chunk_data$error[1]
+                }
                 
                 if (!is.null(chunk_data$chunk)) {
                   
@@ -1441,6 +1509,8 @@ start_websocket_server <- function() {
                       chunk = current_chunk_buffer
                     )
                     ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
+                    # sent: a follow-up request (a lookup) must not send it again
+                    current_chunk_buffer <<- ""
                   }
                   return(list(stop = TRUE))
                 }
@@ -1459,15 +1529,56 @@ start_websocket_server <- function() {
               url = "https://rgent.onrender.com/chat/stream",
               body = request_body,
               headers = c("Accept" = "text/event-stream"),
-              timeout = 60,
+              timeout = .rgent_stream_timeout,
               chunk_callback = chunk_callback
             )
             
+            # Claude called tools (tools.R): run them here, show a note for each,
+            # and ask again with the results, in the same message. The request
+            # body stays the same (the backend rebuilds the conversation from
+            # it, and Claude's turns must come back unchanged).
+            tool_rounds <- list()
+            while (tools_on && isTRUE(stream_result$success) && !is.null(tool_event) && !.rgent_stop_requested()) {
+              if (length(tool_rounds) >= .rgent_tool_max_rounds) {
+                # Claude kept calling tools after its last allowed round
+                extra <- paste0(if (nzchar(full_response)) "\n\n" else "",
+                                "I couldn't finish looking things up for this question. Ask again, more specifically.")
+                ws$send(jsonlite::toJSON(list(action = "ai_response", streaming = TRUE, chunk = extra), auto_unbox = TRUE))
+                full_response <- paste0(full_response, extra)
+                break
+              }
+              results <- list(); notes <- character(0)
+              for (call in utils::head(tool_event$tool_calls, 6L)) {
+                .rgent_poll_messages()
+                if (.rgent_stop_requested()) break
+                r <- .rgent_run_tool(call, edit_target)
+                notes <- c(notes, r$note)
+                results[[length(results) + 1L]] <- list(id = call$id %||% "", content = r$content, is_error = isTRUE(r$is_error))
+              }
+              if (.rgent_stop_requested()) break
+              note_text <- .rgent_tool_notes_text(notes, full_response)
+              ws$send(jsonlite::toJSON(list(action = "ai_response", streaming = TRUE, chunk = note_text), auto_unbox = TRUE))
+              full_response <- paste0(full_response, note_text)
+              ws$send(jsonlite::toJSON(list(action = "tool_status", state = "writing"), auto_unbox = TRUE))
+              tool_rounds[[length(tool_rounds) + 1L]] <- list(assistant = tool_event$assistant,
+                                                              prefix = tool_event$prefix %||% "", results = results)
+              request_body$tool_rounds <- tool_rounds
+              tool_event <- NULL
+              stream_result <- stream_httr_post(
+                url = "https://rgent.onrender.com/chat/stream",
+                body = request_body,
+                headers = c("Accept" = "text/event-stream"),
+                timeout = .rgent_stream_timeout,
+                chunk_callback = chunk_callback
+              )
+            }
+
             # Claude asked to read lines it wasn't shown (```read a-b) or to
             # search the file (```find pattern); only offered for files too big
             # to send whole. Send the result and let it continue in the same
-            # message.
-            if (stream_result$success && !is_fix_request &&
+            # message. (With tools on, Claude is told to use read_file_lines and
+            # search_file instead; a ```read it writes anyway still works.)
+            if (stream_result$success && !is_fix_request && !.rgent_stop_requested() &&
                 !is.null(edit_target) && length(edit_target$lines) > 0) {
               # Up to two lookups (```read or ```find) per message, e.g. search
               # then read; results build up so Claude keeps what it found
@@ -1491,6 +1602,8 @@ start_websocket_server <- function() {
                 # plot image (if any) was already seen
                 request_body$continuation <- TRUE
                 request_body$image <- NULL
+                request_body$tools <- NULL
+                request_body$tool_rounds <- NULL
                 request_body$prompt <- paste0(
                   enhanced_prompt,
                   "\n\nYOUR REPLY SO FAR (the user has seen it):\n", full_response,
@@ -1504,7 +1617,7 @@ start_websocket_server <- function() {
                   url = "https://rgent.onrender.com/chat/stream",
                   body = request_body,
                   headers = c("Accept" = "text/event-stream"),
-                  timeout = 60,
+                  timeout = .rgent_stream_timeout,
                   chunk_callback = chunk_callback
                 )
                 if (!stream_result$success) break
@@ -1512,7 +1625,13 @@ start_websocket_server <- function() {
               }
             }
 
-            if (stream_result$success) {
+            if (isTRUE(stream_result$stopped) || .rgent_stop_requested()) {
+              # The Stop button (stop.R): the page keeps what it showed; the
+              # history keeps it too, marked as stopped
+              kept <- .rgent_stopped_reply(.rgent_strip_read(full_response))
+              if (nzchar(kept) && !is_fix_request) add_to_conversation_history("ai", kept)
+              list(action = "streaming_stopped")
+            } else if (stream_result$success) {
               # Add AI response to conversation history
               if (nchar(full_response) > 0) {
                 add_to_conversation_history("ai", .rgent_strip_read(full_response))
@@ -1528,124 +1647,22 @@ start_websocket_server <- function() {
               
               list(action = "streaming_complete")
             } else {
-              cat("Backend returned error status:", stream_result$status_code, "\n")
-              if (!is.null(stream_result$error)) {
-                cat("Error:", stream_result$error, "\n")
-              }
-              list(action = "ai_response", message = paste("Error connecting to AI service. Status:", stream_result$status_code))
+              cat("Rgent: the reply failed:", stream_result$status_code %||% "", stream_result$error %||% "", "\n")
+              .rgent_failed_reply(ws, full_response, is_fix_request, stream_result)
             }
           }, error = function(e) {
-            cat("Exception during backend call:", e$message, "\n")
-            # Silenced debug: Exception details
-            # Silenced debug: Exception class
-            
-            # Check if it's a timeout error
-            if (grepl("timeout", tolower(e$message)) || grepl("timed out", tolower(e$message))) {
-              # First retry with increased timeout
-              # Silenced debug: Timeout detected, attempting retry
-              
-              # Send "One moment..." message to user
-              retry_message <- list(
-                action = "ai_response", 
-                message = "⏳ One moment, processing your request...",
-                streaming = FALSE
-              )
-              ws$send(jsonlite::toJSON(retry_message, auto_unbox = TRUE))
-              
-              # Wait a moment
-              Sys.sleep(2)
-              
-              # Retry with increased timeout using streaming
-              tryCatch({
-                retry_chunk_buffer <- ""
-                retry_full_response <- ""
-                
-                retry_chunk_callback <- function(json_data) {
-                  tryCatch({
-                    chunk_data <- jsonlite::fromJSON(json_data)
-                    if (!is.null(chunk_data$chunk)) {
-                      retry_full_response <<- paste0(retry_full_response, chunk_data$chunk)
-                      retry_chunk_buffer <<- paste0(retry_chunk_buffer, chunk_data$chunk)
-                      
-                      # Send chunks as they arrive
-                      if (nchar(retry_chunk_buffer) > 50) {
-                        chunk_response <- list(
-                          action = "ai_response",
-                          streaming = TRUE,
-                          chunk = retry_chunk_buffer
-                        )
-                        ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                        retry_chunk_buffer <<- ""
-                      }
-                    }
-                    if (!is.null(chunk_data$done) && chunk_data$done) {
-                      if (nchar(retry_chunk_buffer) > 0) {
-                        chunk_response <- list(
-                          action = "ai_response",
-                          streaming = TRUE,
-                          chunk = retry_chunk_buffer
-                        )
-                        ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                      }
-                      return(list(stop = TRUE))
-                    }
-                    return(NULL)
-                  }, error = function(e) {
-                    return(NULL)
-                  })
-                }
-                
-                retry_result <- stream_httr_post(
-                  url = "https://rgent.onrender.com/chat/stream",
-                  body = request_body,
-                  headers = c("Accept" = "text/event-stream"),
-                  timeout = 60,
-                  chunk_callback = retry_chunk_callback
-                )
-                
-                if (retry_result$success) {
-                  if (nchar(retry_full_response) > 0) {
-                    add_to_conversation_history("ai", retry_full_response)
-                  }
-                  finish_response <- list(
-                    action = "ai_response",
-                    streaming = TRUE,
-                    finished = TRUE
-                  )
-                  ws$send(jsonlite::toJSON(finish_response, auto_unbox = TRUE))
-                  list(action = "streaming_complete")
-                } else {
-                  # Still failed, send environment reduction tips
-                  tips_message <- list(
-                    action = "ai_response", 
-                    message = .rgent_timeout_message,
-                    streaming = FALSE
-                  )
-                  ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
-                  list(action = "ai_response", message = "Environment size reduction tips sent")
-                }
-              }, error = function(retry_e) {
-                # Second retry also failed, send tips
-                # Silenced debug: Retry also failed
-                tips_message <- list(
-                  action = "ai_response", 
-                  message = .rgent_timeout_message,
-                  streaming = FALSE
-                )
-                ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
-                list(action = "ai_response", message = "Environment cleanup tips sent")
-              })
-            } else {
-              # Non-timeout error
-              list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
-            }
+            # Nothing is asked again from scratch: that billed and counted the
+            # question twice and showed the text twice
+            cat("Rgent: the reply failed:", conditionMessage(e), "\n")
+            .rgent_failed_reply(ws, tryCatch(full_response, error = function(e2) ""), is_fix_request,
+                                list(error = conditionMessage(e)))
           })
           }
         },
         "new_conversation" = {
           # Clear conversation history
-          if (exists("conversation_history", envir = .GlobalEnv)) {
-            .GlobalEnv$conversation_history <- list()
+          if (!is.null(.rgent_state$conversation_history)) {
+            .rgent_state$conversation_history <- list()
           }
           chat_store_new()
           
@@ -1690,7 +1707,7 @@ start_websocket_server <- function() {
         "stop_response" = {
           # Handle stop request for any operation (chat, auto-execute, debug, plot analysis)
           # Set global flag to stop streaming
-          .GlobalEnv$operation_stopped <- TRUE
+          .rgent_state$operation_stopped <- TRUE
           list(action = "stop_response", status = "success", message = "Operation stopped")
         },
         {
@@ -1850,7 +1867,7 @@ start_websocket_server <- function() {
   
   # Try to start server on port 8888
   tryCatch({
-    .GlobalEnv$websocket_server <- httpuv::startServer(
+    .rgent_state$websocket_server <- httpuv::startServer(
       "127.0.0.1", 
       8888,
       list(
@@ -1876,13 +1893,13 @@ start_websocket_server <- function() {
           
           # Check if access code exists and notify frontend
           tryCatch({
-            if (exists("current_access_code", envir = .GlobalEnv) && 
-                !is.null(.GlobalEnv$current_access_code) && 
-                nchar(trimws(.GlobalEnv$current_access_code)) > 0) {
+            if (!is.null(.rgent_state$current_access_code) && 
+                !is.null(.rgent_state$current_access_code) && 
+                nchar(trimws(.rgent_state$current_access_code)) > 0) {
               # Send access code to frontend so it can auto-validate and hide the access section
               access_code_message <- list(
                 action = "access_code_loaded",
-                access_code = .GlobalEnv$current_access_code,
+                access_code = .rgent_state$current_access_code,
                 auto_validate = TRUE
               )
               ws$send(jsonlite::toJSON(access_code_message, auto_unbox = TRUE))
@@ -1893,7 +1910,7 @@ start_websocket_server <- function() {
           
           # Set up message handler
           ws$onMessage(function(isBinary, data) {
-            .rgent_track_errors(message_handler, ws, isBinary, data)
+            .rgent_dispatch_message(message_handler, ws, isBinary, data)
           })
         },
         onWSClose = function(ws) {
@@ -1905,7 +1922,7 @@ start_websocket_server <- function() {
       }, error = function(e) {
       # Try alternative port silently
       tryCatch({
-        .GlobalEnv$websocket_server <- httpuv::startServer(
+        .rgent_state$websocket_server <- httpuv::startServer(
           "127.0.0.1", 
           8889,
           list(
@@ -1923,12 +1940,12 @@ start_websocket_server <- function() {
                 ws$send(jsonlite::toJSON(theme_message, auto_unbox = TRUE))
                 
                 # Check if access code exists and notify frontend
-                if (exists("current_access_code", envir = .GlobalEnv) && 
-                    !is.null(.GlobalEnv$current_access_code) && 
-                    nchar(trimws(.GlobalEnv$current_access_code)) > 0) {
+                if (!is.null(.rgent_state$current_access_code) && 
+                    !is.null(.rgent_state$current_access_code) && 
+                    nchar(trimws(.rgent_state$current_access_code)) > 0) {
                   access_code_message <- list(
                     action = "access_code_loaded",
-                    access_code = .GlobalEnv$current_access_code,
+                    access_code = .rgent_state$current_access_code,
                     auto_validate = TRUE
                   )
                   ws$send(jsonlite::toJSON(access_code_message, auto_unbox = TRUE))
@@ -1939,7 +1956,7 @@ start_websocket_server <- function() {
               
               # Set up message handler
               ws$onMessage(function(isBinary, data) {
-                .rgent_track_errors(message_handler, ws, isBinary, data)
+                .rgent_dispatch_message(message_handler, ws, isBinary, data)
               })
             },
             onWSClose = function(ws) {
@@ -2005,26 +2022,18 @@ launch_html_interface <- function() {
   tryCatch(unit_unsafe_reason(paste(request$code, collapse = "\n")), error = function(e) NULL)
 }
 
-# Shown when the server didn't answer twice. (It used to blame the size of the
-# user's environment and suggest rm(list = ls()), but the context sent is capped,
-# so a timeout is about the network or the server.)
-.rgent_timeout_message <- paste0(
-  "The Rgent server didn't answer in time, twice. Check your internet connection and try again ",
-  "in a minute. Nothing in your session was changed."
-)
-
 #' @export
 add_to_conversation_history <- function(role, message) {
   # Get current conversation history
-  if (!exists("conversation_history")) {
-    .GlobalEnv$conversation_history <- list()
+  if (is.null(.rgent_state$conversation_history)) {
+    .rgent_state$conversation_history <- list()
   }
   
   # Saved for the History list (on this computer only)
   tryCatch(chat_store_record(role, message), error = function(e) NULL)
 
   # Add new message
-  .GlobalEnv$conversation_history <- c(.GlobalEnv$conversation_history, list(
+  .rgent_state$conversation_history <- c(.rgent_state$conversation_history, list(
     list(
       role = role,
       message = message,
@@ -2033,9 +2042,9 @@ add_to_conversation_history <- function(role, message) {
   ))
   
   # Keep the last few exchanges (get_conversation_history() compacts the older ones)
-  n <- length(.GlobalEnv$conversation_history)
+  n <- length(.rgent_state$conversation_history)
   if (n > .rgent_history_n) {
-    .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(n - .rgent_history_n + 1L):n]
+    .rgent_state$conversation_history <- .rgent_state$conversation_history[(n - .rgent_history_n + 1L):n]
   }
 }
 
@@ -2049,7 +2058,7 @@ add_to_conversation_history <- function(role, message) {
 #' The most recent message the user typed (not an auto-fix request)
 #' @keywords internal
 get_last_user_request <- function() {
-  hist <- if (exists("conversation_history", envir = .GlobalEnv)) .GlobalEnv$conversation_history else list()
+  hist <- if (!is.null(.rgent_state$conversation_history)) .rgent_state$conversation_history else list()
   for (msg in rev(hist)) {
     if (identical(msg$role, "user")) return(as.character(msg$message))
   }
@@ -2089,10 +2098,10 @@ get_last_user_request <- function() {
 #' code); older replies are compacted to save input tokens.
 #' @export
 get_conversation_history <- function() {
-  if (!exists("conversation_history") || length(.GlobalEnv$conversation_history) == 0) {
+  if (is.null(.rgent_state$conversation_history) || length(.rgent_state$conversation_history) == 0) {
     return("")
   }
-  hist <- .GlobalEnv$conversation_history
+  hist <- .rgent_state$conversation_history
   ai <- which(vapply(hist, function(m) !identical(m$role, "user"), logical(1)))
   last_ai <- if (length(ai)) max(ai) else 0L
 
@@ -2146,19 +2155,8 @@ capture_context <- function() {
           obj_info$column_names <- names(obj)
           obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
           
-          # Only add basic sample data (first 2 rows, first 8 columns)
-          if (nrow(obj) > 0) {
-            head_data <- head(obj, 2)
-            sample_cols <- min(8, ncol(head_data))
-            obj_info$sample_data <- lapply(1:sample_cols, function(i) {
-              list(
-                column = names(head_data)[i],
-                sample_values = as.character(head_data[[i]])[1:2]  # Only first 2 values
-              )
-            })
-          } else {
-            obj_info$sample_data <- list()
-          }
+          # The first two values and a one-line summary of each column (context_columns.R)
+          obj_info$sample_data <- if (nrow(obj) > 0) .rgent_df_columns(obj) else list()
           
         } else if (is.vector(obj) && !is.list(obj)) {
           if (length(obj) <= 5) {
@@ -2342,10 +2340,10 @@ capture_context <- function() {
 #' Stop WebSocket server
 #' @export
 stop_websocket_server <- function() {
-  if (!is.null(.GlobalEnv$websocket_server)) {
+  if (!is.null(.rgent_state$websocket_server)) {
     tryCatch({
-      httpuv::stopServer(.GlobalEnv$websocket_server)
-      .GlobalEnv$websocket_server <- NULL
+      httpuv::stopServer(.rgent_state$websocket_server)
+      .rgent_state$websocket_server <- NULL
     }, error = function(e) {
       # silently ignore
     })
@@ -2489,8 +2487,8 @@ capture_last_error <- function() {
     }
     
     # Also check if we have a stored error message
-    if (last_error == "" && exists("last_error_message") && !is.null(last_error_message)) {
-      last_error <- last_error_message
+    if (last_error == "" && !is.null(.rgent_state$last_error_message)) {
+      last_error <- .rgent_state$last_error_message
     }
     
     if (last_error == "") {
@@ -2505,8 +2503,8 @@ capture_last_error <- function() {
     
     # Check if we have stored code from the frontend
     stored_code <- ""
-    if (exists("currentStepCode", envir = .GlobalEnv) && !is.null(.GlobalEnv$currentStepCode)) {
-      stored_code <- .GlobalEnv$currentStepCode
+    if (!is.null(.rgent_state$currentStepCode)) {
+      stored_code <- .rgent_state$currentStepCode
     }
     
     # Use stored code if available, otherwise use console context
@@ -2593,7 +2591,7 @@ auto_capture_error <- function() {
       update_workspace_index()
       
       # Store error context for later use
-      .GlobalEnv$last_error_context <- list(
+      .rgent_state$last_error_context <- list(
         error_message = last_error,
         console_context = console_context,
         timestamp = Sys.time()
@@ -2667,8 +2665,8 @@ capture_last_error <- function() {
   }
   
   # Also check if we have a stored error message
-  if (last_error == "" && exists("last_error_message") && !is.null(last_error_message)) {
-    last_error <- last_error_message
+  if (last_error == "" && !is.null(.rgent_state$last_error_message)) {
+    last_error <- .rgent_state$last_error_message
   }
   
   if (last_error == "") {
@@ -2862,11 +2860,11 @@ get_relevant_context_for_error <- function(error_code, error_message) {
     )
     
     # Check if workspace index exists
-    if (!exists("workspace_index", envir = .GlobalEnv)) {
+    if (is.null(.rgent_state$workspace_index)) {
       return(relevant_context)
     }
     
-    workspace_index <- .GlobalEnv$workspace_index
+    workspace_index <- .rgent_state$workspace_index
     
     # Determine error type and get relevant context
     if (grepl("object.*not found", error_message, ignore.case = TRUE)) {
@@ -2900,8 +2898,8 @@ get_relevant_context_for_error <- function(error_code, error_message) {
     }
     
     # Add conversation history if available
-    if (exists("conversation_history", envir = .GlobalEnv)) {
-      relevant_context$conversation_history_length <- length(.GlobalEnv$conversation_history)
+    if (!is.null(.rgent_state$conversation_history)) {
+      relevant_context$conversation_history_length <- length(.rgent_state$conversation_history)
     }
     
     # Add index timestamp
@@ -3018,10 +3016,10 @@ update_workspace_index <- function() {
     workspace_objects <- explorer_user_objects(ls(envir = globalenv()))
     
     # Clear old index using global environment
-    .GlobalEnv$workspace_index$objects <- list()
-    .GlobalEnv$workspace_index$data_frames <- list()
-    .GlobalEnv$workspace_index$functions <- list()
-    .GlobalEnv$workspace_index$variables <- list()
+    .rgent_state$workspace_index$objects <- list()
+    .rgent_state$workspace_index$data_frames <- list()
+    .rgent_state$workspace_index$functions <- list()
+    .rgent_state$workspace_index$variables <- list()
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
@@ -3031,18 +3029,18 @@ update_workspace_index <- function() {
       if (is.null(obj_info)) next
       
       # Add to appropriate category using global environment
-      .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
+      .rgent_state$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
-        .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$data_frames[[obj_name]] <- obj_info
       } else if (obj_info$is_function) {
-        .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$functions[[obj_name]] <- obj_info
       } else {
-        .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$variables[[obj_name]] <- obj_info
       }
     }
     
-    .GlobalEnv$workspace_index$last_updated <- Sys.time()
+    .rgent_state$workspace_index$last_updated <- Sys.time()
     
   }, error = function(e) {
     cat("Error updating workspace index:", e$message, "\n")
@@ -3094,7 +3092,7 @@ assemble_simple_context <- function(query) {
     
     
     # Get workspace_index from global environment
-    workspace_index <- .GlobalEnv$workspace_index
+    workspace_index <- .rgent_state$workspace_index
     
     # Debug workspace_index
     
@@ -3892,8 +3890,8 @@ assemble_intelligent_context_safe <- function(query) {
 
 
 # Initialize workspace_index in global environment
-if (!exists("workspace_index", envir = .GlobalEnv)) {
-  .GlobalEnv$workspace_index <- list(
+if (is.null(.rgent_state$workspace_index)) {
+  .rgent_state$workspace_index <- list(
     objects = list(),
     data_frames = list(),
     functions = list(),
@@ -4193,19 +4191,8 @@ capture_context_smart <- function(query = NULL) {
             obj_info$column_names <- names(obj)
             obj_info$column_types <- sapply(obj, function(col) paste(class(col), collapse = ", "))
             
-            # Only add basic sample data (first 2 rows, first 8 columns)
-            if (nrow(obj) > 0) {
-              head_data <- head(obj, 2)
-              sample_cols <- min(8, ncol(head_data))
-              obj_info$sample_data <- lapply(1:sample_cols, function(i) {
-                list(
-                  column = names(head_data)[i],
-                  sample_values = as.character(head_data[[i]])[1:2]  # Only first 2 values
-                )
-              })
-            } else {
-              obj_info$sample_data <- list()
-            }
+            # The first two values and a one-line summary of each column (context_columns.R)
+            obj_info$sample_data <- if (nrow(obj) > 0) .rgent_df_columns(obj) else list()
             
           } else if (is.vector(obj) && !is.list(obj)) {
             if (length(obj) <= 5) {
@@ -4344,9 +4331,9 @@ update_workspace_index_incremental <- function() {
     # Silenced debug: updating workspace index incrementally
     
     # Ensure workspace_index exists
-    if (!exists("workspace_index", envir = .GlobalEnv)) {
+    if (is.null(.rgent_state$workspace_index)) {
       # Silenced debug: initializing workspace_index
-      .GlobalEnv$workspace_index <- list(
+      .rgent_state$workspace_index <- list(
         objects = list(),
         data_frames = list(),
         functions = list(),
@@ -4360,7 +4347,7 @@ update_workspace_index_incremental <- function() {
     # Silenced debug: found current workspace objects
     
     # Get last scan info
-    last_scan <- .GlobalEnv$workspace_index$last_scan_objects
+    last_scan <- .rgent_state$workspace_index$last_scan_objects
     if (is.null(last_scan)) {
       # Silenced debug: no previous scan, full scan
       return(update_workspace_index_full())
@@ -4381,16 +4368,16 @@ update_workspace_index_incremental <- function() {
         obj_info <- safe_get_object_info(obj_name)
         
         # Store in appropriate category
-        .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$objects[[obj_name]] <- obj_info
         
         if (obj_info$is_data_frame) {
-          .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+          .rgent_state$workspace_index$data_frames[[obj_name]] <- obj_info
           # Silenced debug: added to data_frames
         } else if (obj_info$is_function) {
-          .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+          .rgent_state$workspace_index$functions[[obj_name]] <- obj_info
           # Silenced debug: added to functions
         } else {
-          .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+          .rgent_state$workspace_index$variables[[obj_name]] <- obj_info
           # Silenced debug: added to variables
         }
       }
@@ -4401,10 +4388,10 @@ update_workspace_index_incremental <- function() {
       # Silenced debug: removing deleted objects
               for (obj_name in removed_objects) {
           # Silenced debug: removing object
-        .GlobalEnv$workspace_index$objects[[obj_name]] <- NULL
-        .GlobalEnv$workspace_index$data_frames[[obj_name]] <- NULL
-        .GlobalEnv$workspace_index$functions[[obj_name]] <- NULL
-        .GlobalEnv$workspace_index$variables[[obj_name]] <- NULL
+        .rgent_state$workspace_index$objects[[obj_name]] <- NULL
+        .rgent_state$workspace_index$data_frames[[obj_name]] <- NULL
+        .rgent_state$workspace_index$functions[[obj_name]] <- NULL
+        .rgent_state$workspace_index$variables[[obj_name]] <- NULL
       }
     }
     
@@ -4419,7 +4406,7 @@ update_workspace_index_incremental <- function() {
       }, error = function(e) NULL)
       
       if (!is.null(current_obj)) {
-        stored_obj <- .GlobalEnv$workspace_index$objects[[obj_name]]
+        stored_obj <- .rgent_state$workspace_index$objects[[obj_name]]
         if (!is.null(stored_obj)) {
           # Check if object has changed
           current_length <- length(current_obj)
@@ -4431,15 +4418,15 @@ update_workspace_index_incremental <- function() {
             
             # Update the object info
             obj_info <- safe_get_object_info(obj_name)
-            .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
+            .rgent_state$workspace_index$objects[[obj_name]] <- obj_info
             
             # Update category
             if (obj_info$is_data_frame) {
-              .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+              .rgent_state$workspace_index$data_frames[[obj_name]] <- obj_info
             } else if (obj_info$is_function) {
-              .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+              .rgent_state$workspace_index$functions[[obj_name]] <- obj_info
             } else {
-              .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+              .rgent_state$workspace_index$variables[[obj_name]] <- obj_info
             }
           }
         }
@@ -4449,8 +4436,8 @@ update_workspace_index_incremental <- function() {
     # Silenced debug: modified objects summary
     
     # Update last scan info
-    .GlobalEnv$workspace_index$last_scan_objects <- current_objects
-    .GlobalEnv$workspace_index$last_updated <- Sys.time()
+    .rgent_state$workspace_index$last_scan_objects <- current_objects
+    .rgent_state$workspace_index$last_updated <- Sys.time()
     
     # Silenced debug: incremental update complete
     # Silenced debug: final counts summary
@@ -4473,10 +4460,10 @@ update_workspace_index_full <- function() {
     # Silenced debug: found workspace objects
     
     # Clear old index using global environment
-    .GlobalEnv$workspace_index$objects <- list()
-    .GlobalEnv$workspace_index$data_frames <- list()
-    .GlobalEnv$workspace_index$functions <- list()
-    .GlobalEnv$workspace_index$variables <- list()
+    .rgent_state$workspace_index$objects <- list()
+    .rgent_state$workspace_index$data_frames <- list()
+    .rgent_state$workspace_index$functions <- list()
+    .rgent_state$workspace_index$variables <- list()
     
     # Scan each object safely
     for (obj_name in workspace_objects) {
@@ -4485,23 +4472,23 @@ update_workspace_index_full <- function() {
       # Silenced debug: object info flags
       
       # Store in appropriate category using global environment
-      .GlobalEnv$workspace_index$objects[[obj_name]] <- obj_info
+      .rgent_state$workspace_index$objects[[obj_name]] <- obj_info
       
       if (obj_info$is_data_frame) {
-        .GlobalEnv$workspace_index$data_frames[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$data_frames[[obj_name]] <- obj_info
         # Silenced debug: added to data_frames
       } else if (obj_info$is_function) {
-        .GlobalEnv$workspace_index$functions[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$functions[[obj_name]] <- obj_info
         # Silenced debug: added to functions
       } else {
-        .GlobalEnv$workspace_index$variables[[obj_name]] <- obj_info
+        .rgent_state$workspace_index$variables[[obj_name]] <- obj_info
         # Silenced debug: added to variables
       }
     }
     
     # Store last scan info for incremental updates
-    .GlobalEnv$workspace_index$last_scan_objects <- workspace_objects
-    .GlobalEnv$workspace_index$last_updated <- Sys.time()
+    .rgent_state$workspace_index$last_scan_objects <- workspace_objects
+    .rgent_state$workspace_index$last_updated <- Sys.time()
     
     # Silenced debug: full workspace index updated and final counts
     
@@ -5449,9 +5436,9 @@ analyze_last_plot <- function() {
     # Step 1: Check for stored plot command from visualization agent first
     plot_info <- NULL
     
-    if (exists("last_plot_command", envir = .GlobalEnv)) {
-      stored_command <- get("last_plot_command", envir = .GlobalEnv)
-      stored_timestamp <- get("last_plot_timestamp", envir = .GlobalEnv)
+    if (!is.null(.rgent_state$last_plot_command) && !is.null(.rgent_state$last_plot_timestamp)) {
+      stored_command <- .rgent_state$last_plot_command
+      stored_timestamp <- .rgent_state$last_plot_timestamp
       
       # Plots made by code the chat ran are stored here (the Console history
       # doesn't have them); use one from the last hour

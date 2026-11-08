@@ -150,11 +150,17 @@ edit_instructions <- function(file_name, outline = "", auto_run = FALSE, run_edi
 # In the saved history a read or find request becomes a short note, so later
 # requests don't carry stale requests (or a block that looks like an option)
 .rgent_strip_read <- function(reply) {
+  # tools.R lookups: ```lookup data|str(sales)|ok
+  reply <- gsub("(?m)^ {0,3}```+ *lookup +data\\|([^|\n]*)\\|\\w+ *\n```+ *$", "(looked at \\1)", reply, perl = TRUE)
+  reply <- gsub("(?m)^ {0,3}```+ *lookup +read\\|([^|\n]*)\\|\\w+ *\n```+ *$", "(read lines \\1 of the file)", reply, perl = TRUE)
+  reply <- gsub("(?m)^ {0,3}```+ *lookup +find\\|([^|\n]*)\\|\\w+ *\n```+ *$", "(searched the file for \\1)", reply, perl = TRUE)
+  reply <- gsub("(?m)^ {0,3}```+ *lookup +file\\|([^|\n]*)\\|\\w+ *\n```+ *$", "(read \\1)", reply, perl = TRUE)
+  reply <- gsub("(?m)^ {0,3}```+ *lookup +help\\|([^|\n]*)\\|\\w+ *\n```+ *$", "(checked the help for \\1)", reply, perl = TRUE)
   reply <- gsub("(?m)^ {0,3}```+ *read +(\\d+) *(?:-|to) *(\\d+) *\n(?:[^`]*\n)?```+ *$", "(read lines \\1-\\2 of the file)", reply, perl = TRUE)
   gsub(.rgent_find_pattern_re, "(searched the file for \\1)", reply, perl = TRUE)
 }
 
-document_outline <- function(lines, name, budget = 30000L, max_items = 80L) {
+document_outline <- function(lines, name, budget = 30000L, max_items = 80L, tools = FALSE) {
   n <- length(lines)
   if (.rgent_listing_fits(lines, budget)) return("")
   items <- character(0)
@@ -207,10 +213,14 @@ document_outline <- function(lines, name, budget = 30000L, max_items = 80L) {
          "\nTo replace or delete a whole chunk or section, use its range from this outline, ",
          "including lines the listing doesn't show; the user sees every affected line before accepting. ",
          "Never cut a chunk's opening fence without its closing fence or the reverse. ",
+         if (isTRUE(tools)) paste0(
+           "Use the read_file_lines and search_file tools for the rest of the file. For questions about the whole file ",
+           "(\"which plots do I have\", \"where is x defined\"), search or read first; never tell the user you can't see part of the file.")
+         else paste0(
          "You can look at the rest of the file: end your reply with an empty ```read 46-151 block (a line range) ",
          "or ```find ggplot|geom_ block (a regular expression, ignoring case; you get every matching line with its number), ",
          "and nothing after it; the result is sent and you continue. For questions about the whole file ",
-         "(\"which plots do I have\", \"where is x defined\"), search or read first; never tell the user you can't see part of the file.")
+         "(\"which plots do I have\", \"where is x defined\"), search or read first; never tell the user you can't see part of the file."))
 }
 
 .rgent_inside_chunk <- function(lines) {

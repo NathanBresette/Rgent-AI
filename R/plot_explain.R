@@ -8,7 +8,7 @@
 # instead of guessing from the code.
 
 .rgent_plot_command <- function() {
-  g <- .GlobalEnv
+  g <- .rgent_state   # set when the chat runs plotting code (state.R)
   if (exists("last_plot_command", envir = g, inherits = FALSE) &&
       exists("last_plot_timestamp", envir = g, inherits = FALSE)) {
     ts <- get("last_plot_timestamp", envir = g)

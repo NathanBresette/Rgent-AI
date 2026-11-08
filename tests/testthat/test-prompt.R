@@ -11,25 +11,25 @@ test_that("the access code and other package globals never reach the prompt", {
 })
 
 test_that("older replies are compacted in the history; the latest stays whole", {
-  old <- if (exists("conversation_history", globalenv())) get("conversation_history", globalenv())
-  on.exit(assign("conversation_history", if (is.null(old)) list() else old, envir = globalenv()))
+  old <- rstudioai:::.rgent_state$conversation_history
+  on.exit(assign("conversation_history", if (is.null(old)) list() else old, envir = rstudioai:::.rgent_state))
   code <- paste(c("Here:", "```r", sprintf("x%d <- %d", 1:40, 1:40), "```"), collapse = "\n")
   assign("conversation_history", list(list(role = "user", message = "first"), list(role = "ai", message = code),
-                                      list(role = "user", message = "second"), list(role = "ai", message = code)), envir = globalenv())
+                                      list(role = "user", message = "second"), list(role = "ai", message = code)), envir = rstudioai:::.rgent_state)
   h <- get_conversation_history()
   expect_match(h, "[r block, 40 lines, starting `x1 <- 1`]", fixed = TRUE)
   expect_equal(lengths(regmatches(h, gregexpr("x40 <- 40", h))), 1L)   # only the latest reply keeps its code
 })
 
 test_that("history keeps six exchanges, compacts older replies and stays under the size cap", {
-  old <- if (exists("conversation_history", globalenv())) get("conversation_history", globalenv())
-  on.exit(assign("conversation_history", if (is.null(old)) list() else old, envir = globalenv()))
-  assign("conversation_history", list(), envir = globalenv())
+  old <- rstudioai:::.rgent_state$conversation_history
+  on.exit(assign("conversation_history", if (is.null(old)) list() else old, envir = rstudioai:::.rgent_state))
+  assign("conversation_history", list(), envir = rstudioai:::.rgent_state)
   for (i in 1:8) {
     add_to_conversation_history("user", sprintf("question %d", i))
     add_to_conversation_history("ai", paste0(sprintf("answer %d ", i), strrep("word ", 300)))
   }
-  hist <- get("conversation_history", globalenv())
+  hist <- rstudioai:::.rgent_state$conversation_history
   expect_length(hist, 12)
   expect_equal(hist[[1]]$message, "question 3")
   h <- get_conversation_history()
@@ -37,7 +37,7 @@ test_that("history keeps six exchanges, compacts older replies and stays under t
   expect_match(h, paste0("answer 8 ", strrep("word ", 300)), fixed = TRUE)   # latest reply whole
   expect_lte(nchar(h), 9000 + 100)
   # Very long messages: the oldest are dropped, the latest exchange is kept
-  assign("conversation_history", list(), envir = globalenv())
+  assign("conversation_history", list(), envir = rstudioai:::.rgent_state)
   for (i in 1:6) { add_to_conversation_history("user", strrep("q", 3000)); add_to_conversation_history("ai", strrep("a", 5000)) }
   add_to_conversation_history("user", "last question")
   h <- get_conversation_history()

@@ -69,8 +69,8 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
     is_plot_command <- any(grepl("(ggplot|plot|hist|boxplot|barplot|plotly|geom_)", code, ignore.case = TRUE))
     if (is_plot_command) {
       tryCatch({
-        assign("last_plot_command", code, envir = .GlobalEnv)
-        assign("last_plot_timestamp", Sys.time(), envir = .GlobalEnv)
+        .rgent_state$last_plot_command <- code
+        .rgent_state$last_plot_timestamp <- Sys.time()
       }, error = function(e) {})
     }
 
@@ -304,6 +304,13 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
       # Stop at the first error, like R does, so the error reported is the
       # one that caused the failure rather than a knock-on error from a later line
       while (i <= length(parsed_code) && !execution_had_error) {
+        # The Stop button (stop.R): stop before the next statement. One that
+        # is already running can't be interrupted from the chat.
+        if (i > start_at && isTRUE(.rgent_poll_messages())) {
+          .rgent_stream_state$run_stopped <- list(before = i, of = length(parsed_code))
+          if (isTRUE(settings$print_to_console)) cat("# Rgent: stopped before statement", i, "of", length(parsed_code), "\n")
+          break
+        }
         expr <- parsed_code[[i]]
         expr_str <- paste(deparse(expr), collapse = " ")
         # Remember where this expression starts, so a failure can be resumed here

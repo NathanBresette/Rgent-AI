@@ -2,10 +2,11 @@ with_chat_dir <- function(code) {
   old <- Sys.getenv("R_USER_DATA_DIR")
   tmp <- tempfile("chats")
   Sys.setenv(R_USER_DATA_DIR = tmp)
-  old_hist <- if (exists("conversation_history", envir = globalenv())) get("conversation_history", envir = globalenv()) else NULL
+  st <- rstudioai:::.rgent_state
+  old_hist <- st$conversation_history
   on.exit({
     Sys.setenv(R_USER_DATA_DIR = old); unlink(tmp, recursive = TRUE); chat_store_new()
-    assign("conversation_history", old_hist %||% list(), envir = globalenv())
+    st$conversation_history <- old_hist %||% list()
   })
   chat_store_new()
   force(code)
@@ -30,7 +31,7 @@ test_that("chats are saved from the first user message, reopened and exported", 
 
     ch <- chat_store_open(id)
     expect_equal(ch$messages[[2]]$text, "```r\nplot(mtcars$wt, mtcars$mpg)\n```")
-    expect_equal(length(get("conversation_history", envir = globalenv())), 2)  # context restored
+    expect_equal(length(rstudioai:::.rgent_state$conversation_history), 2)  # context restored
     add_to_conversation_history("user", "Add a trend line")                   # continues the reopened chat
     expect_equal(chat_store_list()$chats[[1]]$id, id)
     expect_equal(chat_store_list()$chats[[1]]$messages, 3)

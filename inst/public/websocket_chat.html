@@ -477,6 +477,8 @@
         color: var(--text-secondary); font-size: 12px; padding: 6px; cursor: pointer; }
       .tab-content button.cx-ob-more:hover { color: var(--text-primary); background: var(--bg-secondary); }
       #chat-container .plot-card img { display: block; width: 100%; height: auto; background: #fff; }
+      .cx-stopped { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
+      .cx-stopped svg { width: 9px; height: 9px; opacity: .8; }
       .ob-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
       #chat-container .message.ob-status-msg { padding-top: 0; padding-bottom: 0; margin-top: -4px; }
 
@@ -2795,6 +2797,8 @@
         background: linear-gradient(90deg, var(--text-secondary) 0 35%, var(--text-primary) 50%, var(--text-secondary) 65% 100%);
         background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         animation: think-shimmer 2s linear infinite; }
+      .cx-tool-live { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+      .message.tool-waiting .streaming-cursor { display: none; }
       .think-time { font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
       @keyframes think-shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
       @keyframes think-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(.75); } 100% { transform: rotate(360deg) scale(1); } }
@@ -3505,6 +3509,10 @@
       let currentRequestId = null;
       let pendingTimeouts = [];
       let operationStopped = false;
+      // Each chat reply has an id that R puts on everything it sends for it
+      // (stop.R), so what was still on its way from a stopped reply is dropped
+      let replySeq = 0;
+      let currentReplyId = 0;
       
       // Store last output for context in follow-up messages
       let lastCodeOutput = null;
@@ -4114,6 +4122,8 @@
         
         ws.onmessage = function(event) {
           const data = JSON.parse(event.data);
+          // From a reply that was stopped (and a newer one asked since)
+          if (typeof data.reply_id === 'number' && data.reply_id !== currentReplyId) return;
           // Minimal logging for explorer debugging only
           if (data.action && (data.action.includes('explorer') || data.action.includes('dataframe'))) {
             console.log("📊 Explorer:", data.action);
@@ -4179,6 +4189,17 @@
                 }
               } else {
                 // Handle regular response
+                clearToolStatus();
+                // A reply still open when R answers with a message (an error
+                // after part of it arrived): close it as it is
+                if (currentStreamingMessage) {
+                  const open = currentStreamingMessage;
+                  currentStreamingMessage = null;
+                  open.classList.remove('streaming');
+                  open.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
+                  if (!(open._rawText || '').trim()) open.remove();
+                  else try { addCopyInsertButtonsToCodeBlocks(open, open._rawText); } catch (e) {}
+                }
                 // Remove all animated placeholders
                 removeAnimatedPlaceholder("ai-thinking");
                 removeAnimatedPlaceholder("ai-debugging");
@@ -4208,6 +4229,10 @@
             case "inserted":
               addMessage("Code inserted successfully!", "ai");
               break;
+            case "tool_status":
+              // Claude is looking something up (tools.R): a live line until the next words arrive
+              if (!operationStopped) showToolStatus(data.state, data.tool);
+              break;
             case "execution_progress":
               if (typeof data.message === 'string' && data.message) {
                 showExecutionStatus(data.message);
@@ -4215,6 +4240,19 @@
               break;
             case "executed":
               removeAnimatedPlaceholder("exec-status");
+              // Esc in the Console stopped the code: say so, don't ask for a fix
+              if (data.interrupted) {
+                cleaningCodeExecuting = false;
+                cleaningCodeIterationCount = 0;
+                wrapupFor = null;
+                addStoppedNote(null, "Stopped · you interrupted the code in the Console");
+                if (isAIResponding) { isAIResponding = false; transformToSendButton(); }
+                break;
+              }
+              if (data.stopped && typeof data.stopped.before === 'number' && typeof data.stopped.of === 'number') {
+                const ran = data.stopped.before - 1, of = data.stopped.of;
+                setTimeout(() => addStoppedNote(null, `Stopped · ran ${ran} of ${of} statements`), 0);   // after the output
+              }
               // Check if agent was stopped before processing execution results
               if (currentAgentWorkflow && currentAgentWorkflow.stopped) {
                 console.log('🛑 Agent was stopped, ignoring execution result');
@@ -4764,6 +4802,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
               
             case "streaming_complete":
+              // Stopped: nothing runs (lastCompleteMessage is still the reply before)
+              if (operationStopped) break;
               // The message after code runs never runs code itself
               if (wrapupReplying) { wrapupReplying = false; break; }
               console.log('🔍 Streaming complete, checking for R code in final message');
@@ -4778,8 +4818,10 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                 
                 // Add a small delay to let the user see the complete message before execution
                 // This prevents jarring UX where code executes while still reading
+                const ridAtEnd = currentReplyId;
                 setTimeout(() => {
                   console.log('🔍 Handling code after brief display delay');
+                  if (operationStopped || ridAtEnd !== currentReplyId) return;   // stopped, or asked again
                   const toRun = withoutRepeatsOfEdits(window.lastCompleteMessage);
                   if (!hasCodeBlock(toRun)) return;
                   handleCleaningCodeResponse(toRun, 'data_cleaning_agent_code');
@@ -4787,6 +4829,18 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               }
               break;
             case "stop_response":
+              break;
+            case "streaming_stopped":
+              // R ended the reply. After the Stop button the page already shows
+              // it as stopped; after Esc in the Console it doesn't yet
+              if (!operationStopped) {
+                removeAnimatedPlaceholder("ai-thinking");
+                if (currentStreamingMessage) { freezeStoppedReply(currentStreamingMessage); currentStreamingMessage = null; }
+                else addStoppedNote(null);
+                wrapupReplying = false;
+                operationStopped = true;
+                if (isAIResponding) transformToSendButton();
+              }
               break;
 
           }
@@ -4925,6 +4979,41 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
         }
         return row;
+      }
+      
+      // While Claude looks something up (tools.R), the reply shows what it is
+      // doing instead of going quiet: "Looking at your data" from the moment
+      // Claude starts a lookup (the backend's tool_start), then "Writing the
+      // answer" until the next words arrive. Before any words, the thinking
+      // indicator's label says it.
+      const TOOL_STATUS = { inspect_data: "Looking at your data", read_file_lines: "Reading the file",
+                            search_file: "Searching the file", read_project_file: "Reading a project file",
+                            r_help: "Checking the R help" };
+      function showToolStatus(state, tool) {
+        const label = state === 'writing' ? 'Writing the answer' : (TOOL_STATUS[tool] || 'Looking something up');
+        const msg = currentStreamingMessage;
+        if (!msg) {
+          const t = document.querySelector('#ai-thinking .think-label');
+          if (t) t.textContent = label; else createThinkingIndicator('ai-thinking', label);
+          return;
+        }
+        let row = msg.querySelector('.cx-tool-live');
+        if (!row) {
+          row = document.createElement('div');
+          row.className = 'cx-tool-live';
+          row.setAttribute('role', 'status');
+          row.setAttribute('aria-live', 'polite');
+          row.innerHTML = '<svg class="think-spark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2c.6 4.6 2.9 7.4 8 8.4v1.2c-5.1 1-7.4 3.8-8 8.4h-1c-.6-4.6-2.9-7.4-8-8.4v-1.2c5.1-1 7.4-3.8 8-8.4z"/></svg><span class="think-label"></span>';
+          msg.appendChild(row);
+        }
+        row.querySelector('.think-label').textContent = label;
+        msg.classList.add('tool-waiting');
+        const chat = document.getElementById("chat-container");
+        if (chat) chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+      }
+      function clearToolStatus() {
+        document.querySelectorAll('.cx-tool-live').forEach(r => r.remove());
+        document.querySelectorAll('.message.tool-waiting').forEach(m => m.classList.remove('tool-waiting'));
       }
       
       function createAnimatedPlaceholder(id, text) {
@@ -5126,6 +5215,17 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         const isPreset = typeof preset === 'string';
         const message = isPreset ? preset : input.value.trim();
         if (!message || !isConnected) return;
+        // Rgent is still answering (or running code): a second question sent
+        // now landed in the middle of the first reply. The short message after
+        // a run is fine to cut off; anything else waits (the text stays in the box).
+        if (isAIResponding && !(extra && extra.wrapup)) {
+          if (wrapupReplying) {
+            stopCurrentOperation();
+          } else {
+            showToast('Rgent is still answering. Wait for it to finish, or press Stop.');
+            return;
+          }
+        }
         
         
         // Clear any tab completion suggestion
@@ -5162,9 +5262,11 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         transformToStopButton();
         
         // Send to R via WebSocket (include last output for context if available)
+        currentReplyId = ++replySeq;
         const chatPayload = {
           action: "chat_with_ai",
-          message: message
+          message: message,
+          reply_id: currentReplyId
         };
         if (extra && typeof extra === 'object') Object.assign(chatPayload, extra);
         // so the edit instructions say what happens to an edit (applied by itself or waits for Accept)
@@ -5293,71 +5395,74 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         input.addEventListener('blur', () => setTimeout(closeSlashMenu, 120));
       }
       
-      // Stop current operation (chat/auto-execute/debug)
+      // Stop (2.4.12), like ChatGPT or Claude: the reply stays where it got to,
+      // marked "Stopped", with its Copy/Insert buttons; nothing in it runs. R
+      // ends the stream at its next chunk, so Claude stops writing, and the
+      // history keeps the part shown (stop.R). Code that is running stops
+      // before its next statement (one statement can't be interrupted).
       function stopCurrentOperation() {
-        // Set stop flag to ignore incoming chunks
         operationStopped = true;
-        removeAnimatedPlaceholder("exec-status");
-        
-        // Clear all pending timeouts
+        clearToolStatus();
+        wrapupReplying = false;
+        wrapupScheduled = false;
+        wrapupFor = null;
         pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
         pendingTimeouts = [];
-        
-        // Clear streaming timeout
         if (streamingTimeout) {
           clearTimeout(streamingTimeout);
           streamingTimeout = null;
         }
-        
-        // Send stop message to backend
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            action: 'stop_response',
-            message: 'User requested to stop the current operation'
-          }));
+          ws.send(JSON.stringify({ action: 'stop_response' }));
         }
-        
-        // Remove current streaming message if it exists
-        if (currentStreamingMessage) {
-          currentStreamingMessage.remove();
-          currentStreamingMessage = null;
-        }
-        
-        // Reset streaming state
-        currentStreamingMessage = null;
-        
-        // Reset cleaning code state
+        const codeRunning = !!document.getElementById('exec-status');
         cleaningCodeExecuting = false;
         cleaningCodeIterationCount = 0;
-        
-        // Remove thinking placeholder if it exists
-        const thinkingPlaceholder = document.getElementById('ai-thinking');
-        if (thinkingPlaceholder) {
-          const intervalId = thinkingPlaceholder.dataset.intervalId;
-          if (intervalId) {
-            clearInterval(parseInt(intervalId));
-          }
-          thinkingPlaceholder.remove();
+        ["ai-thinking", "ai-debugging", "ai-generating-code", "ai-analyzing-statistical", "ai-analyzing-transformation",
+         "ai-analyzing-cleaning", "ai-analyzing-modeling", "ai-analyzing-results"].forEach(id => removeAnimatedPlaceholder(id));
+        if (currentStreamingMessage) {
+          freezeStoppedReply(currentStreamingMessage);
+          currentStreamingMessage = null;
+        } else if (codeRunning) {
+          showExecutionStatus("Stopping after the current statement. To stop it right now, click in the Console and press Esc.");
+        } else {
+          addStoppedNote(null);
         }
-        
-        // Remove debugging placeholder if it exists
-        const debugPlaceholder = document.getElementById('ai-debugging');
-        if (debugPlaceholder) {
-          debugPlaceholder.remove();
-        }
-        
-        // Show stopped message
-        addMessage('**Operation Stopped** - Request interrupted by user.', 'ai');
-        
-        // Reset AI responding flag
-        isAIResponding = false;
-        
-        // Transform back to send button
         transformToSendButton();
+      }
+
+      // A reply cut off by Stop: finish it as it is
+      function freezeStoppedReply(el) {
+        el.classList.remove('streaming');
+        el.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
+        el.querySelectorAll('.code-block-actions span').forEach(label => {
+          if (label.textContent.includes('streaming...')) label.remove();
+        });
+        const raw = el._rawText || '';
+        if (!raw.trim()) { el.remove(); addStoppedNote(null); return; }
+        try { addCopyInsertButtonsToCodeBlocks(el, raw); } catch (e) { console.log('stop: buttons', e); }
+        addStoppedNote(el);
+      }
+
+      // The quiet "Stopped" line: under a reply, or on its own
+      function addStoppedNote(el, text) {
+        const note = document.createElement('div');
+        note.className = 'cx-stopped';
+        note.innerHTML = STOP_ICON;
+        note.appendChild(document.createTextNode(text || 'Stopped'));
+        if (el) { el.appendChild(note); return; }
+        const container = document.getElementById("chat-container");
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = 'message ai-message ob-status-msg';
+        row.appendChild(note);
+        container.appendChild(row);
+        container.scrollTop = container.scrollHeight;
       }
       
       
       function addStreamingChunk(chunk) {
+        clearToolStatus();
         if (!currentStreamingMessage) {
           // Remove all animated placeholders when streaming starts
           removeAnimatedPlaceholder("ai-thinking");
@@ -5403,15 +5508,9 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         const container = document.getElementById("chat-container");
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         
-        // Clear any existing timeout
-        if (streamingTimeout) {
-          clearTimeout(streamingTimeout);
-        }
-        
-        // Set timeout to finish streaming if no more chunks
-        streamingTimeout = setTimeout(() => {
-          finishStreaming();
-        }, 1000);
+        // The reply ends when R says so (`finished`), not after a quiet second:
+        // a ```read lookup or a pause made a 1 s timer end it early, and the
+        // rest landed in a second message whose code was all auto-run saw
       }
       
       // Progressive streaming formatter - formats as content streams (like ChatGPT/Gemini)
@@ -5466,7 +5565,32 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
       // of the edit, so they nest instead of closing it.
       // ```read 46-151 is Claude asking R for lines of a long file it wasn't
       // shown; R sends them and the reply continues. Show it as a short note.
+      // Claude's tools (R's tools.R): ```lookup <kind>|<what>|<ok|failed>
+      function lookupNote(block) {
+        const L = /^lookup\s+(\w+)\|([^|]*)\|(\w+)$/i.exec(block.lang || '');
+        if (!L) return null;
+        const what = L[2].trim().replace(/`/g, '');
+        const kind = L[1].toLowerCase();
+        const failed = /^failed$/i.test(L[3]) ? ' (didn’t work)' : '';
+        const say = {
+          data: `Looked at \`${what}\``,
+          read: `Read lines ${what} of the file`,
+          find: `Searched the file for \`${what}\``,
+          file: `Read \`${what}\``,
+          help: `Checked the help for \`${what}\``
+        }[kind] || `Looked up \`${what}\``;
+        // the short form, for a group: "`x`", "lines 4-9", "help for `f`"
+        const short = { read: `lines ${what}`, find: `search for \`${what}\``, help: `help for \`${what}\`` }[kind] || `\`${what}\``;
+        return { say: say + failed, short: short + failed };
+      }
+      // Lookups made together read as one line: "✓ Checked 3 things: `a` · `b` · lines 4-9"
+      function lookupLine(run) {
+        if (run.length === 1) return `*✓ ${run[0].say}*`;
+        return `*✓ Checked ${run.length} things: ${run.map(n => n.short).join(' · ')}*`;
+      }
       function readNote(block) {
+        const n = lookupNote(block);
+        if (n) return lookupLine([n]);
         const m = /^read\s+(\d+)\s*(?:-|to)\s*(\d+)$/i.exec(block.lang || '');
         if (m) return `*Reading lines ${m[1]}-${m[2]} of the file…*`;
         const f = /^find\s+(.+)$/i.exec(block.lang || '');
@@ -5477,15 +5601,22 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         const out = [];
         const lines = String(text || '').split('\n');
         let buf = [], block = null, offset = 0;
-        const flushText = () => { if (buf.length) { out.push({ type: 'text', content: buf.join('\n') }); buf = []; } };
+        let run = [], runAt = -1;   // lookup notes in a row, and their line in buf
+        const flushText = () => { if (buf.length) { out.push({ type: 'text', content: buf.join('\n') }); buf = []; } runAt = -1; };
+        const pushNote = (b) => {
+          const n = lookupNote(b);
+          if (!n) { buf.push(readNote(b)); runAt = -1; return; }
+          if (runAt >= 0 && runAt === buf.length - 1) { run.push(n); buf[runAt] = lookupLine(run); return; }
+          run = [n]; buf.push(lookupLine(run)); runAt = buf.length - 1;
+        };
         lines.forEach((line, k) => {
           const last = k === lines.length - 1;
           const nl = last ? '' : '\n';
           if (!block) {
             const m = line.match(/^ {0,3}(`{3,})\s*([^`]*)$/);
             if (m) {
-              flushText();
               let lang = m[2].trim();
+              if (!/^lookup\s/i.test(lang)) flushText();   // a lookup note joins the text (and the lookups before it)
               if (/^\{[rR]\}$/.test(lang)) lang = 'r';
               block = { fence: m[1].length, lang, body: [], depth: 0, isEdit: /^edit\b/i.test(lang) };
             } else buf.push(line);
@@ -5497,7 +5628,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             if (info && block.isEdit) { block.depth++; block.body.push(line); return; }
             if (!info && block.depth > 0) { block.depth--; block.body.push(line); return; }
             if (!info) {
-              if (readNote(block)) { buf.push(readNote(block)); block = null; return; }
+              if (readNote(block)) { pushNote(block); block = null; return; }
               const isR = /^[rR]$/.test(block.lang);
               out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n') + (block.body.length ? '\n' : ''), complete: true });
               block = null;
@@ -5506,7 +5637,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           }
           block.body.push(line);
         });
-        if (block && readNote(block)) { buf.push(readNote(block)); block = null; }
+        if (block && readNote(block)) { pushNote(block); block = null; }
         if (block) {
           const isR = /^[rR]$/.test(block.lang);
           out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n'), complete: false });
@@ -6039,6 +6170,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
       }
       
       function finishStreaming() {
+        clearToolStatus();
         // Check if operation was stopped
         if (operationStopped) {
           // Reset the flag for next operation
@@ -9334,9 +9466,11 @@ ${code || "Code not available"}
 Reply with the corrected code as one R code block and at most two sentences. Use only objects that exist or that the code creates. If changing the code can't fix it, say what I need to do instead, with no code block.`;
         
         if (ws && ws.readyState === WebSocket.OPEN) {
+          currentReplyId = ++replySeq;
           ws.send(JSON.stringify({
             action: 'chat_with_ai',
             message: fixRequest,
+            reply_id: currentReplyId,
             conversation_context: isAgentRun ? 'data_cleaning_agent_code_fix' : 'chat_code_fix'
           }));
         }

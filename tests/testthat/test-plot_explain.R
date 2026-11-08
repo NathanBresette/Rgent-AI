@@ -9,10 +9,10 @@ test_that("Explain plot tells Claude the values the ggplot draws", {
   expect_match(note, "Basic: 2025-01: 100, 2025-02: 250, 2025-03: 175", fixed = TRUE)
   expect_match(note, "Pro: 2025-01: 90, 2025-02: 80, 2025-03: 300", fixed = TRUE)
   expect_match(note, "Layers: Line", fixed = TRUE)
-  old <- if (exists("last_plot_command", envir = .GlobalEnv)) get("last_plot_command", envir = .GlobalEnv)
-  assign("last_plot_command", "ggplot(d, aes(month, revenue)) + geom_line()", envir = .GlobalEnv)
-  assign("last_plot_timestamp", Sys.time(), envir = .GlobalEnv)
-  on.exit(rm(list = intersect(c("last_plot_command", "last_plot_timestamp"), ls(.GlobalEnv)), envir = .GlobalEnv))
+  st <- rstudioai:::.rgent_state
+  assign("last_plot_command", "ggplot(d, aes(month, revenue)) + geom_line()", envir = st)
+  assign("last_plot_timestamp", Sys.time(), envir = st)
+  on.exit(rm(list = intersect(c("last_plot_command", "last_plot_timestamp"), ls(st)), envir = st))
   full <- rstudioai:::.rgent_plot_note()
   expect_match(full, "Code that made it:", fixed = TRUE)
   expect_match(full, "never guess values", fixed = TRUE)
@@ -29,7 +29,7 @@ test_that("Explain plot captures the plot as a small PNG for Claude", {
   png_magic <- function(b64) identical(as.integer(jsonlite::base64_dec(substr(b64, 1, 12))[1:4]), c(137L, 80L, 78L, 71L))
   old <- options(device = function(...) { grDevices::pdf(NULL); grDevices::dev.control("enable") })
   on.exit({ options(old); while (grDevices::dev.cur() > 1) grDevices::dev.off() }, add = TRUE)
-  g <- .GlobalEnv
+  g <- rstudioai:::.rgent_state
   had <- exists("last_plot_command", envir = g, inherits = FALSE)
   on.exit(if (!had) suppressWarnings(rm("last_plot_command", "last_plot_timestamp", envir = g)), add = TRUE)
   # Base graphics on the current device
