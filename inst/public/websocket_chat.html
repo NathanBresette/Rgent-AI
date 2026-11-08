@@ -439,6 +439,14 @@
       .edit-card.edit-rejected .edit-diff { opacity: 0.45; }
       .edit-card.edit-applied { border-color: #38a169; }
       .edit-actions { display: flex; gap: 6px; }
+      /* Long edits: the same buttons again under the diff, in a bar like the header */
+      .edit-card-footer { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--bg-secondary);
+        border-top: 1px solid var(--border-color); font-size: 12px; }
+      .edit-card-footer[hidden] { display: none; }
+      .edit-foot-sum { flex: 1; min-width: 0; color: var(--text-secondary); font-family: 'Courier New', monospace; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; }
+      .edit-foot-sum .fs-add { color: #38a169; font-weight: bold; }
+      .edit-foot-sum .fs-del { color: #e5534b; font-weight: bold; }
       .edit-warning { padding: 6px 12px; font-size: 12px; line-height: 1.4; color: var(--text-primary);
         background: rgba(230, 160, 0, 0.16); border-bottom: 1px solid rgba(230, 160, 0, 0.45); }
       .edit-btn { border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);
@@ -3482,6 +3490,12 @@
       let currentStepCode = null;
       // The code behind the plots shown last (Explain on a plot card sends it)
       let lastRunCode = '';
+      // The short message after code runs (2.4.8): the question whose code is
+      // running, and whether the reply streaming now is that message
+      let wrapupFor = null;
+      let wrapupReplying = false;
+      let wrapupScheduled = false;   // between the run finishing and the request going out
+      let questionSeq = 0;           // a newer question cancels a pending wrap-up
       // Targeted context for the last failed execution (objects the code uses,
       // where a missing name is defined, similar names), built in R
       let lastExecutionFixContext = '';
@@ -4452,6 +4466,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
                         successMessage += `\n\n@@output\n${outputText}\n@@`;
                       }
                       addMessage(successMessage, 'ai');
+                      wrapupAfterRun(outputText, (typeof plotMatches !== 'undefined' && plotMatches) ? plotMatches.length : 0);
                     } else {
                       // Agent workflow auto-execute
                       let successMessage = `**${agentType} Code Executed Successfully!**\n\nThe data has been ${operationType} according to Claude's recommendations.`;
@@ -4742,6 +4757,8 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               break;
               
             case "streaming_complete":
+              // The message after code runs never runs code itself
+              if (wrapupReplying) { wrapupReplying = false; break; }
               console.log('🔍 Streaming complete, checking for R code in final message');
               // Check if we have a complete message with R code - use same detection as ai_response
               if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
@@ -5101,8 +5118,17 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         hideCompletionSuggestion();
         
         document.querySelectorAll('.welcome-suggestions').forEach(el => el.remove());
-        // Add user message
-        addMessage(message, "user");
+        const isWrapup = !!(extra && extra.wrapup);
+        wrapupReplying = isWrapup;
+        // A question: once its code runs, Rgent says what the result means.
+        // Not for Explain plot or Fix error (their reply already explains).
+        if (!isWrapup) {
+          questionSeq++;
+          wrapupScheduled = false;
+          wrapupFor = (extra && (extra.plot_explain || extra.fix_error)) ? null : { question: message, at: Date.now() };
+        }
+        // Add user message (the message after code runs is Rgent's, not yours)
+        if (!isWrapup) addMessage(message, "user");
         if (!isPreset) input.value = "";
         // Reset textarea height after sending
         if (input) {
@@ -7121,7 +7147,23 @@ Include comments explaining each step. Code only. Minimal chat.`;
               warn.textContent = '⚠️ ' + p.warning;
               card.appendChild(warn);
             }
-            card.appendChild(renderEditDiff(p, p.at || b.edit.start || 1));
+            const diffBox = renderEditDiff(p, p.at || b.edit.start || 1);
+            card.appendChild(diffBox);
+            // Long edits repeat the buttons at the bottom, so there's no scrolling back up
+            if (diffBox.children.length > 15) {
+              const foot = document.createElement('div');
+              foot.className = 'edit-card-footer';
+              foot.hidden = true;
+              const sum = document.createElement('span');
+              sum.className = 'edit-foot-sum';
+              const adds = diffBox.querySelectorAll('.edit-add').length, dels = diffBox.querySelectorAll('.edit-del').length;
+              sum.innerHTML = '<span class="fs-add"></span> <span class="fs-del"></span> <span class="fs-file"></span>';
+              sum.querySelector('.fs-add').textContent = '+' + adds;
+              sum.querySelector('.fs-del').textContent = '\u2212' + dels;
+              sum.querySelector('.fs-file').textContent = '\u00b7 ' + (p.file || 'open file');
+              foot.appendChild(sum);
+              card.appendChild(foot);
+            }
             fileEdits[key] = { preview: p, card: card, state: 'pending' };
             keys.push(key);
           } else {
@@ -7137,7 +7179,17 @@ Include comments explaining each step. Code only. Minimal chat.`;
           b.el.replaceWith(card);
           if (p.ok) renderEditState(key);
         });
-        if (keys.length > 1) {
+        // Auto-run applies the edits by itself (2.4.8) and runs their code when
+        // /runedits is on, like "Accept all"; each card keeps Undo. An edit the
+        // card warns about (it would break a chunk) still waits for a click.
+        if (isAutoExecuteEnabled()) {
+          const auto = keys.filter(k => { const w = fileEdits[k].preview.warning; return !(typeof w === 'string' && w); });  // R's NULL arrives as {}
+          if (auto.length) {
+            editBatch = { keys: auto, done: 0, run: isRunEditsEnabled() };
+            auto.forEach(k => { fileEdits[k].auto = true; acceptEdit(k, false); });
+          }
+        }
+        if (keys.filter(k => fileEdits[k].state === 'pending').length > 1) {
           const bar = document.createElement('div');
           bar.className = 'edit-all-bar';
           bar.dataset.editKeys = keys.join(',');
@@ -7175,6 +7227,8 @@ Include comments explaining each step. Code only. Minimal chat.`;
         status.classList.toggle('edit-error', !!isError);
         if (e.state === 'busy') {
           status.textContent = message || 'Working…';
+          const busyFoot = e.card.querySelector('.edit-card-footer');
+          if (busyFoot) { busyFoot.querySelectorAll('button').forEach(b => b.remove()); busyFoot.hidden = true; }
           return;
         }
         if (e.state === 'pending') {
@@ -7184,12 +7238,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
           actions.appendChild(editButton(runAfter ? 'Accept & run' : 'Accept', 'edit-accept',
                                          () => acceptEdit(key, runAfter)));
         } else if (e.state === 'applied') {
-          status.textContent = message || 'Applied';
+          status.textContent = message || (e.auto ? 'Applied (Auto-run)' : 'Applied');
           actions.appendChild(editButton('Undo', '', () => undoEdit(key)));
           if (e.preview.runnable) actions.appendChild(editButton('Run', '', () => runEditCode(key)));
         } else if (e.state === 'rejected') {
           status.textContent = message || 'Rejected';
           actions.appendChild(editButton('Review again', '', () => { e.state = 'pending'; renderEditState(key); }));
+        }
+        const foot = e.card.querySelector('.edit-card-footer');
+        if (foot) {
+          foot.querySelectorAll('button').forEach(b => b.remove());
+          if (e.state === 'pending') {
+            [...actions.children].forEach(btn => { const c = btn.cloneNode(true); c.onclick = btn.onclick; foot.appendChild(c); });
+          }
+          foot.hidden = !foot.querySelector('button');
         }
       }
 
@@ -7958,6 +8020,24 @@ Include comments explaining each step. Code only. Minimal chat.`;
         };
         banner.querySelector('.cx-update-close').onclick = () => { banner.dataset.dismissed = '1'; banner.hidden = true; };
         banner.hidden = false;
+      }
+
+      // After a reply's code runs, ask Rgent what the result means (once per
+      // question, as a continuation, so it isn't counted as a request)
+      function wrapupAfterRun(output, plots) {
+        const w = wrapupFor;
+        wrapupFor = null;
+        if (!w || operationStopped || !isConnected || Date.now() - w.at > 10 * 60 * 1000) return;
+        const out = String(output || '').replace(/^No output$/, '');
+        const seq = questionSeq;
+        wrapupScheduled = true;
+        setTimeout(() => {
+          if (!wrapupScheduled || seq !== questionSeq) return;   // the user already asked something else
+          wrapupScheduled = false;
+          if (isAIResponding || operationStopped) return;
+          sendMessage(w.question, { wrapup: true, wrapup_code: lastRunCode || '', wrapup_output: out.slice(-8000),
+                                    wrapup_plots: plots || 0, label: 'Reading the results' });
+        }, 400);
       }
 
       // Explain on a plot card: that plot, not the last one drawn
@@ -8867,7 +8947,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         // Validate that we got actual code
         if (!originalCode || originalCode.trim().length === 0) {
           console.error('❌ Code extraction failed: originalCode is empty');
-          addMessage("Couldn't read the code in that reply. Ask again and Claude will resend it.", 'ai');
+          addMessage("Couldn't read the code in that reply. Ask again and Rgent will resend it.", 'ai');
           cleaningCodeExecuting = false;
           cleaningCodeIterationCount = 0;
           return;
@@ -8880,7 +8960,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         // Double-check combined code is not empty
         if (!combinedCode || combinedCode.trim().length === 0) {
           console.error('❌ Code extraction failed: combinedCode is empty');
-          addMessage("Couldn't read the code in that reply. Ask again and Claude will resend it.", 'ai');
+          addMessage("Couldn't read the code in that reply. Ask again and Rgent will resend it.", 'ai');
           cleaningCodeExecuting = false;
           cleaningCodeIterationCount = 0;
           return;
@@ -9147,7 +9227,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
           return;
         }
         
-        addMessage(`**The code failed** (try ${cleaningCodeIterationCount} of ${MAX_CLEANING_ITERATIONS}):\n\n\`${error}\`\n\nAsking Claude for a fix…`, 'ai');
+        addMessage(`**The code failed** (try ${cleaningCodeIterationCount} of ${MAX_CLEANING_ITERATIONS}):\n\n\`${error}\`\n\nAsking Rgent for a fix…`, 'ai');
         
         // Ask Claude to fix the code. Agent workflows keep their own wording;
         // normal chat gets a prompt about the user's request, not "cleaning goals".

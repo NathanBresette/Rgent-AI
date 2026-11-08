@@ -1258,6 +1258,9 @@ start_websocket_server <- function() {
           # lean, without the workspace, file context or history, and keep it
           # out of the conversation history.
           is_fix_request <- identical(request$conversation_context, "chat_code_fix")
+          # The short message after code runs (wrapup.R): lean like a fix, and the
+          # question is already in the history
+          is_wrapup <- isTRUE(request$wrapup) && !is_fix_request
           
           # History as it was before this message, so the current request isn't
           # sent twice (once in the history and again as USER REQUEST)
@@ -1265,7 +1268,7 @@ start_websocket_server <- function() {
           last_user_request <- get_last_user_request()
           
           # Add user message to conversation history
-          if (!is_fix_request) add_to_conversation_history("user",
+          if (!is_fix_request && !is_wrapup) add_to_conversation_history("user",
             if (!is.null(fix_note)) paste0("Fix the last error: ", substr(.rgent_last_error()$error, 1, 300)) else request$message)
           
           # Get current context with smart filtering (use simple approach)
@@ -1307,7 +1310,10 @@ start_websocket_server <- function() {
             
             # Prepend conversation history to prompt if it exists
             enhanced_prompt <- request$message
-            if (is_fix_request) {
+            if (is_wrapup) {
+              enhanced_prompt <- .rgent_wrapup_prompt(request$message, request$wrapup_code,
+                                                      request$wrapup_output, request$wrapup_plots)
+            } else if (is_fix_request) {
               if (nzchar(last_user_request)) {
                 enhanced_prompt <- paste0("What I originally asked: ", substr(last_user_request, 1, 600),
                                           "\n\n", request$message)
@@ -1319,7 +1325,7 @@ start_websocket_server <- function() {
             # before anything changes). Remember the file as Claude sees it,
             # so its line numbers can be mapped back.
             edit_target <- NULL
-            is_plot_explain <- isTRUE(request$plot_explain) && !is_fix_request
+            is_plot_explain <- isTRUE(request$plot_explain) && !is_fix_request && !is_wrapup
             if (!is.null(fix_note)) {
               enhanced_prompt <- paste0(enhanced_prompt, fix_note)
             }
@@ -1330,7 +1336,7 @@ start_websocket_server <- function() {
                 .rgent_plot_note(index = request$plot_index, count = request$plot_count, code = request$plot_code),
                 error = function(e) ""))
             }
-            if (!is_fix_request && !is_plot_explain && is.null(fix_note)) {
+            if (!is_fix_request && !is_wrapup && !is_plot_explain && is.null(fix_note)) {
               enhanced_prompt <- paste0(enhanced_prompt, edit_history_note())
               edit_target <- remember_edit_target()
               if (!is.null(edit_target) && length(edit_target$lines) > 0 &&
@@ -1342,7 +1348,7 @@ start_websocket_server <- function() {
             request_body <- list(
               access_code = current_access_code,
               prompt = enhanced_prompt,
-              context_data = if (is_fix_request) {
+              context_data = if (is_fix_request || is_wrapup) {
                 list(timestamp = current_context$timestamp)
               } else {
                 list(
@@ -1358,7 +1364,7 @@ start_websocket_server <- function() {
             # An automatic fix after auto-run failed continues the question that
             # produced the code: the backend doesn't count it as a new request
             # (2.4.5; older backends ignore the field)
-            if (is_fix_request) request_body$continuation <- TRUE
+            if (is_fix_request || is_wrapup) request_body$continuation <- TRUE
 
             # Explain plot: Claude also sees the picture (backend 2026-11 and later
             # reads `image`; older backends ignore it)
