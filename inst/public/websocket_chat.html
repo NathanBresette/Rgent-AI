@@ -3760,7 +3760,8 @@
           if (fromCache) {
             response = { ok: true }; data = fromCache;
           } else {
-            response = await fetch(`https://rgent.onrender.com/usage?access_code=${encodeURIComponent(accessCode)}`);
+            // POST: a code in the URL would end up in request logs
+            response = await fetch('https://rgent.onrender.com/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_code: accessCode }) });
             data = await response.json();
             if (response.ok) { try { localStorage.setItem(usageKey(), JSON.stringify({ at: Date.now(), data })); } catch (e) {} }
           }
@@ -3961,6 +3962,12 @@
         document.body.removeChild(textArea);
       }
       
+      // R writes a random per-session secret here when it opens the pane and
+      // refuses socket connections without it, so other web pages open in a
+      // browser can't connect to R (run code, read the access code)
+      const RGENT_WS_TOKEN = '__RGENT_WS_TOKEN__';
+      const RGENT_WS_QUERY = '/?t=' + encodeURIComponent(RGENT_WS_TOKEN);
+
                // Connect to WebSocket
          function connectWebSocket() {
            // Prevent duplicate connections
@@ -3974,18 +3981,18 @@
            if (window.location.protocol === 'https:') {
              // If we're on HTTPS, use secure WebSocket
              const host = window.location.hostname || 'localhost';
-             wsUrl = `wss://${host}/ws`;
+             wsUrl = `wss://${host}/ws` + RGENT_WS_QUERY.slice(1);
            } else {
              // If we're on HTTP, use regular WebSocket
              const host = window.location.hostname || '127.0.0.1';
-             wsUrl = `ws://${host}:8888`;
+             wsUrl = `ws://${host}:8888` + RGENT_WS_QUERY;
            }
            ws = new WebSocket(wsUrl);
            
            ws.onerror = function(event) {
              console.log("WebSocket connection failed on port 8888, trying 8889...");
              // Try port 8889 if 8888 fails
-             wsUrl = `ws://${window.location.hostname || '127.0.0.1'}:8889`;
+             wsUrl = `ws://${window.location.hostname || '127.0.0.1'}:8889` + RGENT_WS_QUERY;
              console.log("Connecting to WebSocket:", wsUrl);
              ws = new WebSocket(wsUrl);
              
@@ -4916,7 +4923,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
       function createAnimatedPlaceholder(id, text) {
         // Older callers pass markdown with emoji ("📊 **Analyzing Results** ..."):
         // keep the words for the label
-        const tmp = document.createElement("div");
+        const tmp = rgentInertDiv();
         tmp.innerHTML = String(text || "");
         const label = tmp.textContent.replace(/\*\*/g, "").replace(/[\u{1F300}-\u{1FAFF}☀-➿]️?/gu, "").replace(/\s+/g, " ").trim();
         return createThinkingIndicator(id, label);
@@ -5426,7 +5433,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         html = html.replace(/(<\/div><\/div>)(<br>){2,}(<div[^>]*style="margin-left: 20px[^"]*">)/g, '$1<br>$3');
         
         // Update content
-        contentSpan.innerHTML = html;
+        contentSpan.innerHTML = rgentSafeHtml(html);
         
         // Move cursor to the right position
         const cursor = messageDiv.querySelector('.streaming-cursor');
@@ -5605,7 +5612,9 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         if (!text) return '';
         
         
-        let result = text;
+        // Escape first: a reply can carry HTML (an <img onerror> from a prompt-injected
+        // file or data value), and script in this page can talk to R
+        let result = escapeHtmlForStreaming(text);
         
         // 1. TABLES FIRST (before inline formatting breaks the structure)
         const beforeTable = result;
@@ -5616,19 +5625,19 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         
         // Bold: **text** - only complete pairs
         result = result.replace(/\*\*([^*]+?)\*\*/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<strong>${escaped}</strong>`;
         });
         
         // Italic: *text* - only complete pairs, not adjacent to **
         result = result.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<em>${escaped}</em>`;
         });
         
         // Inline code: `code` - only complete pairs
         result = result.replace(/`([^`\n]+?)`/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">${escaped}</code>`;
         });
         
@@ -5794,25 +5803,25 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         // Apply inline formatting to cell content
         // Bold: **text**
         result = result.replace(/\*\*([^*]+?)\*\*/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<strong>${escaped}</strong>`;
         });
         
         // Italic: *text*
         result = result.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<em>${escaped}</em>`;
         });
         
         // Inline code: `code`
         result = result.replace(/`([^`\n]+?)`/g, (match, content) => {
-          const escaped = escapeHtmlForStreaming(content);
+          const escaped = content;
           return `<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">${escaped}</code>`;
         });
         
         // If nothing was formatted, escape the whole thing
         if (!result.includes('<')) {
-          result = escapeHtmlForStreaming(result);
+          // (already escaped by renderStreamingText)
         }
         
         return result;
@@ -5825,6 +5834,38 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+      }
+
+      // A <div> in a document with no window: HTML parsed into it never loads
+      // images or runs handlers, so it is safe for reading the text of a reply
+      // (a plain detached <div> still fires <img onerror>).
+      const RGENT_INERT_DOC = document.implementation.createHTMLDocument('');
+      function rgentInertDiv() { return RGENT_INERT_DOC.createElement('div'); }
+
+      // HTML built from replies, R messages or saved chats goes through this
+      // before it reaches the page: parsed inertly, only formatting tags and
+      // attributes kept (no scripts, frames, images, links, forms or on* handlers).
+      const RGENT_KEEP_TAGS = new Set(['B','STRONG','I','EM','U','S','DEL','INS','CODE','PRE','KBD','SAMP','SUB','SUP','SMALL','MARK','BR','HR','P','DIV','SPAN','BLOCKQUOTE','H1','H2','H3','H4','H5','H6','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TH','TD','CAPTION','COLGROUP','COL','DETAILS','SUMMARY','DL','DT','DD']);
+      const RGENT_DROP_TAGS = /^(SCRIPT|STYLE|IFRAME|FRAME|FRAMESET|OBJECT|EMBED|TEMPLATE|NOSCRIPT|SVG|MATH|TEXTAREA|SELECT|TITLE|XMP|NOEMBED|NOFRAMES|PLAINTEXT|LINK|META|BASE)$/;
+      const RGENT_KEEP_ATTRS = /^(class|style|title|colspan|rowspan|align|role|aria-[a-z-]+|data-[a-z0-9-]+)$/i;
+      function rgentSafeHtml(html) {
+        const t = document.createElement('template');
+        t.innerHTML = String(html == null ? '' : html);
+        (function clean(node) {
+          for (const el of Array.from(node.children)) {
+            const tag = el.tagName.toUpperCase();
+            if (RGENT_DROP_TAGS.test(tag)) { el.remove(); continue; }
+            clean(el);
+            if (!RGENT_KEEP_TAGS.has(tag)) { el.replaceWith(...Array.from(el.childNodes)); continue; }
+            for (const a of Array.from(el.attributes)) {
+              if (!RGENT_KEEP_ATTRS.test(a.name) ||
+                  (/^style$/i.test(a.name) && /url\s*\(|expression|@import|position\s*:\s*(fixed|absolute|sticky)/i.test(a.value))) {
+                el.removeAttribute(a.name);
+              }
+            }
+          }
+        })(t.content);
+        return t.innerHTML;
       }
       
       
@@ -5965,7 +6006,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         // Make sure we don't match triple backticks (```)
         content = content.replace(/(?<!`)`([^`]+)`(?!`)/g, '<code style="background-color: var(--code-bg); padding: 2px 4px; border-radius: 3px;">$1</code>');
         
-        messageDiv.innerHTML = content;
+        messageDiv.innerHTML = rgentSafeHtml(content);
       }
       
       function finishStreaming() {
@@ -6244,7 +6285,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         let rawContent = messageDiv.innerHTML;
         
         // Decode HTML entities (backticks might be encoded)
-        const tempDiv = document.createElement('div');
+        const tempDiv = rgentInertDiv();
         tempDiv.innerHTML = rawContent;
         let decodedContent = tempDiv.textContent || tempDiv.innerText || rawContent;
         
@@ -6375,7 +6416,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               } else {
                 // HTML format - extract clean text from nested HTML
                 // Create a temporary div to parse HTML and extract text
-                const tempDiv = document.createElement('div');
+                const tempDiv = rgentInertDiv();
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
                 
@@ -6416,7 +6457,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               cleanText = cleanText.replace(/\s*``$/, ""); // Remove trailing backticks
               cleanText = cleanText.replace(/``/g, ""); // Remove any remaining backticks
               
-              textDiv.innerHTML = cleanText;
+              textDiv.innerHTML = rgentSafeHtml(cleanText);
               // Apply markdown formatting to the text part
               processMarkdownFormatting(textDiv);
               messageDiv.appendChild(textDiv);
@@ -6767,7 +6808,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               const beforeOutput = content.substring(lastIndex, outputMatch.index);
               if (beforeOutput.trim()) {
                 const textDiv = document.createElement("div");
-                textDiv.innerHTML = beforeOutput;
+                textDiv.innerHTML = rgentSafeHtml(beforeOutput);
                 processMarkdownFormatting(textDiv);
                 messageDiv.appendChild(textDiv);
               }
@@ -6787,7 +6828,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
             const afterOutput = content.substring(lastIndex);
             if (afterOutput.trim()) {
               const textDiv = document.createElement("div");
-              textDiv.innerHTML = afterOutput;
+              textDiv.innerHTML = rgentSafeHtml(afterOutput);
               processMarkdownFormatting(textDiv);
               messageDiv.appendChild(textDiv);
             }
@@ -6900,15 +6941,16 @@ Include comments explaining each step. Code only. Minimal chat.`;
                 messageDiv.appendChild(textDiv);
               }
             } else {
-              messageDiv.innerHTML = content;
+              messageDiv.innerHTML = rgentSafeHtml(content);
               processMarkdownFormatting(messageDiv);
             }
           } else {
-            messageDiv.innerHTML = content;
+            messageDiv.innerHTML = rgentSafeHtml(content);
             processMarkdownFormatting(messageDiv);
           }
         } else {
-          messageDiv.innerHTML = content;
+          // the user's own words (also reopened saved chats): text, not HTML
+          messageDiv.innerHTML = escapeHtmlForStreaming(content);
           processMarkdownFormatting(messageDiv);
         }
         
@@ -7010,7 +7052,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
             } else if (part.trim()) {
               // Add text content with markdown support
               const textDiv = document.createElement('div');
-              textDiv.innerHTML = part.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+              textDiv.innerHTML = rgentSafeHtml(part.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
               messageDiv.appendChild(textDiv);
             }
           });
@@ -7449,7 +7491,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
           if (m.role === 'user') { addMessage(text, 'user'); return; }
           const div = document.createElement('div');
           div.className = 'message ai-message';
-          div.innerHTML = parseStreamingContent(text).map(renderStreamingSegment).join('');
+          div.innerHTML = rgentSafeHtml(parseStreamingContent(text).map(renderStreamingSegment).join(''));
           div.querySelectorAll('.streaming-cursor').forEach(c => c.remove());
           div.querySelectorAll('.code-block-actions span').forEach(l => { if (/streaming/.test(l.textContent)) l.remove(); });
           container.appendChild(div);
@@ -7713,7 +7755,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         // Set suggestion overlay content - ONLY show the suggestion text (not duplicate all text)
         const suggestionColor = document.body.classList.contains('dark-theme') ? '#888' : '#999';
         completionSuggestion.innerHTML = '<span style="color: ' + suggestionColor + ';">' + 
-          suggestionText.replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + '</span>';
+          escapeHtmlForStreaming(suggestionText).replace(/ /g, '&nbsp;').replace(/\n/g, '<br>') + '</span>';
         
         // Position suggestion exactly at cursor location
         completionSuggestion.style.top = (inputRect.top - containerRect.top + verticalOffset + paddingTop) + "px";
@@ -8071,7 +8113,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         messageDiv.className = "message ai-message";
         
         // Set the content and process it properly
-        messageDiv.innerHTML = content;
+        messageDiv.innerHTML = rgentSafeHtml(content);
         
         // Process markdown formatting first
         processMarkdownFormatting(messageDiv);
@@ -8207,7 +8249,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
                 cleanCode = part.replace(/^```(?:[a-zA-Z]+[\s\n]+)?/, "").replace(/```$/, "");
               } else {
                 // HTML format - extract clean text from nested HTML
-                const tempDiv = document.createElement('div');
+                const tempDiv = rgentInertDiv();
                 tempDiv.innerHTML = part;
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
                 
@@ -8245,7 +8287,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
               cleanText = cleanText.replace(/\s*``$/, "");
               cleanText = cleanText.replace(/``/g, "");
               
-              textDiv.innerHTML = cleanText;
+              textDiv.innerHTML = rgentSafeHtml(cleanText);
               processMarkdownFormatting(textDiv);
               messageDiv.appendChild(textDiv);
             }
@@ -9010,7 +9052,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         
         // Decode HTML entities first - messages from streaming may be HTML-encoded
         // Create a temporary div to decode HTML entities
-        const tempDiv = document.createElement('div');
+        const tempDiv = rgentInertDiv();
         tempDiv.innerHTML = message;
         let decodedMessage = tempDiv.textContent || tempDiv.innerText || message;
         
@@ -9075,7 +9117,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         
         // Decode HTML entities first - messages from streaming may be HTML-encoded
         // Create a temporary div to decode HTML entities
-        const tempDiv = document.createElement('div');
+        const tempDiv = rgentInertDiv();
         tempDiv.innerHTML = message;
         let decodedMessage = tempDiv.textContent || tempDiv.innerText || message;
         

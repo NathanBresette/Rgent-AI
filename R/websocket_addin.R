@@ -1854,6 +1854,7 @@ start_websocket_server <- function() {
       8888,
       list(
         onWSOpen = function(ws) {
+          if (.rgent_ws_reject(ws)) return(invisible())
           .rgent_loaded$ws <- ws
           .rgent_send_version_status(ws)
           # Send theme information immediately upon connection
@@ -1908,6 +1909,7 @@ start_websocket_server <- function() {
           8889,
           list(
             onWSOpen = function(ws) {
+              if (.rgent_ws_reject(ws)) return(invisible())
               .rgent_loaded$ws <- ws
               .rgent_send_version_status(ws)
               tryCatch({
@@ -1980,12 +1982,14 @@ launch_html_interface <- function() {
   # Open directly in the RStudio viewer pane (localhost file). Use the page
   # that was installed when this code loaded, so the page and the R code match
   # even after an update replaced the files on disk.
+  # The page gets this session's websocket token (see R/ws_security.R)
   temp_file <- tempfile(fileext = ".html")
-  if (length(.rgent_loaded$page) && identical(html_file, possible_paths[[1]])) {
-    writeBin(.rgent_loaded$page, temp_file)
+  page <- if (length(.rgent_loaded$page) && identical(html_file, possible_paths[[1]])) {
+    .rgent_loaded$page
   } else {
-    file.copy(html_file, temp_file)
+    readBin(html_file, "raw", file.info(html_file)$size)
   }
+  writeBin(.rgent_page_with_token(page), temp_file)
   rstudioapi::viewer(temp_file)
 }
 
