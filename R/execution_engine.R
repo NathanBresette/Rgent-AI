@@ -61,6 +61,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
   has_plot <- FALSE
   result <- NULL
   execution_had_error <- FALSE  # Track if any expression had an error
+  last_plot_error <- ""
   last_error_message <- NULL    # Store the last error message
 
   tryCatch({
@@ -257,6 +258,40 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
       return(result)
     }
     
+    # One PNG device for the whole run, like the Console's one device
+    # (2.4.5). Each new page becomes its own file (`%03d`), so par(), layout(),
+    # legend() after plot(), hist(add = TRUE) in a loop and ggplots all draw
+    # where they would in the Console, in order. Before, every base plot
+    # statement got a fresh device: `for (...) hist(..., add = TRUE)` failed
+    # with "plot.new has not been called yet" and par(mfrow = ...) was lost.
+    run_dev <- NULL
+    run_pattern <- NULL
+    run_dev_use <- function() {
+      cur <- grDevices::dev.cur()
+      # The user's code opened its own device (png("out.png"), pdf(), ...): leave it
+      if (cur != 1 && !(cur %in% devs_before) && !identical(cur, run_dev)) return(invisible(NULL))
+      if (!is.null(run_dev) && run_dev %in% grDevices::dev.list()) {
+        if (cur != run_dev) grDevices::dev.set(run_dev)
+        return(invisible(NULL))
+      }
+      run_dev_flush()
+      run_pattern <<- tempfile("rgent-plot-")
+      grDevices::png(filename = paste0(run_pattern, "-%03d.png"), width = 800, height = 600)
+      run_dev <<- grDevices::dev.cur()
+      invisible(NULL)
+    }
+    # Close the run's device and add its pages to plot_files, in order
+    run_dev_flush <- function() {
+      if (is.null(run_pattern)) return(invisible(NULL))
+      if (!is.null(run_dev) && run_dev %in% grDevices::dev.list()) try(grDevices::dev.off(run_dev), silent = TRUE)
+      files <- sort(Sys.glob(paste0(run_pattern, "-*.png")))
+      files <- files[!is.na(file.info(files)$size) & file.info(files)$size > 100]
+      plot_files <<- c(plot_files, files)
+      run_dev <<- NULL
+      run_pattern <<- NULL
+      invisible(NULL)
+    }
+
     # Parse code into expressions
     parsed_code <- tryCatch(parse(text = code), error = function(e) NULL)
     
@@ -277,80 +312,10 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
         plots_mark <- length(plot_files)
         if (is.function(on_expr_start)) on_expr_start(i)
         
-        if (is_base_plot_expr(expr_str)) {
-          # BASE R PLOT: Collect plot + following drawing commands, capture together
-          plot_exprs <- list(expr)
-          j <- i + 1
-          while (j <= length(parsed_code)) {
-            next_str <- paste(deparse(parsed_code[[j]]), collapse = " ")
-            if (is_drawing_expr(next_str) && !is_base_plot_expr(next_str)) {
-              plot_exprs <- c(plot_exprs, list(parsed_code[[j]]))
-              j <- j + 1
-            } else {
-              break
-            }
-          }
-          
-          # Capture in device (also capture any text output)
-          plot_file <- tempfile(fileext = ".png")
-          tryCatch({
-            plot_output <- utils::capture.output({
-              grDevices::png(filename = plot_file, width = 800, height = 600)
-              suppressMessages(for (pe in plot_exprs) eval(pe, envir = env))
-              grDevices::dev.off()
-            })
-            .rgent_close_new_devices(devs_before, dev_cur_before)
-
-            # Capture any text output from plot commands
-            if (length(plot_output) > 0) {
-              all_output <- c(all_output, plot_output)
-            }
-
-            if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
-              plot_files <- c(plot_files, plot_file)
-            } else {
-              unlink(plot_file)
-            }
-          }, error = function(e) {
-            tryCatch(.rgent_close_new_devices(devs_before, dev_cur_before), error = function(e) {})
-            all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
-            execution_had_error <<- TRUE
-            last_error_message <<- conditionMessage(e)
-          })
-          i <- j
-          
-        } else if (is_grid_plot_expr(expr_str) && !is_assignment(expr)) {
-          # GRID-BASED PLOT (grid.arrange, plot_grid, etc.): Capture to PNG
-          plot_file <- tempfile(fileext = ".png")
-          tryCatch({
-            grid_output <- utils::capture.output({
-              grDevices::png(filename = plot_file, width = 1000, height = 800)
-              eval(expr, envir = env)
-              grDevices::dev.off()
-            })
-            .rgent_close_new_devices(devs_before, dev_cur_before)
-
-            # Capture any text output
-            if (length(grid_output) > 0) {
-              all_output <- c(all_output, grid_output)
-            }
-
-            if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
-              plot_files <- c(plot_files, plot_file)
-            } else {
-              unlink(plot_file)
-            }
-          }, error = function(e) {
-            tryCatch(.rgent_close_new_devices(devs_before, dev_cur_before), error = function(e) {})
-            if (!execution_had_error) {
-              all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
-              execution_had_error <<- TRUE
-              last_error_message <<- conditionMessage(e)
-            }
-          })
-          i <- i + 1
-          
-        } else if (is_plotly_expr(expr_str) && !is_assignment(expr)) {
+        run_dev_use()
+        if (is_plotly_expr(expr_str) && !is_assignment(expr)) {
+          # plotly pictures are taken separately: keep the order of the pages before it
+          run_dev_flush()
           # PLOTLY EXPRESSION: Handle specially to prevent browser opening
           tryCatch({
             # Capture any text output from plotly commands
@@ -371,9 +336,9 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               }
             } else if (!plotly_result$success) {
               if (!execution_had_error) {
-                all_output <<- c(all_output, paste("Error:", plotly_result$error))
-                execution_had_error <<- TRUE
-                last_error_message <<- plotly_result$error
+                all_output <- c(all_output, paste("Error:", plotly_result$error))
+                execution_had_error <- TRUE
+                last_error_message <- plotly_result$error
               }
             }
           }, error = function(e) {
@@ -426,15 +391,18 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               should_capture_plot <- (expr_result$visible || is_print) && !is_assign
               
               if (is_ggplot_obj(expr_result$value) && should_capture_plot) {
-                pf <- capture_ggplot(expr_result$value)
-                if (!is.null(pf)) {
-                  plot_files <- c(plot_files, pf)
-                } else {
+                drawn <- is_print || isTRUE(tryCatch({
+                  run_dev_use()
+                  suppressMessages(print(expr_result$value))
+                  TRUE
+                }, error = function(e) { last_plot_error <<- conditionMessage(e); FALSE }))
+                if (!drawn) {
                   # Plot capture failed - treat as execution error for consistency
                   if (!execution_had_error) {
-                    all_output <<- c(all_output, "Error: Plot rendering failed")
-                    execution_had_error <<- TRUE
-                    last_error_message <<- "Plot rendering failed"
+                    msg <- if (nzchar(last_plot_error)) last_plot_error else "Plot rendering failed"
+                    all_output <- c(all_output, paste("Error:", msg))
+                    execution_had_error <- TRUE
+                    last_error_message <- msg
                   }
                 }
                 
@@ -447,9 +415,9 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
                 } else {
                   # Plot capture failed - treat as execution error for consistency
                   if (!execution_had_error) {
-                    all_output <<- c(all_output, "Error: Plotly rendering failed")
-                    execution_had_error <<- TRUE
-                    last_error_message <<- "Plotly rendering failed"
+                    all_output <- c(all_output, "Error: Plotly rendering failed")
+                    execution_had_error <- TRUE
+                    last_error_message <- "Plotly rendering failed"
                   }
                 }
               }
@@ -467,6 +435,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
         }
       }
       
+      run_dev_flush()
       # Set output and plot status
       output <- all_output
       has_plot <- length(plot_files) > 0
@@ -476,7 +445,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
         # What finished before the failing expression, so a resumed run can
         # show it without running those lines again
         done <- all_output[seq_len(output_mark)]
-        for (pf in plot_files[seq_len(plots_mark)]) {
+        for (pf in plot_files) {  # the run device is flushed at the end, so all of them
           if (file.exists(pf) && requireNamespace("base64enc", quietly = TRUE)) {
             done <- c(done, paste0("PLOT_DATA:", base64enc::base64encode(pf)))
           }

@@ -7,7 +7,7 @@ AI-powered assistant for RStudio that provides context-aware code help, debuggin
 ```r
 # Install from GitHub
 install.packages("remotes")
-remotes::install_github("NathanBresette/Rgent-AI")
+remotes::install_github("NathanBresette/Rgent-AI", upgrade = "never")
 
 # Load the package
 library(rstudioai)

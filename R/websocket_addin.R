@@ -488,7 +488,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     } else {
       if (!isTRUE(quiet)) {
         cat("💡 To update, run: check_and_update_package(auto_update = TRUE)\n")
-        cat("   Or install manually: devtools::install_github('NathanBresette/Rgent-AI', force = TRUE)\n")
+        cat("   Or install manually: remotes::install_github('NathanBresette/Rgent-AI', upgrade = 'never')\n")
       }
       return(invisible(FALSE))
     }

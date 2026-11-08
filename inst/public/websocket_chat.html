@@ -424,7 +424,10 @@
       .edit-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .edit-card-status { font-weight: normal; color: var(--text-secondary); }
       .edit-card-status.edit-error { color: #e05252; }
-      .edit-diff { font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; padding: 4px 0; }
+      /* One grid column as wide as the longest line (at least the card), so the
+         red/green rows still fill the width when a long line scrolls sideways */
+      .edit-diff { font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; padding: 4px 0;
+                   display: grid; grid-template-columns: minmax(max-content, 1fr); }
       .edit-line { white-space: pre; padding: 0 12px 0 0; display: flex; }
       .edit-line .edit-ln { flex: 0 0 auto; width: 3.5em; text-align: right; padding-right: 8px;
         color: var(--text-secondary); user-select: none; }
