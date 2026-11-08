@@ -39,13 +39,13 @@ test_that("Restart R restarts and reopens Rgent once", {
   cmd <- NULL
   local_mocked_bindings(restartSession = function(command = "", clean = FALSE) cmd <<- command, .package = "rstudioapi")
   rstudioai:::.rgent_restart_r()
-  expect_match(cmd, "rstudioai::run_rgent()", fixed = TRUE)
+  expect_match(cmd, "rstudioai::auto_start_rgent()", fixed = TRUE)
   # .Rprofile's auto-start already opened it (rgent.started set): the command does nothing
   ran <- FALSE
   withr::local_options(rgent.started = TRUE)
-  eval(parse(text = sub("rstudioai::run_rgent()", "ran <- TRUE", cmd, fixed = TRUE)))
+  eval(parse(text = sub("rstudioai::auto_start_rgent()", "ran <- TRUE", cmd, fixed = TRUE)))
   expect_false(ran)
   withr::local_options(rgent.started = NULL)
-  eval(parse(text = sub("rstudioai::run_rgent()", "ran <- TRUE", cmd, fixed = TRUE)))
+  eval(parse(text = sub("rstudioai::auto_start_rgent()", "ran <- TRUE", cmd, fixed = TRUE)))
   expect_true(ran)
 })

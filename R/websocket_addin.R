@@ -575,7 +575,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
 # restart but not options, so `rgent.started` tells whether .Rprofile's
 # auto-start already opened it.
 .rgent_restart_r <- function() {
-  rstudioapi::restartSession(command = 'if (is.null(getOption("rgent.started"))) rstudioai::run_rgent()')
+  rstudioapi::restartSession(command = 'if (is.null(getOption("rgent.started"))) rstudioai::auto_start_rgent()')
 }
 
 run_rgent <- function() {
@@ -618,7 +618,8 @@ run_rgent <- function() {
     return(TRUE)  # Keep the callback active
   }
   
-  # Add the task callback
+  # Add the task callback (once: run_rgent() called again replaces it)
+  tryCatch(removeTaskCallback("error_monitor"), error = function(e) NULL)
   addTaskCallback(error_callback, name = "error_monitor")
   
   # Start WebSocket server
@@ -626,6 +627,7 @@ run_rgent <- function() {
   
   # Create and launch HTML interface
   launch_html_interface()
+  .rgent_state$started <- TRUE
 
   # Updates are checked after the pane is open, at most once a day
   .rgent_schedule_update_check()
@@ -687,7 +689,11 @@ auto_start_rgent <- function() {
       return(invisible(FALSE))
     }
     
-    # All conditions met, start Rgent
+    # .Rprofile's auto-start lines start Rgent right away when RStudio is
+    # ready and again from the rstudio.sessionInit hook; after Restart R both
+    # fire, and the second one (often at the first code the user ran) restarted
+    # the server and reloaded the pane. Start once per R session.
+    if (isTRUE(.rgent_state$started)) return(invisible(TRUE))
     run_rgent()
     return(invisible(TRUE))
   }, error = function(e) {

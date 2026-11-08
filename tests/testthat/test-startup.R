@@ -64,3 +64,17 @@ test_that("a real background check against a fake GitHub doesn't block and repor
   for (i in 1:60) { if (file.exists(status)) break; Sys.sleep(0.25) }
   expect_equal(readLines(status), "current")
 })
+
+test_that("auto-start starts Rgent once per R session (Restart R fired it twice and the pane reset at the first code run)", {
+  st <- rstudioai:::.rgent_state
+  old <- st$started; on.exit(st$started <- old, add = TRUE)
+  st$started <- NULL
+  runs <- 0L
+  local_mocked_bindings(run_rgent = function() { runs <<- runs + 1L; st$started <- TRUE; invisible(TRUE) },
+                        .package = "rstudioai")
+  local_mocked_bindings(isAvailable = function(...) TRUE, .package = "rstudioapi")
+  expect_true(auto_start_rgent())   # .Rprofile, right away
+  expect_true(auto_start_rgent())   # the sessionInit hook / .onLoad's callback at the first command
+  expect_true(auto_start_rgent())
+  expect_equal(runs, 1L)
+})
