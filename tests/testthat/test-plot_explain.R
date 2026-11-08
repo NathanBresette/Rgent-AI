@@ -57,5 +57,34 @@ test_that("Explain plot captures the plot as a small PNG for Claude", {
   expect_equal(grDevices::dev.cur(), c(`null device` = 1L))
   b3 <- img()
   expect_true(is.character(b3) && nchar(b3) > 1000 && png_magic(b3))
+  kept_b64 <- function() gsub("[\r\n]", "", jsonlite::base64_enc(readBin(rstudioai:::.rgent_kept_chat_plot(), "raw", 1e6)))
+  # The user's own plot (RStudio's Plots pane) survives a chat run
+  plot(10:1, main = "user's plot"); user_dev <- grDevices::dev.cur()
+  invisible(capture.output(rstudioai:::execute_code_in_session("plot(1:10, main = 'from chat again')")))
+  expect_true(user_dev %in% grDevices::dev.list())
+  expect_equal(grDevices::dev.cur()[[1]], user_dev[[1]])
+  # ...and Explain plot uses the chat's newer plot, not the user's device
+  expect_identical(img(), kept_b64())
+  # Once the user draws something, that is the newest plot
+  plot(1:3, main = "user's newer plot")
+  b4 <- img()
+  expect_true(png_magic(b4) && !identical(b4, kept_b64()))
   rm(list = ls(store), envir = store)
+})
+
+test_that("Explain on a plot card names that plot and uses its picture and code", {
+  code <- "plot(1:3)\nhist(rnorm(10))\nbarplot(1:4)"
+  n <- rstudioai:::.rgent_plot_note(index = 2, count = 3, code = code)
+  expect_match(n, "plot 2 of 3", fixed = TRUE)
+  expect_match(n, "2nd plot", fixed = TRUE)
+  expect_match(n, "barplot(1:4)", fixed = TRUE)
+  # the composer's Explain plot (no index) doesn't claim a numbered plot
+  expect_false(grepl("of 3", rstudioai:::.rgent_plot_note(code = code)))
+  # the card's picture: PNG/JPEG base64 only
+  f <- tempfile(fileext = ".png"); grDevices::png(f, 300, 240); plot(1); grDevices::dev.off()
+  b64 <- gsub("[\r\n]", "", jsonlite::base64_enc(readBin(f, "raw", file.info(f)$size)))
+  expect_identical(rstudioai:::.rgent_card_image(b64), b64)
+  expect_null(rstudioai:::.rgent_card_image(jsonlite::base64_enc(charToRaw("not an image"))))
+  expect_null(rstudioai:::.rgent_card_image("<script>"))
+  expect_null(rstudioai:::.rgent_card_image(NULL))
 })

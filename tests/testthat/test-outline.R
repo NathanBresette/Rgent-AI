@@ -31,9 +31,9 @@ test_that("the outline follows the backend's size budget, not a line count", {
   short_lines <- sprintf("x%d <- %d", 1:400, 1:400)            # 400 short lines fit
   expect_true(.rgent_listing_fits(short_lines))
   expect_equal(document_outline(short_lines, "a.R"), "")
-  wide <- rep(strrep("y", 120), 160)                            # 160 wide lines don't
+  wide <- rep(strrep("y", 120), 300)                            # 300 wide lines don't
   expect_false(.rgent_listing_fits(wide))
-  big <- c(rmd_lines(), rep(paste("Some prose", strrep("z", 100)), 200))
+  big <- c(rmd_lines(), rep(paste("Some prose", strrep("z", 100)), 300))
   o <- document_outline(big, "big.Rmd")
   expect_match(o, "13-74 r chunk")
   expect_match(o, "```read 46-151", fixed = TRUE)

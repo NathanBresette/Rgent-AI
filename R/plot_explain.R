@@ -123,12 +123,33 @@
   note
 }
 
+# A plot card's picture, sent by the page (Explain on that card): a PNG or
+# JPEG in base64, else NULL
+.rgent_card_image <- function(b64, max_chars = 1.4e6) {
+  if (!is.character(b64) || length(b64) != 1 || !nzchar(b64) || nchar(b64) > max_chars) return(NULL)
+  b64 <- gsub("[[:space:]]", "", b64)
+  if (!grepl("^[A-Za-z0-9+/]+=*$", b64)) return(NULL)
+  head <- tryCatch(jsonlite::base64_dec(substr(b64, 1, 16)), error = function(e) raw(0))
+  png <- length(head) >= 4 && identical(head[1:4], as.raw(c(0x89, 0x50, 0x4e, 0x47)))
+  jpg <- length(head) >= 3 && identical(head[1:3], as.raw(c(0xff, 0xd8, 0xff)))
+  if (png || jpg) b64 else NULL
+}
+
 #' What Claude is told when the user clicks Explain plot
+#'
+#' `index`/`count`/`code` come from Explain on a plot card: which of the plots
+#' the code drew the user means, and that code. The composer's Explain plot
+#' sends none of them and means the last plot.
 #' @keywords internal
-.rgent_plot_note <- function() {
-  cmd <- .rgent_plot_command()
+.rgent_plot_note <- function(index = NULL, count = NULL, code = NULL) {
+  index <- suppressWarnings(as.integer(index)); count <- suppressWarnings(as.integer(count))
+  one_of <- length(index) == 1 && length(count) == 1 && !is.na(index) && !is.na(count) &&
+    count > 1 && index >= 1 && index <= count
+  cmd <- if (is.character(code) && length(code) == 1 && nzchar(trimws(code))) code else .rgent_plot_command()
   is_gg <- is.null(cmd) || grepl("ggplot|geom_|qplot", cmd)
-  drawn <- if (is_gg) tryCatch(.rgent_ggplot_note(), error = function(e) NULL) else NULL
+  # ggplot2's last_plot() is the last plot the code drew, so its values only
+  # describe plot N of N
+  drawn <- if (is_gg && (!one_of || index == count)) tryCatch(.rgent_ggplot_note(), error = function(e) NULL) else NULL
   if (is.null(drawn) && !is.null(cmd)) {
     # Base graphics: summary statistics of the data the code plots
     res <- tryCatch(analyze_last_plot(), error = function(e) NULL)
@@ -145,8 +166,12 @@
   }
   paste0(
     "\n\n=== THE PLOT TO EXPLAIN ===\n",
-    if (!is.null(cmd)) paste0("Code that made it:\n```\n", cmd, "\n```\n") else "",
+    if (one_of) paste0("This code drew ", count, " plots. The user means plot ", index, " of ", count,
+                       " (the ", index, .rgent_ordinal_suffix(index), " plot the code draws; it is the attached image). ",
+                       "Explain only that plot.\n") else "",
+    if (!is.null(cmd)) paste0(if (one_of) "Code that drew the plots:\n```\n" else "Code that made it:\n```\n", cmd, "\n```\n") else "",
     if (!is.null(drawn)) paste0("What the plot draws (exact values):\n", drawn, "\n") else "",
+    if (one_of && is.null(drawn)) "\nExplain this plot to the person who made it. Read values from the image and the code; say \"about\" for numbers read off the picture.\n" else
     "\nExplain this plot to the person who made it. Use the values above for any numbers; never guess values.\n",
     "- Start with the main takeaway in one or two sentences, with numbers.\n",
     "- Then 2-3 short bullet points: notable peaks or dips, which group is highest or lowest, and anything odd ",
@@ -167,12 +192,27 @@
   if (!length(file) || !nzchar(file) || !file.exists(file)) return(invisible(FALSE))
   dest <- file.path(tempdir(), "rgent-last-chat-plot.png")
   ok <- isTRUE(file.copy(file, dest, overwrite = TRUE))
-  if (ok) .rgent_plot_store$file <- dest
+  if (ok) {
+    .rgent_plot_store$file <- dest
+    .rgent_plot_store$device <- .rgent_device_snapshot()
+  }
   invisible(ok)
+}
+# What the current device shows (NULL with none open), to tell later whether
+# the user drew something after the chat's plot
+.rgent_device_snapshot <- function() {
+  if (grDevices::dev.cur() == 1) return(NULL)
+  tryCatch(list(dev = grDevices::dev.cur(), plot = grDevices::recordPlot()), error = function(e) NULL)
 }
 .rgent_kept_chat_plot <- function() {
   f <- .rgent_plot_store$file
   if (is.null(f) || !file.exists(f)) NULL else f
+}
+# TRUE when nothing was drawn on the user's device since the chat's last plot
+.rgent_device_unchanged <- function() {
+  then <- .rgent_plot_store$device; now <- .rgent_device_snapshot()
+  if (is.null(now)) return(TRUE)
+  !is.null(then) && identical(then$dev, now$dev) && identical(then$plot[[1]], now$plot[[1]])
 }
 
 .rgent_plot_image <- function(width = 800, height = 520, max_bytes = 1e6) {
@@ -191,6 +231,12 @@
       TRUE
     }, error = function(e) FALSE)
   }
+  # The chat draws its plots into files and closes those devices, so the user's
+  # device doesn't show them: use the chat's picture unless the user has drawn
+  # something since
+  if (!drew && !is.null(.rgent_kept_chat_plot()) && .rgent_device_unchanged()) {
+    drew <- isTRUE(file.copy(.rgent_kept_chat_plot(), f, overwrite = TRUE))
+  }
   if (!drew && grDevices::dev.cur() > 1) {
     rec <- tryCatch(grDevices::recordPlot(), error = function(e) NULL)
     if (!is.null(rec)) {
@@ -204,15 +250,14 @@
       }, error = function(e) FALSE)
     }
   }
-  # The chat's own plots are drawn into a file and every device is closed after,
-  # so an open device is newer than them; with none open, use the chat's picture
-  if (!drew && grDevices::dev.cur() == 1) {
-    kept <- .rgent_kept_chat_plot()
-    if (!is.null(kept)) drew <- isTRUE(file.copy(kept, f, overwrite = TRUE))
-  }
   if (!drew || !file.exists(f)) return(NULL)
   size <- file.info(f)$size
   if (is.na(size) || size < 200 || size > max_bytes) return(NULL)
   # base64_enc wraps lines every 76 characters; the API wants one unbroken string
   gsub("[\r\n]", "", jsonlite::base64_enc(readBin(f, "raw", size)))
+}
+
+.rgent_ordinal_suffix <- function(n) {
+  if (n %% 100 %in% 11:13) return("th")
+  switch(as.character(n %% 10), "1" = "st", "2" = "nd", "3" = "rd", "th")
 }

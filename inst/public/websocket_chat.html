@@ -3460,6 +3460,8 @@
       let agentResults = [];
       let agentCodes = [];
       let currentStepCode = null;
+      // The code behind the plots shown last (Explain on a plot card sends it)
+      let lastRunCode = '';
       // Targeted context for the last failed execution (objects the code uses,
       // where a missing name is defined, similar names), built in R
       let lastExecutionFixContext = '';
@@ -5151,6 +5153,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         { cmd: "/new", desc: "Start a new chat", run: () => newConversation() },
         { cmd: "/history", desc: "Open saved chats", run: () => openChatHistory() },
         { cmd: "/auto", desc: "Switch between Auto-run and Ask first", run: () => toggleMode() },
+        { cmd: "/runedits", desc: "Turn running an edit's code when you accept it on or off", run: () => toggleRunEdits() },
         { cmd: "/logout", desc: "Log out and use a different access code", run: () => signOut() }
       ];
       let slashState = { items: [], active: 0 };
@@ -6902,7 +6905,9 @@ Include comments explaining each step. Code only. Minimal chat.`;
         const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
         document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
       }
-      // A plot from code that ran: a card with a header, and Explain (the same as the composer's Explain plot)
+      // A plot from code that ran: a card with a header, and Explain for this plot
+      // (the picture on the card, which plot it is and the code that drew it go
+      // to R, so Explain on plot 1 of 3 explains plot 1, not the last one)
       function buildPlotCard(src, title) {
         window.__rgentPlotAt = Date.now();
         const card = document.createElement('div');
@@ -6913,7 +6918,9 @@ Include comments explaining each step. Code only. Minimal chat.`;
         head.querySelector('.ob-title').textContent = title || 'Plot';
         const explain = document.createElement('button');
         explain.className = 'cx-ob-btn'; explain.type = 'button'; explain.textContent = 'Explain'; explain.dataset.tip = 'Explain this plot';
-        explain.onclick = () => { const b = document.getElementById('analyze-plot-button'); if (b && !b.disabled) b.click(); };
+        const num = String(title || '').match(/\((\d+)\/(\d+)\)/);
+        const code = lastRunCode;
+        explain.onclick = () => explainPlotCard(src, num ? +num[1] : 1, num ? +num[2] : 1, code);
         head.appendChild(explain);
         const img = document.createElement('img');
         img.src = src; img.alt = title || 'Plot';
@@ -7112,7 +7119,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
           label.textContent = keys.length + ' edits';
           const acc = document.createElement('button');
           acc.className = 'edit-btn edit-accept';
-          acc.textContent = isAutoExecuteEnabled() ? 'Accept all & run' : 'Accept all';
+          acc.textContent = isRunEditsEnabled() ? 'Accept all & run' : 'Accept all';
           acc.onclick = () => acceptAllEdits(keys);
           const rej = document.createElement('button');
           rej.className = 'edit-btn';
@@ -7147,7 +7154,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
         if (e.state === 'pending') {
           status.textContent = message || '';
           actions.appendChild(editButton('Reject', '', () => rejectEdit(key)));
-          const runAfter = isAutoExecuteEnabled() && e.preview.runnable;
+          const runAfter = isRunEditsEnabled() && e.preview.runnable;
           actions.appendChild(editButton(runAfter ? 'Accept & run' : 'Accept', 'edit-accept',
                                          () => acceptEdit(key, runAfter)));
         } else if (e.state === 'applied') {
@@ -7219,7 +7226,7 @@ Include comments explaining each step. Code only. Minimal chat.`;
       function acceptAllEdits(keys) {
         const todo = keys.filter(k => fileEdits[k] && fileEdits[k].state === 'pending');
         if (todo.length === 0) return;
-        editBatch = { keys: todo, done: 0, run: isAutoExecuteEnabled() };
+        editBatch = { keys: todo, done: 0, run: isRunEditsEnabled() };
         todo.forEach(k => acceptEdit(k, false));
       }
 
@@ -7908,6 +7915,19 @@ Include comments explaining each step. Code only. Minimal chat.`;
         }
       });
       
+      // Explain on a plot card: that plot, not the last one drawn
+      function explainPlotCard(src, index, count, code) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          addMessage("Not connected to RStudio.", "ai");
+          return;
+        }
+        if (isAIResponding) { showToast('Wait for the current reply to finish.'); return; }
+        const b64 = String(src || '').replace(/^data:image\/[a-z]+;base64,/, '');
+        const text = count > 1 ? `Explain plot ${index} of ${count}` : 'Explain this plot';
+        sendMessage(text, { plot_explain: true, plot_image: b64, plot_index: index, plot_count: count,
+                            plot_code: code || '', label: 'Looking at your plot' });
+      }
+
       // Analyze Last Plot functionality
       function analyzeLastPlot() {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -8313,6 +8333,20 @@ Include comments explaining each step. Code only. Minimal chat.`;
       }
       
       
+      // Accepting an edit also runs its code (2.4.5): on by default, in either
+      // mode (Accept is the user's OK); /runedits turns it off. Kept per browser.
+      function isRunEditsEnabled() {
+        try { return localStorage.getItem('rgent-run-edits') !== '0'; } catch (e) { return true; }
+      }
+      function toggleRunEdits() {
+        const on = !isRunEditsEnabled();
+        try { localStorage.setItem('rgent-run-edits', on ? '1' : '0'); } catch (e) {}
+        Object.keys(fileEdits).forEach(k => { if (fileEdits[k].state === 'pending') renderEditState(k); });
+        document.querySelectorAll('.edit-all-bar .edit-accept').forEach(b => { b.textContent = on ? 'Accept all & run' : 'Accept all'; });
+        showToast(on ? 'Accepting an edit now runs its code too (/runedits turns this off).'
+                     : 'Accepting an edit no longer runs its code (/runedits turns it back on).');
+      }
+
       // Get current auto-execute toggle state
       function isAutoExecuteEnabled() {
         const toggle = document.getElementById('auto-execute-toggle');
@@ -9005,6 +9039,7 @@ Keep it brief and focused. Dataset: ${currentAgentWorkflow.dataframe}`;
         
         // Store the code that's being executed for error handling
         currentStepCode = code;
+        if (typeof code === 'string' && code) lastRunCode = code;
         
         // Set flag to prevent duplicate handling
         cleaningCodeExecuting = true;
@@ -9786,7 +9821,7 @@ Reply with the corrected code as one R code block and at most two sentences. Use
         "Copy": "Copy this code", "Copied!": "Copied", "Insert": "Insert this code where your cursor is in the editor",
         "Insert at Cursor": "Insert this code where your cursor is in the editor",
         "Execute Code": "Run this code in your R session", "Execute & Fix": "Run this code and fix errors automatically",
-        "Accept": "Apply this change to your file", "Accept & run": "Apply this change and run the new lines",
+        "Accept": "Apply this change to your file", "Accept & run": "Apply this change and run its code (/runedits turns this off)",
         "Accept all": "Apply every change above", "Accept all & run": "Apply every change above and run the new code",
         "Reject": "Discard this change", "Reject all": "Discard every change above", "Undo": "Put the file back the way it was",
         "Export": "Open this chat as Markdown in a new editor tab", "Delete": "Delete this saved chat",

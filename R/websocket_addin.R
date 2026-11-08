@@ -1274,7 +1274,10 @@ start_websocket_server <- function() {
             }
             if (is_plot_explain) {
               # Explain plot: the plot's code and the values it draws (plot_explain.R)
-              enhanced_prompt <- paste0(enhanced_prompt, tryCatch(.rgent_plot_note(), error = function(e) ""))
+              # A plot card's Explain names its plot and sends the code that drew it
+              enhanced_prompt <- paste0(enhanced_prompt, tryCatch(
+                .rgent_plot_note(index = request$plot_index, count = request$plot_count, code = request$plot_code),
+                error = function(e) ""))
             }
             if (!is_fix_request && !is_plot_explain && is.null(fix_note)) {
               enhanced_prompt <- paste0(enhanced_prompt, edit_history_note())
@@ -1301,10 +1304,16 @@ start_websocket_server <- function() {
               }
             )
             
+            # An automatic fix after auto-run failed continues the question that
+            # produced the code: the backend doesn't count it as a new request
+            # (2.4.5; older backends ignore the field)
+            if (is_fix_request) request_body$continuation <- TRUE
+
             # Explain plot: Claude also sees the picture (backend 2026-11 and later
             # reads `image`; older backends ignore it)
             if (is_plot_explain) {
-              img <- tryCatch(.rgent_plot_image(), error = function(e) NULL)
+              img <- .rgent_card_image(request$plot_image)
+              if (is.null(img)) img <- tryCatch(.rgent_plot_image(), error = function(e) NULL)
               if (!is.null(img)) request_body$image <- img
             }
             
@@ -1420,6 +1429,10 @@ start_websocket_server <- function() {
                 }
                 if (is.null(got)) break
                 lookups <- c(lookups, got)
+                # Part of the same question: not counted as a new request, and the
+                # plot image (if any) was already seen
+                request_body$continuation <- TRUE
+                request_body$image <- NULL
                 request_body$prompt <- paste0(
                   enhanced_prompt,
                   "\n\nYOUR REPLY SO FAR (the user has seen it):\n", full_response,
@@ -1603,7 +1616,9 @@ start_websocket_server <- function() {
         },
         "chat_export" = {
           md <- tryCatch(chat_store_markdown(request$id), error = function(e) NULL)
-          ok <- !is.null(md) && isTRUE(tryCatch({ rstudioapi::documentNew(md, type = "markdown"); TRUE }, error = function(e) FALSE))
+          # documentNew only accepts "r", "rmarkdown" or "sql" ("markdown" always
+          # failed, so Export never worked); Markdown is valid R Markdown
+          ok <- !is.null(md) && isTRUE(tryCatch({ rstudioapi::documentNew(md, type = "rmarkdown"); TRUE }, error = function(e) FALSE))
           list(action = "chat_exported", ok = ok)
         },
         "toggle_auto_fix" = {

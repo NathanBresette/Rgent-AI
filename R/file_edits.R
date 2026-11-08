@@ -72,7 +72,7 @@ edit_instructions <- function(file_name, outline = "") {
 # numbered listing fits FILE_CONTEXT_WHOLE_CHARS (lines cut at 300 characters,
 # plus 8 for the "  123| " prefix). Keep the numbers in sync with backend/main.py.
 .rgent_listing_chars <- function(lines) sum(pmin(nchar(lines, type = "chars", allowNA = TRUE, keepNA = FALSE), 300L) + 8L)
-.rgent_listing_fits <- function(lines, budget = 14000L) .rgent_listing_chars(lines) <= budget
+.rgent_listing_fits <- function(lines, budget = 30000L) .rgent_listing_chars(lines) <= budget
 
 # Numbered lines a-b of the document as Claude saw it, for a ```read request.
 # Capped at `budget` characters so one request can't blow up the prompt.
@@ -145,7 +145,7 @@ edit_instructions <- function(file_name, outline = "") {
   gsub(.rgent_find_pattern_re, "(searched the file for \\1)", reply, perl = TRUE)
 }
 
-document_outline <- function(lines, name, budget = 14000L, max_items = 80L) {
+document_outline <- function(lines, name, budget = 30000L, max_items = 80L) {
   n <- length(lines)
   if (.rgent_listing_fits(lines, budget)) return("")
   items <- character(0)
@@ -293,27 +293,8 @@ remember_edit_target <- function(doc = NULL) {
   out
 }
 
-# Can the new code be run as R? Always in a script; in R Markdown / Quarto
-# only when the edit sits inside one R chunk.
-.rgent_edit_runnable <- function(target, mode, start, end) {
-  if (!.rgent_is_markdown(target$name, target$lines)) return(TRUE)
-  for (b in .rgent_chunk_bodies(target$lines)) {
-    if (mode == "replace" && start >= b[["first"]] && end <= b[["last"]]) return(TRUE)
-    if (mode == "after" && start >= b[["fence"]] && start <= b[["last"]]) return(TRUE)
-  }
-  FALSE
-}
-
-# What "Accept & run" runs: the whole statements the edit touches, not just
-# the new lines. A changed line in the middle of a pipeline
-# (`summarise(...)` on its own) fails when run alone. In R Markdown / Quarto
-# it also runs the rest of that chunk, as the chunk's later lines usually
-# use what the edit changed (and print the result). Works on the document
-# as it will be after the edit; falls back to the new lines when that part
-# doesn't parse.
-.rgent_edit_run_code <- function(target, mode, start, end, new_code) {
-  if (length(new_code) == 0) return("")
-  fallback <- paste(new_code, collapse = "\n")
+# The document as it will be after the edit, and where the new lines land
+.rgent_edit_after <- function(target, mode, start, end, new_code) {
   lines <- target$lines
   n <- length(lines)
   if (mode == "replace") {
@@ -323,7 +304,51 @@ remember_edit_target <- function(doc = NULL) {
     after <- c(lines[seq_len(start)], new_code, if (start < n) lines[(start + 1):n])
     es <- start + 1L
   }
-  ee <- es + length(new_code) - 1L
+  list(lines = after, es = es, ee = es + length(new_code) - 1L)
+}
+
+# Complete R chunks (after the edit) whose opening fence is one of the new
+# lines, leaving out chunks turned off with eval = FALSE. An edit that only
+# moves a closing fence (and so breaks a chunk) finds none.
+.rgent_edit_chunks_hit <- function(after) {
+  hit <- list()
+  n <- length(after$lines)
+  for (b in .rgent_chunk_bodies(after$lines)) {
+    if (b[["fence"]] >= after$es && b[["fence"]] <= after$ee && b[["last"]] < n &&
+        !grepl("eval\\s*=\\s*(F|FALSE)\\b", after$lines[b[["fence"]]])) {
+      hit[[length(hit) + 1]] <- b
+    }
+  }
+  hit
+}
+
+# Can the new code be run as R? Always in a script. In R Markdown / Quarto
+# when the edit sits inside an R chunk, or when it adds or rewrites whole
+# chunks (fences included): then those chunks run. Before 2.4.5 an edit that
+# inserted a new chunk, or replaced one fence and all, was never runnable, so
+# "Accept & run" didn't appear for the most common edit.
+.rgent_edit_runnable <- function(target, mode, start, end, new_code = NULL) {
+  if (!.rgent_is_markdown(target$name, target$lines)) return(TRUE)
+  for (b in .rgent_chunk_bodies(target$lines)) {
+    if (mode == "replace" && start >= b[["first"]] && end <= b[["last"]]) return(TRUE)
+    if (mode == "after" && start >= b[["fence"]] && start <= b[["last"]]) return(TRUE)
+  }
+  if (length(new_code) == 0) return(FALSE)
+  length(.rgent_edit_chunks_hit(.rgent_edit_after(target, mode, start, end, new_code))) > 0
+}
+
+# What "Accept & run" runs: the whole statements the edit touches, not just
+# the new lines. A changed line in the middle of a pipeline
+# (`summarise(...)` on its own) fails when run alone. In R Markdown / Quarto
+# it also runs the rest of that chunk, as the chunk's later lines usually
+# use what the edit changed (and print the result); an edit that adds or
+# rewrites whole chunks runs those chunks. Works on the document as it will
+# be after the edit; falls back to the new lines when that part doesn't parse.
+.rgent_edit_run_code <- function(target, mode, start, end, new_code) {
+  if (length(new_code) == 0) return("")
+  fallback <- paste(new_code, collapse = "\n")
+  a <- .rgent_edit_after(target, mode, start, end, new_code)
+  after <- a$lines; es <- a$es; ee <- a$ee
   md <- .rgent_is_markdown(target$name, target$lines)
   first <- 1L; last <- length(after)
   if (md) {
@@ -331,7 +356,13 @@ remember_edit_target <- function(doc = NULL) {
     for (b in .rgent_chunk_bodies(after)) {
       if (es >= b[["first"]] && ee <= b[["last"]]) { hit <- b; break }
     }
-    if (is.null(hit)) return(fallback)
+    if (is.null(hit)) {
+      # Whole chunks added or rewritten: run their bodies, in order
+      chunks <- .rgent_edit_chunks_hit(a)
+      if (length(chunks) == 0) return(fallback)
+      body <- unlist(lapply(chunks, function(b) if (b[["last"]] >= b[["first"]]) after[b[["first"]]:b[["last"]]]))
+      return(paste(body, collapse = "\n"))
+    }
     first <- hit[["first"]]; last <- hit[["last"]]
   }
   region <- after[first:last]
@@ -429,7 +460,8 @@ preview_file_edits <- function(edits) {
       mode = mode, start = start, end = end, at = at,
       old = as.list(old), new = as.list(new),
       code = paste(new_code, collapse = "\n"),
-      runnable = length(new_code) > 0 && .rgent_edit_runnable(target, mode, start, end),
+      # an edit that breaks a chunk (warning) is never run by Accept
+      runnable = is.null(warning) && length(new_code) > 0 && .rgent_edit_runnable(target, mode, start, end, new_code),
       run_code = tryCatch(.rgent_edit_run_code(target, mode, start, end, new_code),
                           error = function(err) paste(new_code, collapse = "\n"))
     )

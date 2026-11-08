@@ -140,3 +140,21 @@ test_that("Accept & run runs the whole statement the edit touches", {
   expect_equal(rstudioai:::.rgent_edit_run_code(s, "replace", 3, 3, "  mean(("), "  mean((")
   expect_equal(rstudioai:::.rgent_edit_run_code(s, "replace", 3, 3, character(0)), "")
 })
+
+test_that("an edit that adds or rewrites whole chunks is runnable and runs those chunks", {
+  rmd <- c("---", "title: t", "---", "Intro", "```{r setup}", "library(stats)", "```",
+           "```{r old-plot}", "plot(1)", "```", "End")
+  t <- list(name = "report.Rmd", lines = rmd)
+  new_chunk <- c("## Iris overview", "```{r iris-plots}", "a <- 1", "b <- 2", "```")
+  # inserted at the end: a new chunk (before 2.4.5 this wasn't runnable, so no Accept & run)
+  expect_true(rstudioai:::.rgent_edit_runnable(t, "after", 11, 11, new_chunk))
+  expect_equal(rstudioai:::.rgent_edit_run_code(t, "after", 11, 11, new_chunk), "a <- 1\nb <- 2")
+  # a chunk replaced fence and all: runs the new chunk, never the other ones
+  rew <- c("```{r old-plot, fig.width=6}", "plot(2)", "```")
+  expect_true(rstudioai:::.rgent_edit_runnable(t, "replace", 8, 10, rew))
+  expect_equal(rstudioai:::.rgent_edit_run_code(t, "replace", 8, 10, rew), "plot(2)")
+  # prose only: still not runnable; a chunk turned off with eval = FALSE isn't run
+  expect_false(rstudioai:::.rgent_edit_runnable(t, "replace", 4, 4, "Other intro"))
+  off <- c("```{r slow, eval = FALSE}", "fit_everything()", "```")
+  expect_false(rstudioai:::.rgent_edit_runnable(t, "after", 11, 11, off))
+})

@@ -20,6 +20,10 @@
 execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
                                     on_expr_start = NULL) {
   start_at <- max(1L, as.integer(start_at %||% 1L))
+  # Devices open before this run (RStudio's Plots pane, the user's own): the
+  # chat closes only the ones it opened itself
+  devs_before <- grDevices::dev.list()
+  dev_cur_before <- grDevices::dev.cur()
   # Default settings if not provided
   if (is.null(settings)) {
     settings <- list(
@@ -112,7 +116,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
         grDevices::png(filename = plot_file, width = 800, height = 600)
         print(plot_obj)
         grDevices::dev.off()
-        while (grDevices::dev.cur() != 1) grDevices::dev.off()
+        .rgent_close_new_devices(devs_before, dev_cur_before)
         
         if (file.exists(plot_file) && file.info(plot_file)$size > 100) {
           return(plot_file)
@@ -120,7 +124,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
         unlink(plot_file)
         return(NULL)
       }, error = function(e) {
-        tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
+        tryCatch(.rgent_close_new_devices(devs_before, dev_cur_before), error = function(e) {})
         if (file.exists(plot_file)) unlink(plot_file)
         return(NULL)
       })
@@ -295,7 +299,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               suppressMessages(for (pe in plot_exprs) eval(pe, envir = env))
               grDevices::dev.off()
             })
-            while (grDevices::dev.cur() != 1) grDevices::dev.off()
+            .rgent_close_new_devices(devs_before, dev_cur_before)
 
             # Capture any text output from plot commands
             if (length(plot_output) > 0) {
@@ -308,7 +312,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               unlink(plot_file)
             }
           }, error = function(e) {
-            tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
+            tryCatch(.rgent_close_new_devices(devs_before, dev_cur_before), error = function(e) {})
             all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
             execution_had_error <<- TRUE
             last_error_message <<- conditionMessage(e)
@@ -324,7 +328,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               eval(expr, envir = env)
               grDevices::dev.off()
             })
-            while (grDevices::dev.cur() != 1) grDevices::dev.off()
+            .rgent_close_new_devices(devs_before, dev_cur_before)
 
             # Capture any text output
             if (length(grid_output) > 0) {
@@ -337,7 +341,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
               unlink(plot_file)
             }
           }, error = function(e) {
-            tryCatch(while (grDevices::dev.cur() != 1) grDevices::dev.off(), error = function(e) {})
+            tryCatch(.rgent_close_new_devices(devs_before, dev_cur_before), error = function(e) {})
             if (!execution_had_error) {
               all_output <<- c(all_output, paste("Error:", conditionMessage(e)))
               execution_had_error <<- TRUE
@@ -584,11 +588,11 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
   }, finally = {
     # Clean up temporary plot files
     if (length(plot_files) > 0) {
+        tryCatch({
+        .rgent_close_new_devices(devs_before, dev_cur_before)
         # Keep the last picture for Explain plot: the plot was drawn into a file
         # and its device closed, so there's nothing left to redraw
         tryCatch(.rgent_keep_chat_plot(utils::tail(plot_files[file.exists(plot_files)], 1)), error = function(e) NULL)
-        tryCatch({
-        while (grDevices::dev.cur() != 1) grDevices::dev.off()
         suppressWarnings(unlink(plot_files[sapply(plot_files, file.exists)], force = TRUE))
       }, error = function(e) {})
     }
@@ -697,4 +701,13 @@ save_execution_settings <- function(settings) {
   }, error = function(e) seq_along(lines))
   prefix <- ifelse(seq_along(lines) %in% starts | !nzchar(trimws(lines)), "> ", "+ ")
   c("# Rgent ran:", paste0(prefix, lines))
+}
+
+# Closes graphics devices opened since `before` (dev.list() at the start of a
+# chat run) and makes `cur` current again, leaving the user's own plots alone.
+# It used to close every device, wiping the RStudio Plots pane.
+.rgent_close_new_devices <- function(before, cur = 1L) {
+  for (d in setdiff(grDevices::dev.list(), before)) try(grDevices::dev.off(d), silent = TRUE)
+  if (cur > 1 && cur %in% grDevices::dev.list()) try(grDevices::dev.set(cur), silent = TRUE)
+  invisible(NULL)
 }
