@@ -44,3 +44,8 @@ test_that("history keeps six exchanges, compacts older replies and stays under t
   expect_match(h, "last question", fixed = TRUE)
   expect_lte(nchar(h), 9000 + 100)
 })
+
+test_that("tests write chats to a temp folder, not the real History", {
+  expect_true(startsWith(normalizePath(tools::R_user_dir("rstudioai", "data"), mustWork = FALSE),
+                         normalizePath(tempdir())))
+})

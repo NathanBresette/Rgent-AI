@@ -4770,14 +4770,18 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
               // Check if we have a complete message with R code - use same detection as ai_response
               // ```r blocks that repeat an edit's code are left out: Auto-run already
               // applies that edit and runs its code (otherwise it all ran twice)
-              const toRun = withoutRepeatsOfEdits(window.lastCompleteMessage);
-              if (toRun && hasCodeBlock(toRun)) {
+              // (read lastCompleteMessage inside the timer: this message can arrive
+              // before the page has stored the finished reply, which would run the
+              // previous reply's code)
+              if (window.lastCompleteMessage && hasCodeBlock(window.lastCompleteMessage)) {
                 console.log('🔍 Detected R code in complete streaming message');
                 
                 // Add a small delay to let the user see the complete message before execution
                 // This prevents jarring UX where code executes while still reading
                 setTimeout(() => {
                   console.log('🔍 Handling code after brief display delay');
+                  const toRun = withoutRepeatsOfEdits(window.lastCompleteMessage);
+                  if (!hasCodeBlock(toRun)) return;
                   handleCleaningCodeResponse(toRun, 'data_cleaning_agent_code');
                 }, 800); // 800ms delay to allow reading
               }
