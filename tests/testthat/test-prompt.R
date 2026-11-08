@@ -20,3 +20,27 @@ test_that("older replies are compacted in the history; the latest stays whole", 
   expect_match(h, "[r block, 40 lines, starting `x1 <- 1`]", fixed = TRUE)
   expect_equal(lengths(regmatches(h, gregexpr("x40 <- 40", h))), 1L)   # only the latest reply keeps its code
 })
+
+test_that("history keeps six exchanges, compacts older replies and stays under the size cap", {
+  old <- if (exists("conversation_history", globalenv())) get("conversation_history", globalenv())
+  on.exit(assign("conversation_history", if (is.null(old)) list() else old, envir = globalenv()))
+  assign("conversation_history", list(), envir = globalenv())
+  for (i in 1:8) {
+    add_to_conversation_history("user", sprintf("question %d", i))
+    add_to_conversation_history("ai", paste0(sprintf("answer %d ", i), strrep("word ", 300)))
+  }
+  hist <- get("conversation_history", globalenv())
+  expect_length(hist, 12)
+  expect_equal(hist[[1]]$message, "question 3")
+  h <- get_conversation_history()
+  expect_match(h, "question 3", fixed = TRUE)            # decisions from 6 exchanges ago are still there
+  expect_match(h, paste0("answer 8 ", strrep("word ", 300)), fixed = TRUE)   # latest reply whole
+  expect_lte(nchar(h), 9000 + 100)
+  # Very long messages: the oldest are dropped, the latest exchange is kept
+  assign("conversation_history", list(), envir = globalenv())
+  for (i in 1:6) { add_to_conversation_history("user", strrep("q", 3000)); add_to_conversation_history("ai", strrep("a", 5000)) }
+  add_to_conversation_history("user", "last question")
+  h <- get_conversation_history()
+  expect_match(h, "last question", fixed = TRUE)
+  expect_lte(nchar(h), 9000 + 100)
+})

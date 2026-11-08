@@ -753,6 +753,7 @@ get_rstudio_theme <- function() {
 #' Start WebSocket server for R-JavaScript communication
 #' @export
 start_websocket_server <- function() {
+  tryCatch(.rgent_install_error_tracker(), error = function(e) NULL)
   # Stop any existing server
   if (!is.null(.GlobalEnv$websocket_server)) {
     tryCatch({
@@ -803,11 +804,6 @@ start_websocket_server <- function() {
             )
           })
           list(action = "context", data = context)
-        },
-        "get_dataframes" = {
-          # Get available DataFrames for agent configuration
-          dataframes <- get_available_dataframes()
-          list(action = "dataframes", data = dataframes)
         },
         "get_objects" = {
           # Get all available objects (for Data Explorer)
@@ -864,37 +860,6 @@ start_websocket_server <- function() {
             dataframes <- explorer_user_objects(get_available_dataframes())
             list(action = "objects", data = dataframes, objects_info = list(),
                  active_file = tryCatch(describe_active_file(), error = function(e) NULL))
-          }
-        },
-        "get_dataframe_variables" = {
-          # Get variables from a specific DataFrame
-          dataframe_name <- request$dataframe
-          exclude_target <- request$exclude_target_variable
-          
-          if (is.null(dataframe_name) || !exists(dataframe_name, envir = globalenv())) {
-            list(action = "dataframe_variables", data = list())
-          } else {
-            df <- get(dataframe_name, envir = globalenv())
-            if (is.data.frame(df)) {
-              # Get all column names
-              all_cols <- names(df)
-              
-              # Exclude target variable if specified
-              if (!is.null(exclude_target) && exclude_target != "") {
-                all_cols <- all_cols[all_cols != exclude_target]
-              }
-              
-              variables <- lapply(all_cols, function(col_name) {
-                col_data <- df[[col_name]]
-                list(
-                  name = col_name,
-                  type = if (is.numeric(col_data)) "numeric" else "categorical"
-                )
-              })
-              list(action = "dataframe_variables", data = variables)
-            } else {
-              list(action = "dataframe_variables", data = list())
-            }
           }
         },
         "get_completions" = {
@@ -977,66 +942,6 @@ start_websocket_server <- function() {
         "explorer_check_changed" = {
           list(action = "explorer_changed", data = explorer_check_changed(request$dataframe))
         },
-        "start_cleaning_agent" = {
-          # Start the cleaning agent workflow
-          result <- start_cleaning_agent(request$dataframe, request$na_handling, request$cleaning_options, request$method_options, request$custom_inputs, request$other_operations, request$selected_variables)
-          list(action = "agent_started", data = result)
-        },
-        "next_agent_step" = {
-          # Execute next step in cleaning agent workflow
-          result <- execute_cleaning_agent(request$dataframe, request$na_handling, request$step)
-          list(action = "agent_step", data = result)
-        },
-        "get_next_step_code" = {
-          # Determine if this is a transformation agent or cleaning agent based on request parameters
-          if (!is.null(request$transformation_options)) {
-            # This is a transformation agent request
-            step_code <- get_next_transformation_step_code(request$step_info, request$dataframe, request$method_options, request$custom_inputs)
-          } else {
-            # This is a cleaning agent request
-            step_code <- generate_step_code(request$step_info, request$dataframe, request$na_handling, request$method_options, request$custom_inputs, request$selected_variables)
-          }
-          
-          # Send back the code to execute
-          list(action = "execute_code_response", code = step_code)
-        },
-        "start_transformation_agent" = {
-          # Start the transformation agent workflow
-          result <- start_transformation_agent(request$dataframe, request$transformation_options, request$method_options, request$custom_inputs, request$selected_variables)
-          list(action = "transformation_agent_started", data = result)
-        },
-        "get_next_transformation_step_code" = {
-          # Generate code for the next transformation step
-          step_code <- get_next_transformation_step_code(request$step_info, request$dataframe, request$method_options, request$custom_inputs, request$selected_variables)
-          
-          # Send back the code to execute
-          list(action = "execute_code_response", code = step_code)
-        },
-        "start_statistical_agent" = {
-          # Start the statistical agent workflow
-          result <- start_statistical_analysis(request$dataframe, request$analysis_options, request$variables, request$method_options, request$custom_inputs)
-          list(action = "statistical_agent_started", data = result)
-        },
-        "get_next_statistical_step_code" = {
-          # Execute the statistical step directly (no code generation)
-          df <- get(request$dataframe, envir = .GlobalEnv)
-          step_result <- execute_statistical_step(df, request$step_info, request$variables, request$method_options, request$custom_inputs)
-          
-          # Send back the step results
-          list(action = "statistical_step_result", data = step_result)
-        },
-        "start_modeling_agent" = {
-          # Start the modeling agent workflow
-          result <- start_modeling_agent(request$dataframe, request$target_variable, request$algorithms, request$options, custom_inputs = NULL, selected_variables = request$selected_variables)
-          list(action = "modeling_agent_started", data = result)
-        },
-        "get_next_modeling_step_code" = {
-          # Generate code for the next modeling step
-          step_result <- get_next_modeling_step(request$dataframe, request$step_info, request$target_variable, request$algorithms, request$selected_variables)
-          
-          # Send back the code to execute
-          list(action = "execute_code_response", code = step_result$code)
-        },
         "insert_code" = {
           # Insert code directly using rstudioapi
           tryCatch({
@@ -1073,7 +978,12 @@ start_websocket_server <- function() {
           .rgent_edit_note(paste0("rejected your edit (", if (is.null(request$label)) "?" else request$label, ")"))
           list(action = "edit_rejected_noted")
         },
-        "execute_code" = {
+        "execute_code" = if (!is.null(why <- .rgent_auto_run_check(request))) {
+          # Auto-run never runs code that installs, deletes, runs shell
+          # commands or quits by itself: the chat asks first (Run anyway)
+          list(action = "executed", status = "confirm", needs_confirm = TRUE,
+               confirm_reason = why, code = request$code)
+        } else {
           # Store the code for error handling
           .GlobalEnv$currentStepCode <- request$code
           
@@ -1097,6 +1007,8 @@ start_websocket_server <- function() {
             result <- execute_with_recovery(request$code, settings, progress = send_progress,
                                             answers = request$answers %||% character(0),
                                             resume = request$resume)
+            # Fix error knows when the error came from code the chat ran (fix_error.R)
+            if (is.null(result$needs_input)) tryCatch(.rgent_note_chat_run(request$code, result), error = function(e) NULL)
             
             # Return structured result
             list(
@@ -1285,6 +1197,11 @@ start_websocket_server <- function() {
           }
         },
         "chat_with_ai" = {
+          # Fix error (fix_error.R): no recent error means nothing to send to Claude
+          fix_note <- if (isTRUE(request$fix_error)) tryCatch(.rgent_error_note(), error = function(e) NULL) else NULL
+          if (isTRUE(request$fix_error) && is.null(fix_note)) {
+            list(action = "get_last_error", message = "I didn't find a recent error. Run the code that fails, then click Fix error again.")
+          } else {
           # Auto-fix requests after failed code: the message already carries the
           # code, the error and a targeted lookup (build_fix_context), so send it
           # lean, without the workspace, file context or history, and keep it
@@ -1297,67 +1214,11 @@ start_websocket_server <- function() {
           last_user_request <- get_last_user_request()
           
           # Add user message to conversation history
-          if (!is_fix_request) add_to_conversation_history("user", request$message)
-          
-          # Direct workspace scanning (no session_index dependency)
-          
-          # Get intelligent context based on query
-          intelligent_context <- assemble_intelligent_context_safe(request$message)
+          if (!is_fix_request) add_to_conversation_history("user",
+            if (!is.null(fix_note)) paste0("Fix the last error: ", substr(.rgent_last_error()$error, 1, 300)) else request$message)
           
           # Get current context with smart filtering (use simple approach)
           current_context <- capture_context_smart(request$message)
-          
-          # Check if we have a session, if not initialize one
-          if (is.null(.GlobalEnv$current_session_id)) {
-            cat("No session found, initializing...\n")
-            session_id <- paste0("session_", as.numeric(Sys.time()))
-            .GlobalEnv$current_session_id <- session_id
-            .GlobalEnv$last_context_state <- current_context
-            
-            # Initialize session with backend
-            tryCatch({
-              init_response <- httr::POST(
-                "https://rgent.onrender.com/api/initialize-session",
-                body = list(
-                  access_code = current_access_code,
-                  session_id = session_id,
-                  initial_context = current_context
-                ),
-                encode = "json",
-                httr::timeout(10)
-              )
-              cat("Session initialized\n")
-            }, error = function(e) {
-              cat("Session initialization failed:", e$message, "\n")
-            })
-          } else {
-            # Detect changes since last context
-            last_context <- .GlobalEnv$last_context_state
-            if (!is.null(last_context)) {
-              changes <- detect_context_changes(last_context, current_context)
-              
-              
-              # Store changes in backend
-              tryCatch({
-                store_response <- httr::POST(
-                  "https://rgent.onrender.com/api/store-changes",
-                  body = list(
-                    access_code = current_access_code,
-                    session_id = .GlobalEnv$current_session_id,
-                    changes = changes
-                  ),
-                  encode = "json",
-                  httr::timeout(10)
-                )
-                
-              }, error = function(e) {
-                cat("Failed to store changes:", e$message, "\n")
-              })
-            }
-            
-            # Update stored context
-            .GlobalEnv$last_context_state <- current_context
-          }
           
           # Use streaming RAG chat endpoint
           tryCatch({
@@ -1407,7 +1268,15 @@ start_websocket_server <- function() {
             # before anything changes). Remember the file as Claude sees it,
             # so its line numbers can be mapped back.
             edit_target <- NULL
-            if (!is_fix_request) {
+            is_plot_explain <- isTRUE(request$plot_explain) && !is_fix_request
+            if (!is.null(fix_note)) {
+              enhanced_prompt <- paste0(enhanced_prompt, fix_note)
+            }
+            if (is_plot_explain) {
+              # Explain plot: the plot's code and the values it draws (plot_explain.R)
+              enhanced_prompt <- paste0(enhanced_prompt, tryCatch(.rgent_plot_note(), error = function(e) ""))
+            }
+            if (!is_fix_request && !is_plot_explain && is.null(fix_note)) {
               enhanced_prompt <- paste0(enhanced_prompt, edit_history_note())
               edit_target <- remember_edit_target()
               if (!is.null(edit_target) && length(edit_target$lines) > 0 &&
@@ -1431,6 +1300,13 @@ start_websocket_server <- function() {
                 )
               }
             )
+            
+            # Explain plot: Claude also sees the picture (backend 2026-11 and later
+            # reads `image`; older backends ignore it)
+            if (is_plot_explain) {
+              img <- tryCatch(.rgent_plot_image(), error = function(e) NULL)
+              if (!is.null(img)) request_body$image <- img
+            }
             
             # Debug the final request structure
             
@@ -1671,16 +1547,7 @@ start_websocket_server <- function() {
                   # Still failed, send environment reduction tips
                   tips_message <- list(
                     action = "ai_response", 
-                    message = paste(
-                      "❌ Still experiencing delays. Try reducing your environment size:\n\n",
-                      "💡 **Tips to reduce environment size:**\n",
-                      "• Remove unused variables: `rm(unused_var)`\n", 
-                      "• Clear large data frames: `rm(large_df)`\n",
-                      "• Remove functions: `rm(function_name)`\n",
-                      "• Clear workspace: `rm(list = ls())`\n",
-                      "• Restart R session: `Session > Restart R`\n\n",
-                      "After cleaning up, try your request again!"
-                    ),
+                    message = .rgent_timeout_message,
                     streaming = FALSE
                   )
                   ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
@@ -1691,14 +1558,7 @@ start_websocket_server <- function() {
                 # Silenced debug: Retry also failed
                 tips_message <- list(
                   action = "ai_response", 
-                  message = paste(
-                    "❌ Request timed out. Your environment has too much data.\n\n",
-                    "💡 **Quick fixes:**\n",
-                    "• `rm(list = ls())` - Clear all variables\n",
-                    "• `Session > Restart R` - Fresh start\n",
-                    "• Remove large objects: `rm(large_dataframe)`\n\n",
-                    "Try again after cleaning up your environment!"
-                  ),
+                  message = .rgent_timeout_message,
                   streaming = FALSE
                 )
                 ws$send(jsonlite::toJSON(tips_message, auto_unbox = TRUE))
@@ -1709,404 +1569,7 @@ start_websocket_server <- function() {
               list(action = "ai_response", message = paste("Error connecting to AI service:", e$message))
             }
           })
-        },
-        "initialize_session" = {
-          # Initialize RAG session with initial context
-          cat("Initializing RAG session...\n")
-          
-          # Generate session ID if not provided
-          session_id <- if (!is.null(request$session_id)) request$session_id else paste0("session_", as.numeric(Sys.time()))
-          
-          # Capture initial context
-          initial_context <- tryCatch({
-            capture_context()
-          }, error = function(e) {
-            cat("ERROR in initial context capture:", e$message, "\n")
-            list(
-              workspace_objects = list(),
-              active_file = NULL,
-              file_contents = NULL
-            )
-          })
-          
-          tryCatch({
-            response <- httr::POST(
-              "https://rgent.onrender.com/api/initialize-session",
-              body = list(
-                access_code = get_current_access_code(),
-                session_id = session_id,
-                initial_context = initial_context
-              ),
-              encode = "json",
-              httr::timeout(30)
-            )
-            
-            if (httr::status_code(response) == 200) {
-              result <- httr::content(response)
-              # Store session ID for future use
-              .GlobalEnv$current_session_id <- session_id
-              .GlobalEnv$last_context_state <- initial_context
-              
-              list(action = "session_initialized", 
-                   session_id = session_id,
-                   message = "Session initialized successfully")
-            } else {
-              list(action = "session_error", 
-                   message = paste("Failed to initialize session. Status:", httr::status_code(response)))
-            }
-          }, error = function(e) {
-            list(action = "session_error", message = paste("Error initializing session:", e$message))
-          })
-        },
-        "detect_changes" = {
-          # Detect changes since last context capture
-          cat("Detecting context changes...\n")
-          
-          # Use tryCatch to prevent context capture failures during code execution
-          current_context <- tryCatch({
-            capture_context()
-          }, error = function(e) {
-            cat("ERROR in context capture during detect_changes:", e$message, "\n")
-            # Return a minimal context to prevent complete failure
-            list(
-              workspace_objects = list(),
-              active_file = NULL,
-              file_contents = NULL
-            )
-          })
-          
-          last_context <- .GlobalEnv$last_context_state
-          
-          if (is.null(last_context)) {
-            # No previous context, treat as initial
-            changes <- list(
-              type = "initial",
-              file_changes = list(),
-              workspace_changes = list()
-            )
-          } else {
-            # Detect changes
-            changes <- detect_context_changes(last_context, current_context)
           }
-          
-          # Update stored context
-          .GlobalEnv$last_context_state <- current_context
-          
-          list(action = "changes_detected", changes = changes)
-        },
-        "store_changes" = {
-          # Store detected changes in backend
-          cat("Storing context changes...\n")
-          
-          session_id <- .GlobalEnv$current_session_id
-          if (is.null(session_id)) {
-            list(action = "changes_error", message = "No active session")
-          } else {
-            tryCatch({
-              response <- httr::POST(
-                "https://rgent.onrender.com/api/store-changes",
-                body = list(
-                  access_code = get_current_access_code(),
-                  session_id = session_id,
-                  changes = request$changes
-                ),
-                encode = "json",
-                httr::timeout(30)
-              )
-              
-              if (httr::status_code(response) == 200) {
-                list(action = "changes_stored", message = "Changes stored successfully")
-              } else {
-                list(action = "changes_error", 
-                     message = paste("Failed to store changes. Status:", httr::status_code(response)))
-              }
-            }, error = function(e) {
-              list(action = "changes_error", message = paste("Error storing changes:", e$message))
-            })
-          }
-        },
-        "semantic_search" = {
-          # Perform semantic search for relevant context
-          cat("Performing semantic search...\n")
-          
-          session_id <- .GlobalEnv$current_session_id
-          if (is.null(session_id)) {
-            list(action = "search_error", message = "No active session")
-          } else {
-            tryCatch({
-              response <- httr::POST(
-                "https://rgent.onrender.com/api/semantic-search",
-                body = list(
-                  access_code = "DEMO123",
-                  session_id = session_id,
-                  query = request$query,
-                  limit = if (!is.null(request$limit)) request$limit else 10
-                ),
-                encode = "json",
-                httr::timeout(30)
-              )
-              
-              if (httr::status_code(response) == 200) {
-                result <- httr::content(response)
-                list(action = "search_results", 
-                     results = result$results,
-                     count = result$count)
-              } else {
-                list(action = "search_error", 
-                     message = paste("Search failed. Status:", httr::status_code(response)))
-              }
-            }, error = function(e) {
-              list(action = "search_error", message = paste("Error performing search:", e$message))
-            })
-          }
-        },
-        "chat_with_rag" = {
-          # Chat with AI using RAG for context retrieval
-          cat("Chatting with RAG...\n")
-          
-          session_id <- .GlobalEnv$current_session_id
-          if (is.null(session_id)) {
-            list(action = "rag_error", message = "No active session")
-          } else {
-            # Detect changes first with error handling
-            current_context <- tryCatch({
-              capture_context()
-            }, error = function(e) {
-              cat("ERROR in context capture during RAG:", e$message, "\n")
-              # Return a minimal context to prevent complete failure
-              list(
-                workspace_objects = list(),
-                active_file = NULL,
-                file_contents = NULL
-              )
-            })
-            
-            last_context <- .GlobalEnv$last_context_state
-            changes <- if (!is.null(last_context)) {
-              tryCatch({
-                detect_context_changes(last_context, current_context)
-              }, error = function(e) {
-                cat("ERROR in detect_context_changes:", e$message, "\n")
-                list()  # Return empty changes list
-              })
-            } else {
-              list()
-            }
-            
-            # Update stored context
-            .GlobalEnv$last_context_state <- current_context
-            
-            tryCatch({
-              response <- httr::POST(
-                "https://rgent.onrender.com/chat",
-                body = list(
-                  access_code = get_current_access_code(),
-                  prompt = request$message,
-                  context_data = current_context
-                ),
-                encode = "json",
-                httr::timeout(30)
-              )
-              
-              if (httr::status_code(response) == 200) {
-                result <- httr::content(response)
-                list(action = "ai_response", 
-                     message = result$response)
-              } else {
-                list(action = "ai_error", 
-                     message = paste("Chat failed. Status:", httr::status_code(response)))
-              }
-            }, error = function(e) {
-              list(action = "ai_error", message = paste("Error in chat:", e$message))
-            })
-          }
-        },
-        "get_last_error" = {
-          # Check if access code is set
-          if (!exists("current_access_code", envir = .GlobalEnv)) {
-            list(action = "error", message = "Please validate your access code first using the 'Validate Access' button.")
-          } else {
-            # Capture last error with context and code
-            error_details <- capture_last_error()
-          
-          # Safely check if there's an error
-          has_error <- FALSE
-          if (!is.null(error_details) && !is.null(error_details$has_error)) {
-            has_error <- as.logical(error_details$has_error)
-          }
-          
-          if (!has_error) {
-            # No error found
-            list(action = "get_last_error", message = "I didn't find an error in the Console. Run the code that fails, then try Fix error again.")
-          } else {
-            
-            # Send debug info first
-             debug_info <- list(
-               action = "debug_info",
-               error_message = error_details$error_message,
-               error_code = error_details$error_code,  # Add the code that caused the error
-               console_context = error_details$console_context,
-               relevant_context = error_details$relevant_context,
-               timestamp = error_details$timestamp,
-               working_directory = error_details$working_directory,
-               r_version = error_details$r_version
-             )
-             
-            ws$send(jsonlite::toJSON(debug_info, auto_unbox = TRUE))
-            
-            # Now stream the AI analysis
-            tryCatch({
-              
-              # Prepare the AI prompt
-              prompt <- paste(
-                "Debug this R error:\n\n",
-                "ERROR: ", error_details$error_message, "\n\n",
-                "CODE THAT CAUSED IT:\n", error_details$error_code, "\n\n",
-                "RELEVANT CONTEXT:\n", 
-                "Available objects: ", paste(names(error_details$relevant_context$objects), collapse = ", "), "\n",
-                "Available functions: ", paste(names(error_details$relevant_context$functions), collapse = ", "), "\n",
-                "Available data frames: ", paste(names(error_details$relevant_context$data_frames), collapse = ", "), "\n\n",
-                "Please provide:\n",
-                "1. What went wrong\n",
-                "2. How to fix it\n",
-                "3. Corrected code"
-              )
-              
-              # Prepare request body
-              request_body <- list(
-                access_code = get_current_access_code(),
-                prompt = prompt,
-                context_data = error_details$relevant_context
-              )
-              
-              # Make streaming request to backend
-              debug_chunk_buffer <- ""
-              debug_full_response <- ""
-              debug_done_sent <- FALSE
-              
-              debug_chunk_callback <- function(json_data) {
-                tryCatch({
-                  chunk_data <- jsonlite::fromJSON(json_data)
-                  
-                  # Handle different response formats
-                  chunk_text <- NULL
-                  is_done <- FALSE
-                  
-                  if (!is.null(chunk_data$action) && chunk_data$action == "ai_response" && chunk_data$streaming) {
-                    chunk_text <- chunk_data$chunk
-                  } else if (!is.null(chunk_data$chunk) && !is.null(chunk_data$done)) {
-                    chunk_text <- chunk_data$chunk
-                    is_done <- chunk_data$done
-                  } else if (!is.null(chunk_data$chunk)) {
-                    chunk_text <- chunk_data$chunk
-                  }
-                  
-                  if (!is.null(chunk_text) && nchar(chunk_text) > 0) {
-                    debug_full_response <<- paste0(debug_full_response, chunk_text)
-                    debug_chunk_buffer <<- paste0(debug_chunk_buffer, chunk_text)
-                    
-                    # Check if we're in the middle of a code block
-                    code_block_open <- grepl("```[^`]*$", debug_chunk_buffer)
-                    incomplete_function <- grepl("^[a-zA-Z_][a-zA-Z0-9_]*\\([^)]*$", debug_chunk_buffer)
-                    
-                    # Send chunk to frontend when we have a complete word or sentence
-                    if (!code_block_open && !incomplete_function && (grepl("[.!?]\\s*$", debug_chunk_buffer) || 
-                        grepl("\\n\\n", debug_chunk_buffer) ||
-                        grepl("```$", debug_chunk_buffer) ||
-                        nchar(debug_chunk_buffer) > 100)) {
-                      
-                      chunk_response <- list(
-                        action = "debug_ai_response",
-                        streaming = TRUE,
-                        chunk = debug_chunk_buffer
-                      )
-                      ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                      
-                      # Reset buffer
-                      debug_chunk_buffer <<- ""
-                    }
-                  }
-                  
-                  # Check if this is the final chunk
-                  if (is_done || (!is.null(chunk_data$action) && chunk_data$action == "ai_response" && !chunk_data$streaming)) {
-                    # Final chunk
-                    if (nchar(debug_chunk_buffer) > 0) {
-                      final_chunk_response <- list(
-                        action = "debug_ai_response",
-                        streaming = TRUE,
-                        chunk = debug_chunk_buffer
-                      )
-                      ws$send(jsonlite::toJSON(final_chunk_response, auto_unbox = TRUE))
-                    }
-                    
-                    # Send completion signal
-                    completion_response <- list(
-                      action = "debug_ai_response",
-                      streaming = FALSE
-                    )
-                    ws$send(jsonlite::toJSON(completion_response, auto_unbox = TRUE))
-                    debug_done_sent <<- TRUE
-                    return(list(stop = TRUE))
-                  }
-                  
-                  return(NULL)
-                }, error = function(e) {
-                  cat("Error parsing chunk:", e$message, "\n")
-                  return(NULL)
-                })
-              }
-              
-              debug_result <- stream_httr_post(
-                url = "https://rgent.onrender.com/chat/stream",
-                body = request_body,
-                headers = NULL,
-                timeout = 30,
-                chunk_callback = debug_chunk_callback
-              )
-              
-              if (!debug_result$success) {
-                # Error response
-                error_response <- list(
-                  action = "debug_ai_response",
-                  streaming = FALSE,
-                  error = paste("AI analysis failed:", debug_result$status_code)
-                )
-                ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
-              } else {
-                # The stream can end without a "done" chunk; flush and close it
-                if (!debug_done_sent) {
-                  if (nchar(debug_chunk_buffer) > 0) {
-                    ws$send(jsonlite::toJSON(list(action = "debug_ai_response", streaming = TRUE, chunk = debug_chunk_buffer), auto_unbox = TRUE))
-                  }
-                  ws$send(jsonlite::toJSON(list(action = "debug_ai_response", streaming = FALSE), auto_unbox = TRUE))
-                }
-                # Part of the conversation, so "apply that fix" works and the
-                # saved chat keeps it
-                if (nzchar(debug_full_response)) {
-                  tryCatch({
-                    add_to_conversation_history("user", paste0("Fix the last error: ", error_details$error_message,
-                      if (nzchar(paste(error_details$error_code, collapse = ""))) paste0("\nCode: ", paste(error_details$error_code, collapse = "\n")) else ""))
-                    add_to_conversation_history("ai", debug_full_response)
-                  }, error = function(e) NULL)
-                }
-              }
-                          }, error = function(e) {
-               # Silenced debug: Exception details
-               # Silenced debug: Exception class
-               
-               # Send a simple error message if streaming fails
-               error_response <- list(
-                 action = "debug_ai_response",
-                 streaming = FALSE,
-                 error = paste("Error in AI analysis:", e$message)
-               )
-               ws$send(jsonlite::toJSON(error_response, auto_unbox = TRUE))
-             })
-            
-            # Return success status
-            list(action = "get_last_error", status = "streaming_started")
-          }
-        }
         },
         "new_conversation" = {
           # Clear conversation history
@@ -2143,36 +1606,6 @@ start_websocket_server <- function() {
           ok <- !is.null(md) && isTRUE(tryCatch({ rstudioapi::documentNew(md, type = "markdown"); TRUE }, error = function(e) FALSE))
           list(action = "chat_exported", ok = ok)
         },
-        "apply_debug_fix" = {
-          # Apply the proposed fix to the code
-          tryCatch({
-            if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
-              # Get the current document
-              doc_context <- rstudioapi::getSourceEditorContext()
-              if (!is.null(doc_context)) {
-                # Get the line number and new code
-                line_number <- request$line_number
-                new_code <- request$new_code
-                
-                # Create the range for the line to replace
-                start_pos <- rstudioapi::document_position(line_number, 1)
-                end_pos <- rstudioapi::document_position(line_number, nchar(doc_context$contents[line_number]) + 1)
-                range <- rstudioapi::document_range(start_pos, end_pos)
-                
-                # Replace the line with the new code
-                rstudioapi::modifyRange(range, new_code)
-                
-                list(action = "apply_debug_fix", status = "success", message = "Fix applied successfully")
-              } else {
-                list(action = "apply_debug_fix", status = "error", message = "No active document")
-              }
-            } else {
-              list(action = "apply_debug_fix", status = "error", message = "RStudio API not available")
-            }
-          }, error = function(e) {
-            list(action = "apply_debug_fix", status = "error", message = paste("Error applying fix:", e$message))
-          })
-        },
         "toggle_auto_fix" = {
           # Toggle auto-fix mode
           tryCatch({
@@ -2180,359 +1613,6 @@ start_websocket_server <- function() {
           }, error = function(e) {
             list(action = "toggle_auto_fix", status = "error", message = e$message)
           })
-        },
-        "analyze_last_plot" = {
-          # Analyze the last plot command and provide insights
-          # Reset stop flag for new operation
-          .GlobalEnv$operation_stopped <- FALSE
-          
-          tryCatch({
-            # Step 1: Find and analyze the last plot
-            analysis_result <- analyze_last_plot()
-            
-            if (!analysis_result$success) {
-              # No plot found or analysis failed
-              list(action = "plot_analysis", 
-                   success = FALSE, 
-                   message = analysis_result$message)
-            } else {
-              # Get analysis data
-              analysis <- analysis_result$analysis
-              
-              # Create AI prompt for plot analysis
-              prompt <- paste(
-                "Analyze this plot and provide insights:\n\n",
-                "PLOT COMMAND: ", analysis$plot_command, "\n",
-                "PLOT TYPE: ", analysis$plot_type, "\n",
-                "DATA VARIABLES: ", if(is.list(analysis$data_variables)) {
-                  paste(names(analysis$data_variables), "=", unlist(analysis$data_variables), collapse = ", ")
-                } else {
-                  analysis$data_variables
-                }, "\n\n",
-                "STATISTICAL ANALYSIS RESULTS:\n",
-                paste(names(analysis$analysis_results), ":", 
-                      sapply(analysis$analysis_results, function(x) paste(x, collapse = "\n")), 
-                      collapse = "\n\n"),
-                "\n\nExplain this plot briefly, for the person who made it:\n",
-                "- what it shows (the main pattern or trend, in plain words, with the key numbers)\n",
-                "- anything unusual (outliers, skew, missing values, overplotting)\n",
-                "- one or two concrete improvements, with the R code for them in a single ```r block\n",
-                "Keep it short: a few sentences per point, no headings."
-              )
-              
-              # Send to AI for interpretation using streaming endpoint
-              tryCatch({
-                # Prepare request body for streaming
-                request_body <- list(
-                  access_code = get_current_access_code(),
-                  prompt = prompt,
-                  context_data = list(
-                    plot_analysis = analysis,
-                    workspace_objects = tryCatch({
-                      capture_context()$workspace_objects
-                    }, error = function(e) {
-                      cat("ERROR in plot analysis context capture:", e$message, "\n")
-                      list()
-                    })
-                  )
-                )
-                
-                
-                # Initialize streaming variables
-                plot_chunk_buffer <- ""
-                plot_full_response <- ""
-                
-                # Define chunk callback for plot analysis streaming
-                plot_chunk_callback <- function(json_data) {
-                  # Check if operation was stopped
-                  if (.GlobalEnv$operation_stopped) {
-                    cat("Plot analysis stopped by user\n")
-                    return(list(stop = TRUE))
-                  }
-                  
-                  tryCatch({
-                    chunk_data <- jsonlite::fromJSON(json_data)
-                    
-                    if (!is.null(chunk_data$chunk)) {
-                      plot_full_response <<- paste0(plot_full_response, chunk_data$chunk)
-                      plot_chunk_buffer <<- paste0(plot_chunk_buffer, chunk_data$chunk)
-                      
-                      # Check if we're in the middle of a code block
-                      code_block_open <- grepl("```[^`]*$", plot_chunk_buffer)
-                      incomplete_function <- grepl("^[a-zA-Z_][a-zA-Z0-9_]*\\([^)]*$", plot_chunk_buffer)
-                      
-                      # Send chunk to frontend when we have a complete word or sentence
-                      if (!.GlobalEnv$operation_stopped && !code_block_open && !incomplete_function && 
-                          (grepl("[.!?]\\s*$", plot_chunk_buffer) || 
-                           grepl("\\n\\n", plot_chunk_buffer) ||
-                           grepl("```$", plot_chunk_buffer) ||
-                           nchar(plot_chunk_buffer) > 100)) {
-                        
-                        chunk_response <- list(
-                          action = "ai_response",
-                          streaming = TRUE,
-                          chunk = plot_chunk_buffer
-                        )
-                        ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                        
-                        # Reset buffer
-                        plot_chunk_buffer <<- ""
-                      }
-                    }
-                    
-                    # Check if this is the final chunk
-                    if (!is.null(chunk_data$done) && chunk_data$done) {
-                      # Check if operation was stopped before sending final buffer
-                      if (!.GlobalEnv$operation_stopped && nchar(plot_chunk_buffer) > 0) {
-                        chunk_response <- list(
-                          action = "ai_response",
-                          streaming = TRUE,
-                          chunk = plot_chunk_buffer
-                        )
-                        ws$send(jsonlite::toJSON(chunk_response, auto_unbox = TRUE))
-                      }
-                      return(list(stop = TRUE))
-                    }
-                    
-                    return(NULL)
-                  }, error = function(e) {
-                    cat("Error parsing plot analysis chunk:", e$message, "\n")
-                    return(NULL)
-                  })
-                }
-                
-                # Make streaming POST request
-                plot_result <- stream_httr_post(
-                  url = "https://rgent.onrender.com/chat/stream",
-                  body = request_body,
-                  headers = c("Accept" = "text/event-stream"),
-                  timeout = 60,
-                  chunk_callback = plot_chunk_callback
-                )
-                
-                if (plot_result$success) {
-                  # Send finish signal only if not stopped
-                  if (!.GlobalEnv$operation_stopped) {
-                    finish_response <- list(
-                      action = "ai_response",
-                      streaming = TRUE,
-                      finished = TRUE
-                    )
-                    ws$send(jsonlite::toJSON(finish_response, auto_unbox = TRUE))
-                  }
-                  
-                  # Reset stop flag
-                  .GlobalEnv$operation_stopped <- FALSE
-                  
-                  if (nzchar(plot_full_response)) {
-                    tryCatch({
-                      add_to_conversation_history("user", paste0("Explain my last plot: ", analysis$plot_command))
-                      add_to_conversation_history("ai", plot_full_response)
-                    }, error = function(e) NULL)
-                  }
-                  
-                  list(action = "plot_analysis_streaming_complete")
-                  
-                } else {
-                  list(action = "plot_analysis", 
-                       success = FALSE,
-                       message = paste("The plot analysis request failed",
-                                       if (!is.null(plot_result$status_code)) paste0("(status ", plot_result$status_code, ")") else "",
-                                       "- try again in a moment."))
-                }
-              }, error = function(e) {
-                cat("Exception during plot analysis backend call:", e$message, "\n")
-                # Silenced debug: Exception details
-                list(action = "plot_analysis", 
-                     success = FALSE,
-                     message = paste("Plot analysis failed:", e$message))
-              })
-            }
-          }, error = function(e) {
-            list(action = "plot_analysis", 
-                 success = FALSE,
-                 message = paste("Plot analysis failed:", e$message))
-          })
-        },
-        "start_visualization_agent" = {
-          # Start the visualization agent workflow
-          result <- start_visualization_agent(request$dataframe, request$options)
-          list(action = "visualization_agent_started", data = result)
-        },
-        "get_next_visualization_step" = {
-          # Get the next visualization step
-          step_result <- get_next_visualization_step(request$step, request$dataframe, request$variables, request$options)
-          
-          # Send back the step results
-          list(action = "visualization_step_result", data = step_result)
-        },
-        "execute_visualization_step" = {
-          # Generate code for the visualization step (like other agents)
-          step_code <- generate_visualization_step_code(request$step, request$dataframe, request$variables, request$options)
-          
-          # Send back the code to execute through execution engine
-          list(action = "execute_code_response", code = step_code)
-        },
-        "analyze_visualization_plot" = {
-          # Convert data_variables to the format expected by generate_analysis_commands
-          data_var <- if (is.list(request$data_variables)) {
-            # Extract dataframe and variable names
-            dataframe <- request$data_variables$dataframe
-            x_var <- request$data_variables$x
-            y_var <- request$data_variables$y
-            
-            # Create appropriate data variable string based on plot type
-            if (request$plot_type %in% c("histogram", "density", "bar")) {
-              result <- paste0(dataframe, "$", x_var)
-            } else if (request$plot_type %in% c("scatter", "boxplot", "line", "line_plot")) {
-              result <- list(x = paste0(dataframe, "$", x_var), y = paste0(dataframe, "$", y_var))
-            } else {
-              result <- paste0(dataframe, "$", x_var)
-            }
-            
-            result
-          } else {
-            request$data_variables
-          }
-          
-          # Analyze the visualization plot
-          analysis_result <- analyze_visualization_plot(
-            request$plot_command, 
-            request$plot_type, 
-            data_var
-          )
-          
-          if (!analysis_result$success) {
-            list(action = "visualization_plot_analysis", 
-                 success = FALSE, 
-                 message = analysis_result$message)
-          } else {
-            # Send progress messages
-            progress_msg <- list(
-              action = "chat_with_ai",
-              message = "Step 2: Analyzing plot structure and data..."
-            )
-            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-            
-            progress_msg <- list(
-              action = "chat_with_ai",
-              message = "Step 3: Running statistical analysis..."
-            )
-            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-            
-            progress_msg <- list(
-              action = "chat_with_ai",
-              message = "Step 4: Generating insights and recommendations..."
-            )
-            ws$send(jsonlite::toJSON(progress_msg, auto_unbox = TRUE))
-            
-            # Get analysis data
-            analysis <- analysis_result$analysis
-            
-            # Create AI prompt for plot analysis
-            prompt <- paste(
-              "Analyze this visualization plot and provide insights:\n\n",
-              "PLOT COMMAND: ", analysis$plot_command, "\n",
-              "PLOT TYPE: ", analysis$plot_type, "\n",
-              "DATA VARIABLES: ", if(is.list(analysis$data_variables)) {
-                paste(names(analysis$data_variables), "=", unlist(analysis$data_variables), collapse = ", ")
-              } else {
-                analysis$data_variables
-              }, "\n\n",
-              "STATISTICAL ANALYSIS RESULTS:\n",
-              paste(names(analysis$analysis_results), ":", 
-                    sapply(analysis$analysis_results, function(x) paste(x, collapse = "\n")), 
-                    collapse = "\n\n"),
-              "\n\nPlease provide:\n",
-              "1. What the plot shows (distribution, trends, patterns)\n",
-              "2. Key statistical insights\n",
-              "3. Any outliers or unusual patterns\n",
-              "4. Suggestions for improvement\n",
-              "5. Code examples for better visualizations"
-            )
-            
-            # Send to AI for interpretation using streaming endpoint
-            tryCatch({
-              # Prepare request body for streaming
-              request_body <- list(
-                access_code = get_current_access_code(),
-                prompt = prompt,
-                context_data = list(
-                  plot_analysis = analysis,
-                  workspace_objects = tryCatch({
-                    capture_context()$workspace_objects
-                  }, error = function(e) {
-                    cat("ERROR in plot analysis context capture:", e$message, "\n")
-                    list()
-                  })
-                )
-              )
-              
-              # Initialize streaming variables
-              plot2_chunk_buffer <- ""
-              plot2_full_response <- ""
-              
-              # Define chunk callback for plot analysis streaming
-              plot2_chunk_callback <- function(json_data) {
-                tryCatch({
-                  chunk_data <- jsonlite::fromJSON(json_data)
-                  if (!is.null(chunk_data$chunk)) {
-                    plot2_full_response <<- paste0(plot2_full_response, chunk_data$chunk)
-                    
-                    # Send chunk to frontend immediately
-                    chunk_msg <- list(
-                      action = "ai_response",
-                      streaming = TRUE,
-                      chunk = chunk_data$chunk
-                    )
-                    ws$send(jsonlite::toJSON(chunk_msg, auto_unbox = TRUE))
-                  }
-                  
-                  # Check if done
-                  if (!is.null(chunk_data$done) && chunk_data$done) {
-                    return(list(stop = TRUE))
-                  }
-                  
-                  return(NULL)
-                }, error = function(e) {
-                  cat("Error parsing chunk:", e$message, "\n")
-                  return(NULL)
-                })
-              }
-              
-              # Make streaming POST request
-              plot2_result <- stream_httr_post(
-                url = "https://rgent.onrender.com/chat/stream",
-                body = request_body,
-                headers = c("Accept" = "text/event-stream"),
-                timeout = 60,
-                chunk_callback = plot2_chunk_callback
-              )
-              
-              if (plot2_result$success) {
-                # Send completion message
-                completion_msg <- list(
-                  action = "plot_analysis_streaming_complete"
-                )
-                ws$send(jsonlite::toJSON(completion_msg, auto_unbox = TRUE))
-                
-                list(action = "visualization_plot_analysis", 
-                     success = TRUE, 
-                     message = "Plot analysis completed")
-              } else {
-                list(action = "visualization_plot_analysis", 
-                     success = FALSE, 
-                     message = paste("AI analysis failed with status:", plot2_result$status_code))
-              }
-            }, error = function(e) {
-              list(action = "visualization_plot_analysis", 
-                   success = FALSE, 
-                   message = paste("AI analysis error:", e$message))
-            })
-          }
-        },
-        "stop_agent" = {
-          list(action = "stop_response", status = "success", message = "Agent workflow stopped")
         },
         "stop_response" = {
           # Handle stop request for any operation (chat, auto-execute, debug, plot analysis)
@@ -2737,7 +1817,7 @@ start_websocket_server <- function() {
           
           # Set up message handler
           ws$onMessage(function(isBinary, data) {
-            message_handler(ws, isBinary, data)
+            .rgent_track_errors(message_handler, ws, isBinary, data)
           })
         },
         onWSClose = function(ws) {
@@ -2780,7 +1860,7 @@ start_websocket_server <- function() {
               
               # Set up message handler
               ws$onMessage(function(isBinary, data) {
-                message_handler(ws, isBinary, data)
+                .rgent_track_errors(message_handler, ws, isBinary, data)
               })
             },
             onWSClose = function(ws) {
@@ -2831,6 +1911,21 @@ launch_html_interface <- function() {
 #' Add message to conversation history
 #' @param role The role of the message sender ("user" or "ai")
 #' @param message The message content
+# Why code the chat would auto-run needs the user's OK first (NULL: run it).
+# Only for the first run of a reply (`auto`); a click on Run is the user's OK.
+.rgent_auto_run_check <- function(request) {
+  if (!isTRUE(request$auto) || !is.null(request$resume) || length(request$answers)) return(NULL)
+  tryCatch(unit_unsafe_reason(paste(request$code, collapse = "\n")), error = function(e) NULL)
+}
+
+# Shown when the server didn't answer twice. (It used to blame the size of the
+# user's environment and suggest rm(list = ls()), but the context sent is capped,
+# so a timeout is about the network or the server.)
+.rgent_timeout_message <- paste0(
+  "The Rgent server didn't answer in time, twice. Check your internet connection and try again ",
+  "in a minute. Nothing in your session was changed."
+)
+
 #' @export
 add_to_conversation_history <- function(role, message) {
   # Get current conversation history
@@ -2850,13 +1945,19 @@ add_to_conversation_history <- function(role, message) {
     )
   ))
   
-  # Keep only last 4 messages to avoid context bloat (welcome message + 3 recent exchanges)
-  if (length(.GlobalEnv$conversation_history) > 4) {
-    .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(length(.GlobalEnv$conversation_history) - 3):length(.GlobalEnv$conversation_history)]
+  # Keep the last few exchanges (get_conversation_history() compacts the older ones)
+  n <- length(.GlobalEnv$conversation_history)
+  if (n > .rgent_history_n) {
+    .GlobalEnv$conversation_history <- .GlobalEnv$conversation_history[(n - .rgent_history_n + 1L):n]
   }
-  
-  
 }
+
+# How much conversation Claude sees: the last 12 messages (6 exchanges), at most
+# about 9,000 characters (~2.5k tokens). Claude's latest reply is kept whole, the
+# two before it compacted to 1,500 characters, older ones to 400, and older
+# questions to 600; when it's still too long the oldest messages are dropped.
+.rgent_history_n <- 12L
+.rgent_history_chars <- 9000L
 
 #' The most recent message the user typed (not an auto-fix request)
 #' @keywords internal
@@ -2908,16 +2009,22 @@ get_conversation_history <- function() {
   ai <- which(vapply(hist, function(m) !identical(m$role, "user"), logical(1)))
   last_ai <- if (length(ai)) max(ai) else 0L
 
-  history_text <- "CONVERSATION HISTORY:\n"
-  for (i in seq_along(hist)) {
+  recent_ai <- utils::tail(ai, 3)
+  n <- length(hist)
+  parts <- vapply(seq_along(hist), function(i) {
     msg <- hist[[i]]
-    role_label <- ifelse(msg$role == "user", "USER", "AI")
-    text <- as.character(msg$message)
-    if (role_label == "AI" && i != last_ai) text <- .rgent_compact_reply(text)
-    history_text <- paste0(history_text, role_label, ": ", text, "\n\n")
-  }
-
-  return(history_text)
+    is_user <- identical(msg$role, "user")
+    text <- paste(as.character(msg$message), collapse = "\n")
+    if (!is_user && i != last_ai) {
+      text <- .rgent_compact_reply(text, max_chars = if (i %in% recent_ai) 1500L else 400L)
+    } else if (is_user && i < n - 3L && nchar(text) > 600L) {
+      text <- paste0(substr(text, 1, 600), " [...]")
+    }
+    paste0(if (is_user) "USER" else "AI", ": ", text, "\n\n")
+  }, "")
+  # Drop the oldest messages while it's too long (always keep the last two)
+  while (length(parts) > 2 && sum(nchar(parts)) > .rgent_history_chars) parts <- parts[-1]
+  paste0("CONVERSATION HISTORY:\n", paste(parts, collapse = ""))
 }
 
 #' Capture current workspace context

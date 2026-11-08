@@ -7,10 +7,10 @@ test_that("package loads without errors", {
 test_that("package has required components", {
   # Check that main functions exist
   expect_true(exists("run_rgent"))
-  expect_true(exists("start_cleaning_agent"))
-  expect_true(exists("start_transformation_agent"))
-  expect_true(exists("start_statistical_analysis"))
-  expect_true(exists("start_modeling_agent"))
+  expect_true(exists("get_dataframe_info"))
+  expect_true(exists("get_available_dataframes"))
+  # The Agents code was removed in 2.4.4
+  expect_false(exists("start_cleaning_agent", envir = asNamespace("rstudioai"), inherits = FALSE))
 })
 
 test_that("package metadata is correct", {
@@ -35,10 +35,10 @@ test_that("namespace exports are correct", {
   
   expected_exports <- c(
     "run_rgent",
-    "start_cleaning_agent", 
-    "start_transformation_agent",
-    "start_statistical_analysis",
-    "start_modeling_agent"
+    "get_dataframe_info",
+    "get_available_dataframes",
+    "get_object_explorer_data",
+    "check_and_update_package"
   )
   
   for (func in expected_exports) {

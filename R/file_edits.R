@@ -25,7 +25,8 @@ edit_instructions <- function(file_name, outline = "") {
     "```edit after 12 inserts after line 12 (0 = top). Line numbers from the CURRENT FILE listing",
     " or OUTLINE; one block per change. If the new lines contain ``` fences, wrap the edit in ````. ",
     "The user accepts each edit and can Undo it on its card (point them there to revert). ",
-    "Edit only when asked to change the file; ```r is for code to run now.)",
+    "Edit when asked to change the file, or when the user asks why something in it is wrong: explain briefly ",
+    "and include the fix as an edit in the same reply (they can reject it). ```r is for code to run now.)",
     outline
   )
 }
@@ -303,6 +304,50 @@ remember_edit_target <- function(doc = NULL) {
   FALSE
 }
 
+# What "Accept & run" runs: the whole statements the edit touches, not just
+# the new lines. A changed line in the middle of a pipeline
+# (`summarise(...)` on its own) fails when run alone. In R Markdown / Quarto
+# it also runs the rest of that chunk, as the chunk's later lines usually
+# use what the edit changed (and print the result). Works on the document
+# as it will be after the edit; falls back to the new lines when that part
+# doesn't parse.
+.rgent_edit_run_code <- function(target, mode, start, end, new_code) {
+  if (length(new_code) == 0) return("")
+  fallback <- paste(new_code, collapse = "\n")
+  lines <- target$lines
+  n <- length(lines)
+  if (mode == "replace") {
+    after <- c(lines[seq_len(start - 1)], new_code, if (end < n) lines[(end + 1):n])
+    es <- start
+  } else {
+    after <- c(lines[seq_len(start)], new_code, if (start < n) lines[(start + 1):n])
+    es <- start + 1L
+  }
+  ee <- es + length(new_code) - 1L
+  md <- .rgent_is_markdown(target$name, target$lines)
+  first <- 1L; last <- length(after)
+  if (md) {
+    hit <- NULL
+    for (b in .rgent_chunk_bodies(after)) {
+      if (es >= b[["first"]] && ee <= b[["last"]]) { hit <- b; break }
+    }
+    if (is.null(hit)) return(fallback)
+    first <- hit[["first"]]; last <- hit[["last"]]
+  }
+  region <- after[first:last]
+  parsed <- tryCatch(parse(text = region, keep.source = TRUE), error = function(e) NULL)
+  refs <- if (is.null(parsed)) NULL else attr(parsed, "srcref")
+  if (length(refs) == 0) return(fallback)
+  off <- first - 1L
+  starts <- vapply(refs, function(r) r[[1]], integer(1)) + off
+  ends <- vapply(refs, function(r) r[[3]], integer(1)) + off
+  touched <- which(ends >= es & starts <= ee)
+  if (length(touched) == 0) return(fallback)
+  from <- starts[min(touched)]
+  to <- if (md) ends[length(ends)] else ends[max(touched)]
+  paste(after[from:to], collapse = "\n")
+}
+
 .rgent_as_lines <- function(x) {
   if (is.null(x)) return(character(0))
   as.character(unlist(x, use.names = FALSE))
@@ -384,7 +429,9 @@ preview_file_edits <- function(edits) {
       mode = mode, start = start, end = end, at = at,
       old = as.list(old), new = as.list(new),
       code = paste(new_code, collapse = "\n"),
-      runnable = length(new_code) > 0 && .rgent_edit_runnable(target, mode, start, end)
+      runnable = length(new_code) > 0 && .rgent_edit_runnable(target, mode, start, end),
+      run_code = tryCatch(.rgent_edit_run_code(target, mode, start, end, new_code),
+                          error = function(err) paste(new_code, collapse = "\n"))
     )
   })
 }

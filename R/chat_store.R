@@ -139,7 +139,7 @@ chat_store_open <- function(id) {
   if (is.null(ch)) return(NULL)
   .rgent_chat$current <- ch
   msgs <- ch$messages
-  last <- utils::tail(msgs, 4)
+  last <- utils::tail(msgs, .rgent_history_n)
   .GlobalEnv$conversation_history <- lapply(last, function(m) list(role = m$role, message = m$text, timestamp = Sys.time()))
   ch
 }

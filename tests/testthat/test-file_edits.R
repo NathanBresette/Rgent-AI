@@ -122,3 +122,21 @@ test_that("the prompt explains the edit format", {
   expect_match(ins, "```edit 12-15", fixed = TRUE)
   expect_match(ins, "analysis.Rmd", fixed = TRUE)
 })
+
+test_that("Accept & run runs the whole statement the edit touches", {
+  rmd <- c("---", "title: x", "---", "", "```{r by-region}", "region_totals <- sales %>%",
+           "  group_by(region) %>%", "  summarise(revenue = sum(revenue))", "region_totals", "```",
+           "", "```{r other}", "slow_model()", "```")
+  t <- list(name = "report.Rmd", lines = rmd)
+  # one line in the middle of a pipeline: the whole pipeline and the rest of the chunk
+  expect_equal(rstudioai:::.rgent_edit_run_code(t, "replace", 8, 8, "  summarise(revenue = sum(revenue, na.rm = TRUE))"),
+               paste(c(rmd[6:7], "  summarise(revenue = sum(revenue, na.rm = TRUE))", "region_totals"), collapse = "\n"))
+  # never runs another chunk
+  expect_false(grepl("slow_model", rstudioai:::.rgent_edit_run_code(t, "after", 9, 9, "print(1)")))
+  # a script: only the statements touched
+  s <- list(name = "a.R", lines = c("x <- 1:10", "y <- x |>", "  sum()", "print(y)"))
+  expect_equal(rstudioai:::.rgent_edit_run_code(s, "replace", 3, 3, "  mean()"), "y <- x |>\n  mean()")
+  # code that doesn't parse: just the new lines, as before
+  expect_equal(rstudioai:::.rgent_edit_run_code(s, "replace", 3, 3, "  mean(("), "  mean((")
+  expect_equal(rstudioai:::.rgent_edit_run_code(s, "replace", 3, 3, character(0)), "")
+})

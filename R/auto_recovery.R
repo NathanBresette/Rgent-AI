@@ -279,6 +279,7 @@ document_packages <- function(doc) {
   "(remotes|devtools|pak)::\\w*install" = "installs packages",
   "(^|[^.\\w])unlink\\s*\\(" = "deletes files",
   "file\\.remove\\s*\\(" = "deletes files",
+  "fs::(file|dir)_delete|file\\.rename\\s*\\(" = "deletes or moves files",
   "(^|[^.\\w])rm\\s*\\(\\s*list\\s*=" = "clears the environment",
   "(^|[^.\\w])system2?\\s*\\(" = "runs shell commands",
   "(^|[^.\\w])shell\\s*\\(" = "runs shell commands",

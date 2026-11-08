@@ -31,9 +31,7 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
 
   # Print code to console if enabled (once, not again when resuming)
   if (settings$print_to_console && start_at == 1L) {
-    cat("\n### AI executing the following code ###\n")
-    cat(code, "\n")
-    cat("### End of AI code ###\n\n")
+    cat(.rgent_console_echo(code), sep = "\n")
   }
 
   # Log code to file if enabled
@@ -586,6 +584,9 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
   }, finally = {
     # Clean up temporary plot files
     if (length(plot_files) > 0) {
+        # Keep the last picture for Explain plot: the plot was drawn into a file
+        # and its device closed, so there's nothing left to redraw
+        tryCatch(.rgent_keep_chat_plot(utils::tail(plot_files[file.exists(plot_files)], 1)), error = function(e) NULL)
         tryCatch({
         while (grDevices::dev.cur() != 1) grDevices::dev.off()
         suppressWarnings(unlink(plot_files[sapply(plot_files, file.exists)], force = TRUE))
@@ -681,4 +682,19 @@ save_execution_settings <- function(settings) {
   settings_file <- file.path(path.expand("~"), ".rstudioai_settings.rds")
   saveRDS(settings, settings_file)
   invisible(NULL)
+}
+
+# The code the chat runs, shown in the Console as if it had been typed there:
+# one "# Rgent ran:" line, then "> " for each statement and "+ " for its
+# continuation lines (as R prints them).
+.rgent_console_echo <- function(code) {
+  lines <- unlist(strsplit(paste(code, collapse = "\n"), "\n", fixed = TRUE))
+  while (length(lines) && !nzchar(trimws(lines[length(lines)]))) lines <- lines[-length(lines)]
+  if (!length(lines)) return(character(0))
+  starts <- tryCatch({
+    exprs <- parse(text = lines, keep.source = TRUE)
+    vapply(attr(exprs, "srcref"), function(s) s[1], 1L)
+  }, error = function(e) seq_along(lines))
+  prefix <- ifelse(seq_along(lines) %in% starts | !nzchar(trimws(lines)), "> ", "+ ")
+  c("# Rgent ran:", paste0(prefix, lines))
 }
