@@ -127,8 +127,8 @@
       else "The reply was cut off: the connection to Rgent's server dropped. Ask again to get the rest."))
   }
   list(action = "ai_response", message = if (!is.null(status) && status %in% c(401L, 403L))
-    "Rgent's server refused this request: your access code isn't active or your free trial has run out. See the Usage tab."
-    else if (!is.null(status) && status == 429L) "You've reached your plan's request limit. See the Usage tab."
+    "Your free trial has run out, or your access code isn't active. Plans with 1,000 requests a month start at $10 at rgentai.com/plans (also linked from the Usage tab)."
+    else if (!is.null(status) && status == 429L) "You've reached your plan's request limit. The Usage tab shows what you've used."
     else if (!is.null(status) && length(status) && status >= 500) paste0("Rgent's server had a problem (", status, "). Try again in a moment.")
     else "Couldn't reach Rgent's server. Check your internet connection and ask again; nothing in your session changed.")
 }
