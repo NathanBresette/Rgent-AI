@@ -65,6 +65,39 @@ test_that("a real background check against a fake GitHub doesn't block and repor
   expect_equal(readLines(status), "current")
 })
 
+test_that("the update installs from r-universe when it has the new version, else falls back to GitHub", {
+  skip_on_cran()
+  # a fake GitHub DESCRIPTION and a fake r-universe (a local CRAN-style repo with a tiny rstudioai 9.9.10)
+  root <- tempfile("ru"); dir.create(root)
+  pkg <- file.path(root, "src", "rstudioai"); dir.create(file.path(pkg, "R"), recursive = TRUE)
+  writeLines(c("Package: rstudioai", "Version: 9.9.10", "Title: Fake", "Description: Fake.", "License: MIT",
+               "Authors@R: person('A', 'B', email = 'a@b.org', role = c('aut', 'cre'))"), file.path(pkg, "DESCRIPTION"))
+  writeLines("", file.path(pkg, "NAMESPACE")); writeLines("f <- function() 1", file.path(pkg, "R", "f.R"))
+  contrib <- file.path(root, "repo", "src", "contrib"); dir.create(contrib, recursive = TRUE)
+  old <- setwd(contrib); on.exit(setwd(old), add = TRUE)
+  system2(file.path(R.home("bin"), "R"), c("CMD", "build", "--no-build-vignettes", shQuote(pkg)), stdout = FALSE, stderr = FALSE)
+  setwd(old)
+  tools::write_PACKAGES(contrib, type = "source")
+  gh <- tempfile(); writeLines(c("Package: rstudioai", "Version: 9.9.10"), gh)
+  run <- function(repo_version_ok = TRUE) {
+    lib <- tempfile("lib"); dir.create(lib); status <- tempfile()
+    sc <- rstudioai:::.rgent_update_script("9.9.9", lib, status, runiverse = paste0("file://", file.path(root, "repo")))
+    sc <- sub("https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION", paste0("file://", gh), sc, fixed = TRUE)
+    sc <- sub("remotes::install_github(", "stop('fallback to GitHub'); invisible(", sc, fixed = TRUE)   # never touch the network
+    sc <- sub("requireNamespace('remotes', quietly = TRUE)", "TRUE", sc, fixed = TRUE)          # whether or not remotes is installed
+    sc <- sub("'https://cloud.r-project.org'", "NULL", sc, fixed = TRUE)
+    if (!repo_version_ok) writeLines(c("Package: rstudioai", "Version: 9.9.11"), gh)                # GitHub ahead of r-universe
+    f <- tempfile(fileext = ".R"); writeLines(c("options(pkgType = 'source')", sc), f)
+    system2(file.path(R.home("bin"), "Rscript"), c("--vanilla", shQuote(f)), stdout = FALSE, stderr = FALSE)
+    list(status = readLines(status), lib = lib)
+  }
+  a <- run()
+  expect_equal(a$status, "installed")
+  expect_equal(as.character(utils::packageVersion("rstudioai", lib.loc = a$lib)), "9.9.10")
+  b <- run(repo_version_ok = FALSE)   # r-universe hasn't built 9.9.11 yet: GitHub instead
+  expect_match(b$status, "fallback to GitHub")
+})
+
 test_that("auto-start starts Rgent once per R session (Restart R fired it twice and the pane reset at the first code run)", {
   st <- rstudioai:::.rgent_state
   old <- st$started; on.exit(st$started <- old, add = TRUE)

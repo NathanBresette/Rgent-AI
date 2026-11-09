@@ -7,16 +7,30 @@
 # looks at that file every few seconds (later) and, when an update was
 # installed, says so and shows the Restart R banner (version_status).
 
-.rgent_update_script <- function(installed, lib, status) {
+# r-universe builds the package from Rgent-AI about an hour after each push and serves
+# ready-built binaries (no GitHub API, no remotes, nothing compiled), so updates come
+# from there. Until it has the new version (just after a release), or if it can't be
+# reached, the update falls back to install_github.
+.rgent_runiverse <- "https://nathanbresette.r-universe.dev"
+
+.rgent_update_script <- function(installed, lib, status, runiverse = .rgent_runiverse) {
   q <- function(x) deparse(x)
   paste0(
     "status <- tryCatch({\n",
     "  d <- readLines(url('https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION'), warn = FALSE)\n",
     "  v <- trimws(sub('^Version:', '', grep('^Version:', d, value = TRUE)[1]))\n",
     "  if (is.na(v) || utils::compareVersion(v, ", q(installed), ") <= 0) 'current'\n",
-    "  else if (!requireNamespace('remotes', quietly = TRUE)) 'no-remotes'\n",
     "  else {\n",
-    "    remotes::install_github('NathanBresette/Rgent-AI', upgrade = 'never', force = TRUE, lib = ", q(lib), ", quiet = TRUE)\n",
+    "    ru <- ", q(runiverse), "\n",
+    "    ap <- tryCatch(utils::available.packages(repos = ru), error = function(e) NULL)\n",
+    "    rv <- if (!is.null(ap) && 'rstudioai' %in% rownames(ap)) ap['rstudioai', 'Version'] else NA\n",
+    "    if (!is.na(rv) && utils::compareVersion(rv, v) >= 0) {\n",
+    "      utils::install.packages('rstudioai', repos = c(ru, 'https://cloud.r-project.org'), lib = ", q(lib), ", quiet = TRUE)\n",
+    "    } else if (requireNamespace('remotes', quietly = TRUE)) {\n",
+    "      remotes::install_github('NathanBresette/Rgent-AI', upgrade = 'never', force = TRUE, lib = ", q(lib), ", quiet = TRUE)\n",
+    "    } else stop('the new version is not on r-universe yet and remotes is not installed')\n",
+    "    now <- as.character(utils::packageVersion('rstudioai', lib.loc = ", q(lib), "))\n",
+    "    if (utils::compareVersion(now, ", q(installed), ") <= 0) stop('the install did not take')\n",
     "    'installed'\n",
     "  }\n",
     "}, error = function(e) paste('error:', conditionMessage(e)))\n",

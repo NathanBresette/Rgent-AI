@@ -7,12 +7,13 @@ Get an access code at [rgentai.com](https://rgentai.com).
 ## Installation
 
 ```r
-install.packages("remotes")
-remotes::install_github("NathanBresette/Rgent-AI", upgrade = "never")
+install.packages("rstudioai", repos = c("https://nathanbresette.r-universe.dev", "https://cloud.r-project.org"))
 
 library(rstudioai)
 run_rgent()   # opens the chat pane in RStudio's Viewer
 ```
+
+[R-universe](https://nathanbresette.r-universe.dev) builds the package from this repository, so this installs a ready-built version for Windows, macOS and Linux. To install straight from GitHub instead: `remotes::install_github("NathanBresette/Rgent-AI", upgrade = "never")`.
 
 After the first start, Rgent opens by itself when RStudio starts (`setup_rprofile_auto_start()` adds this to your `.Rprofile`). When a new version is installed, the chat tells you and offers **Restart R** to load it.
 

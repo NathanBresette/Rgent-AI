@@ -21,7 +21,13 @@ test_that("package metadata is correct", {
 })
 
 test_that("dependencies are available", {
-  required_packages <- c("httr", "jsonlite", "rstudioapi", "clipr", "shiny", "httpuv")
+  # Read Imports from DESCRIPTION: a hardcoded list went stale when 2.4.15
+  # dropped shiny and clipr, and r-universe's check (which installs only
+  # Imports) failed on it.
+  imports <- packageDescription("rstudioai")$Imports
+  required_packages <- trimws(sub("\\(.*", "", strsplit(imports, ",")[[1]]))
+  required_packages <- required_packages[nzchar(required_packages)]
+  expect_true(all(c("httr", "jsonlite", "rstudioapi", "httpuv") %in% required_packages))
   
   for (pkg in required_packages) {
     expect_true(require(pkg, character.only = TRUE, quietly = TRUE),
