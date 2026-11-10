@@ -138,8 +138,9 @@ execute_code_in_session <- function(code, settings = NULL, start_at = 1L,
       if (!requireNamespace("webshot", quietly = TRUE)) return(NULL)
       
       # Check if phantomjs is installed
-      phantom_path <- tryCatch(webshot::find_phantom(), error = function(e) NULL)
-      if (is.null(phantom_path) || phantom_path == "") return(NULL)
+      # find_phantom() is internal to webshot; is_phantomjs_installed() is its export
+      phantom_ok <- tryCatch(isTRUE(webshot::is_phantomjs_installed()), error = function(e) FALSE)
+      if (!phantom_ok) return(NULL)
       
       plot_file <- tempfile(fileext = ".png")
       html_file <- tempfile(fileext = ".html")

@@ -42,7 +42,7 @@ test_that("ggplots and base plots keep their order; the user's own png() is left
                  'p\n',
                  'plot(1:5)\n',
                  'print(p + ggtitle("two"))\n',
-                 'png("', out_file, '"); plot(5:1); dev.off()\n',
+                 'png(', deparse(out_file), '); plot(5:1); dev.off()\n',  # deparse: Windows paths have backslashes
                  'x <- 1')
   r <- run_chat(code)
   expect_true(isTRUE(r$success), info = r$error)
