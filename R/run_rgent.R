@@ -53,7 +53,7 @@ run_rgent <- function() {
   cat("Context captured successfully\n")
   
   # Debug: Print context summary
-  cat("📊 Context Summary:\n")
+  cat("\U0001F4CA Context Summary:\n")
   cat("  - Workspace objects:", length(context_data$workspace_objects), "\n")
   cat("  - Environment info keys:", paste(names(context_data$environment_info), collapse = ", "), "\n")
   if (!is.null(context_data$file_info) && length(context_data$file_info) > 0) {
@@ -80,12 +80,12 @@ run_rgent <- function() {
     )
     
     if (httr::status_code(context_response) == 200) {
-      cat("✅ Context sent to backend successfully\n")
+      cat("\u2705 Context sent to backend successfully\n")
     } else {
-      cat("⚠️ Backend context storage failed, continuing anyway\n")
+      cat("\u26A0\uFE0F Backend context storage failed, continuing anyway\n")
     }
   }, error = function(e) {
-    cat("⚠️ Error sending context to backend:", e$message, "\n")
+    cat("\u26A0\uFE0F Error sending context to backend:", e$message, "\n")
     cat("Continuing with local context only\n")
   })
   
@@ -99,16 +99,16 @@ run_rgent <- function() {
       
       # Open in RStudio viewer pane
       rstudioapi::viewer(temp_html)
-      cat("✅ AI Assistant opened successfully in RStudio Viewer!\n")
-      cat("💡 You can now chat with the AI while continuing to work in RStudio.\n")
-      cat("📊 Context data includes", length(context_data$workspace_objects), "workspace objects\n")
+      cat("\u2705 AI Assistant opened successfully in RStudio Viewer!\n")
+      cat("\U0001F4A1 You can now chat with the AI while continuing to work in RStudio.\n")
+      cat("\U0001F4CA Context data includes", length(context_data$workspace_objects), "workspace objects\n")
     } else {
-      cat("❌ RStudio API is not available. Please run this in RStudio.\n")
-      cat("📝 HTML content is ready but needs RStudio to display in viewer.\n")
+      cat("\u274C RStudio API is not available. Please run this in RStudio.\n")
+      cat("\U0001F4DD HTML content is ready but needs RStudio to display in viewer.\n")
       return(invisible(FALSE))
     }
   }, error = function(e) {
-    cat("❌ Failed to open viewer:", e$message, "\n")
+    cat("\u274C Failed to open viewer:", e$message, "\n")
     return(invisible(FALSE))
   })
   
@@ -118,13 +118,13 @@ run_rgent <- function() {
 #' Refresh context and send to backend
 #' @export
 refresh_context <- function() {
-  cat("🔄 Refreshing context...\n")
+  cat("\U0001F504 Refreshing context...\n")
   
   # Capture current context
   context_data <- capture_context()
   
   # Debug: Print context summary
-  cat("📊 Updated Context Summary:\n")
+  cat("\U0001F4CA Updated Context Summary:\n")
   cat("  - Workspace objects:", length(context_data$workspace_objects), "\n")
   cat("  - Environment info keys:", paste(names(context_data$environment_info), collapse = ", "), "\n")
   if (!is.null(context_data$file_info) && length(context_data$file_info) > 0) {
@@ -149,12 +149,12 @@ refresh_context <- function() {
     )
     
     if (httr::status_code(context_response) == 200) {
-      cat("✅ Context refreshed and sent to backend successfully\n")
+      cat("\u2705 Context refreshed and sent to backend successfully\n")
     } else {
-      cat("⚠️ Backend context storage failed\n")
+      cat("\u26A0\uFE0F Backend context storage failed\n")
     }
   }, error = function(e) {
-    cat("⚠️ Error sending context to backend:", e$message, "\n")
+    cat("\u26A0\uFE0F Error sending context to backend:", e$message, "\n")
   })
   
   return(invisible(TRUE))
@@ -270,13 +270,13 @@ insert_code_at_location <- function(code, file_path = NULL, line_number = NULL, 
       if (requireNamespace("clipr", quietly = TRUE)) {
         code <- clipr::read_clip()
         if (length(code) == 0) {
-          cat("❌ No code found in clipboard\n")
+          cat("\u274C No code found in clipboard\n")
           return(FALSE)
         }
-        cat("📋 Reading code from clipboard...\n")
+        cat("\U0001F4CB Reading code from clipboard...\n")
       } else {
-        cat("❌ No code provided and clipr package not available\n")
-        cat("💡 Install clipr: install.packages('clipr')\n")
+        cat("\u274C No code provided and clipr package not available\n")
+        cat("\U0001F4A1 Install clipr: install.packages('clipr')\n")
         return(FALSE)
       }
     }
@@ -293,7 +293,7 @@ insert_code_at_location <- function(code, file_path = NULL, line_number = NULL, 
         Sys.sleep(0.5)
         doc_context <- rstudioapi::getActiveDocumentContext()
       } else {
-        cat("❌ File not found:", file_path, "\n")
+        cat("\u274C File not found:", file_path, "\n")
         return(FALSE)
       }
     }
@@ -302,23 +302,23 @@ insert_code_at_location <- function(code, file_path = NULL, line_number = NULL, 
     if (!is.null(line_number)) {
       # Set cursor to specific line
       rstudioapi::setCursorPosition(rstudioapi::document_position(line_number, 1))
-      cat("📍 Positioned cursor at line", line_number, "\n")
+      cat("\U0001F4CD Positioned cursor at line", line_number, "\n")
     }
     
     # Insert the code
     if (replace_selection && length(doc_context$selection) > 0) {
       # Replace current selection
       rstudioapi::insertText(code)
-      cat("✅ Code inserted, replacing selection\n")
+      cat("\u2705 Code inserted, replacing selection\n")
     } else {
       # Insert at cursor position
       rstudioapi::insertText(code)
-      cat("✅ Code inserted at cursor position\n")
+      cat("\u2705 Code inserted at cursor position\n")
     }
     
     return(TRUE)
   }, error = function(e) {
-    cat("❌ Failed to insert code:", e$message, "\n")
+    cat("\u274C Failed to insert code:", e$message, "\n")
     return(FALSE)
   })
 }
@@ -338,22 +338,22 @@ insert_code <- function(code = NULL) {
       if (requireNamespace("clipr", quietly = TRUE)) {
         code <- clipr::read_clip()
         if (length(code) == 0) {
-          cat("❌ No code found in clipboard\n")
+          cat("\u274C No code found in clipboard\n")
           return(FALSE)
         }
-        cat("📋 Reading code from clipboard...\n")
+        cat("\U0001F4CB Reading code from clipboard...\n")
       } else {
-        cat("❌ No code provided and clipr package not available\n")
-        cat("💡 Install clipr: install.packages('clipr')\n")
+        cat("\u274C No code provided and clipr package not available\n")
+        cat("\U0001F4A1 Install clipr: install.packages('clipr')\n")
         return(FALSE)
       }
     }
     
     rstudioapi::insertText(code)
-    cat("✅ Code inserted successfully!\n")
+    cat("\u2705 Code inserted successfully!\n")
     return(TRUE)
   }, error = function(e) {
-    cat("❌ Failed to insert code:", e$message, "\n")
+    cat("\u274C Failed to insert code:", e$message, "\n")
     return(FALSE)
   })
 } 

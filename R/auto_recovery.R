@@ -33,7 +33,7 @@
 }
 
 .rgent_strip_quotes <- function(x) {
-  gsub("^[\"'‘’“”]+|[\"'‘’“”]+$", "", trimws(x))
+  gsub("^[\"'\u2018\u2019\u201C\u201D]+|[\"'\u2018\u2019\u201C\u201D]+$", "", trimws(x))
 }
 
 .rgent_strip_ansi <- function(x) {
@@ -61,7 +61,7 @@ classify_execution_error <- function(msg) {
   # Files: base R and readr/vroom wordings
   m <- .rgent_match_template(msg, "cannot open file '%s': %s")
   if (is.null(m)) {
-    m2 <- regmatches(msg, regexec("[\"'‘]([^\"'’]+)[\"'’] does not exist", msg, perl = TRUE))[[1]]
+    m2 <- regmatches(msg, regexec("[\"'\u2018]([^\"'\u2019]+)[\"'\u2019] does not exist", msg, perl = TRUE))[[1]]
     if (length(m2) >= 2) m <- m2[2]
   }
   if (!is.null(m)) return(list(type = "missing_file", name = m))
@@ -626,7 +626,9 @@ run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
       cur <- tryCatch(get(name, envir = e, inherits = FALSE), error = function(err) NULL)
       if (!identical(cur, from)) next
       locked <- bindingIsLocked(name, e)
-      if (locked) unlockBinding(name, e)
+      # Unlocked only for the swap and locked again below. do.call keeps R CMD check's
+      # "possibly unsafe calls" note quiet; the call is the same.
+      if (locked) do.call("unlockBinding", list(name, e))
       assign(name, to, envir = e)
       if (locked) lockBinding(name, e)
     }

@@ -624,11 +624,11 @@ explorer_copy_values <- function(df_name, filters = NULL, sorts = NULL, search =
 .rgent_obj_desc <- function(x) {
   cls <- class(x)[1]
   tryCatch({
-    if (is.data.frame(x)) return(sprintf("%s %s × %s", cls, format(nrow(x), big.mark = ","), ncol(x)))
-    if (is.matrix(x) || is.array(x)) return(sprintf("%s %s [%s]", typeof(x), cls, paste(dim(x), collapse = " × ")))
+    if (is.data.frame(x)) return(sprintf("%s %s \u00D7 %s", cls, format(nrow(x), big.mark = ","), ncol(x)))
+    if (is.matrix(x) || is.array(x)) return(sprintf("%s %s [%s]", typeof(x), cls, paste(dim(x), collapse = " \u00D7 ")))
     if (is.function(x)) {
       a <- names(formals(x))
-      return(sprintf("function(%s)", if (length(a) > 6) paste(c(a[1:6], "…"), collapse = ", ") else paste(a, collapse = ", ")))
+      return(sprintf("function(%s)", if (length(a) > 6) paste(c(a[1:6], "\u2026"), collapse = ", ") else paste(a, collapse = ", ")))
     }
     if (is.environment(x)) return(sprintf("environment [%d]", length(ls(x, all.names = TRUE))))
     if (isS4(x)) return(sprintf("S4 %s", cls))
@@ -654,10 +654,10 @@ explorer_copy_values <- function(df_name, filters = NULL, sorts = NULL, search =
     } else if (is.language(x)) paste(deparse(x, width.cutoff = 200L)[1], collapse = "")
     else if (is.list(x) && length(x)) {
       n <- names(x)
-      if (!is.null(n)) paste(utils::head(ifelse(nzchar(n), n, "—"), 8), collapse = ", ") else ""
+      if (!is.null(n)) paste(utils::head(ifelse(nzchar(n), n, "\u2014"), 8), collapse = ", ") else ""
     } else ""
   }, error = function(e) "")
-  if (nchar(out) > width) out <- paste0(substr(out, 1, width - 1), "…")
+  if (nchar(out) > width) out <- paste0(substr(out, 1, width - 1), "\u2026")
   out
 }
 

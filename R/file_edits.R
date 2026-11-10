@@ -138,7 +138,7 @@ edit_instructions <- function(file_name, outline = "", auto_run = FALSE, run_edi
   if (!length(idx)) return(list(pattern = pattern, count = 0L, text = "(no matching lines)"))
   txt <- lines[idx]
   long <- nchar(txt, allowNA = TRUE, keepNA = FALSE) > 200L
-  txt[long] <- paste0(substr(txt[long], 1L, 200L), " …")
+  txt[long] <- paste0(substr(txt[long], 1L, 200L), " \u2026")
   rows <- sprintf("%5d| %s", idx, txt)
   keep <- seq_along(rows) <= max_matches & cumsum(nchar(rows) + 1L) <= budget
   keep[1] <- TRUE

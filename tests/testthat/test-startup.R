@@ -111,3 +111,30 @@ test_that("auto-start starts Rgent once per R session (Restart R fired it twice 
   expect_true(auto_start_rgent())
   expect_equal(runs, 1L)
 })
+
+test_that("check_and_update_package(auto_update = TRUE) installs from r-universe, else GitHub (no remotes needed for r-universe)", {
+  skip_on_cran()
+  root <- tempfile("ru2"); dir.create(root)
+  pkg <- file.path(root, "src", "rstudioai"); dir.create(file.path(pkg, "R"), recursive = TRUE)
+  writeLines(c("Package: rstudioai", "Version: 9.9.10", "Title: Fake", "Description: Fake.", "License: MIT",
+               "Authors@R: person('A', 'B', email = 'a@b.org', role = c('aut', 'cre'))"), file.path(pkg, "DESCRIPTION"))
+  writeLines("", file.path(pkg, "NAMESPACE")); writeLines("f <- function() 1", file.path(pkg, "R", "f.R"))
+  contrib <- file.path(root, "repo", "src", "contrib"); dir.create(contrib, recursive = TRUE)
+  old <- setwd(contrib); on.exit(setwd(old), add = TRUE)
+  system2(file.path(R.home("bin"), "R"), c("CMD", "build", "--no-build-vignettes", shQuote(pkg)), stdout = FALSE, stderr = FALSE)
+  setwd(old)
+  tools::write_PACKAGES(contrib, type = "source")
+  repo <- paste0("file://", file.path(root, "repo"))
+  withr_opts <- options(pkgType = "source", repos = c(CRAN = repo)); on.exit(options(withr_opts), add = TRUE)
+
+  lib <- tempfile("lib"); dir.create(lib)
+  suppressMessages(rstudioai:::.rgent_install_update("9.9.10", lib = lib, runiverse = repo))
+  expect_equal(as.character(utils::packageVersion("rstudioai", lib.loc = lib)), "9.9.10")
+
+  # r-universe hasn't built 9.9.11 yet: GitHub (remotes) instead
+  skip_if_not_installed("remotes")
+  called <- NULL
+  local_mocked_bindings(install_github = function(repo, ...) called <<- repo, .package = "remotes")
+  rstudioai:::.rgent_install_update("9.9.11", lib = tempfile(), runiverse = repo)
+  expect_equal(called, "NathanBresette/Rgent-AI")
+})

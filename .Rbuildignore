@@ -1,0 +1,14 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^CONTRIBUTING\.md$
+^TESTING_GUIDE\.md$
+^build_package\.R$
+^images$
+^joss-submission$
+^paper\.md$
+^paper\.bib$
+^rstudioai$
+^\.github$
+^\.DS_Store$
+^.*/\.DS_Store$

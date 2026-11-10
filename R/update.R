@@ -71,3 +71,20 @@
   }
   invisible(result)
 }
+
+# Installs `latest` for check_and_update_package(auto_update = TRUE), the same way as
+# the daily background update: from r-universe once it has that version (most users
+# installed from there and have no remotes), else from GitHub with remotes.
+.rgent_install_update <- function(latest, lib = dirname(find.package("rstudioai")),
+                                  runiverse = .rgent_runiverse) {
+  ap <- tryCatch(utils::available.packages(repos = runiverse), error = function(e) NULL)
+  rv <- if (!is.null(ap) && "rstudioai" %in% rownames(ap)) ap["rstudioai", "Version"] else NA
+  if (!is.na(rv) && utils::compareVersion(rv, latest) >= 0) {
+    utils::install.packages("rstudioai", repos = c(runiverse, "https://cloud.r-project.org"), lib = lib)
+  } else if (requireNamespace("remotes", quietly = TRUE)) {
+    remotes::install_github("NathanBresette/Rgent-AI", upgrade = "never", force = TRUE, lib = lib)
+  } else {
+    stop("version ", latest, " isn't on r-universe yet; try again in an hour")
+  }
+  invisible(TRUE)
+}

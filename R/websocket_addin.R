@@ -395,17 +395,6 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       cat("Current version:", installed_version, "\n")
     }
     
-    # Check if remotes or devtools is available
-    if (!requireNamespace("remotes", quietly = TRUE)) {
-      if (!requireNamespace("devtools", quietly = TRUE)) {
-        if (!isTRUE(quiet)) {
-          cat("⚠️  remotes or devtools package required for auto-updates.\n")
-          cat("   Install with: install.packages(c('remotes', 'devtools'))\n")
-        }
-        return(invisible(FALSE))
-      }
-    }
-    
     # Try to get latest version from GitHub
     latest_version <- NULL
     tryCatch({
@@ -449,13 +438,13 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     }, error = function(e) {
       # Error getting version - latest_version stays NULL
       if (!isTRUE(quiet)) {
-        cat("⚠️  Error fetching version from GitHub:", conditionMessage(e), "\n")
+        cat("\u26A0\uFE0F  Error fetching version from GitHub:", conditionMessage(e), "\n")
       }
     })
     
     if (is.null(latest_version) || !is.character(latest_version) || length(latest_version) != 1L) {
       if (!isTRUE(quiet)) {
-        cat("ℹ️  Could not determine latest version. Continuing with current version.\n")
+        cat("\u2139\uFE0F  Could not determine latest version. Continuing with current version.\n")
       }
       return(invisible(FALSE))
     }
@@ -467,7 +456,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     # Compare versions - ensure both are character strings
     if (!is.character(installed_version) || length(installed_version) != 1L) {
       if (!isTRUE(quiet)) {
-        cat("⚠️  Invalid installed version format. Skipping update check.\n")
+        cat("\u26A0\uFE0F  Invalid installed version format. Skipping update check.\n")
       }
       return(invisible(FALSE))
     }
@@ -476,7 +465,7 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
       utils::compareVersion(installed_version, latest_version)
     }, error = function(e) {
       if (!isTRUE(quiet)) {
-        cat("⚠️  Error comparing versions:", conditionMessage(e), "\n")
+        cat("\u26A0\uFE0F  Error comparing versions:", conditionMessage(e), "\n")
       }
       return(NA_integer_)
     })
@@ -487,14 +476,14 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
     
     if (version_comparison >= 0) {
       if (!isTRUE(quiet)) {
-        cat("✅ You're running the latest version!\n")
+        cat("\u2705 You're running the latest version!\n")
       }
       return(invisible(FALSE))
     }
     
     # Update available
     if (!isTRUE(quiet)) {
-      cat("🔄 Update available! (", installed_version, " -> ", latest_version, ")\n", sep = "")
+      cat("\U0001F504 Update available! (", installed_version, " -> ", latest_version, ")\n", sep = "")
     }
     
     if (isTRUE(auto_update)) {
@@ -502,21 +491,17 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
         cat("Installing update...\n")
       }
       
-      # Install update
-      if (requireNamespace("remotes", quietly = TRUE)) {
-        remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-      } else {
-        devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-      }
+      # Install update: from r-universe, else GitHub (stops with a message if neither works)
+      .rgent_install_update(latest_version)
       
       if (!isTRUE(quiet)) {
-        cat("✅ Update installed! Please restart RStudio to use the new version.\n")
+        cat("\u2705 Update installed! Please restart RStudio to use the new version.\n")
       }
       return(invisible(TRUE))
     } else {
       if (!isTRUE(quiet)) {
-        cat("💡 To update, run: check_and_update_package(auto_update = TRUE)\n")
-        cat("   Or install manually: remotes::install_github('NathanBresette/Rgent-AI', upgrade = 'never')\n")
+        cat("\U0001F4A1 To update, run: check_and_update_package(auto_update = TRUE)\n")
+        cat("   Or reinstall: install.packages(\"rstudioai\", repos = c(\"https://nathanbresette.r-universe.dev\", \"https://cloud.r-project.org\"))\n")
       }
       return(invisible(FALSE))
     }
@@ -524,9 +509,9 @@ check_and_update_package <- function(auto_update = FALSE, quiet = FALSE) {
   }, error = function(e) {
     # Always show error message, but use safe error handling
     tryCatch({
-      cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
+      cat("\u26A0\uFE0F  Error checking for updates:", conditionMessage(e), "\n")
     }, error = function(e2) {
-      cat("⚠️  Error checking for updates (unable to display details)\n")
+      cat("\u26A0\uFE0F  Error checking for updates (unable to display details)\n")
     })
     return(invisible(FALSE))
   })
@@ -2604,7 +2589,7 @@ auto_capture_error <- function() {
       )
       
       # Show notification with exact error
-      cat("\n🐛 Error detected:", last_error, "\n")
+      cat("\n\U0001F41B Error detected:", last_error, "\n")
       cat("Click the debug button to fix it!\n\n")
       
           }
@@ -2634,9 +2619,8 @@ toggle_auto_fix <- function() {
 #' Test auto-capture system
 #' @export
 test_auto_capture <- function() {
-  cat("🧪 Testing auto-capture system...\n")
+  cat("\U0001F9EA Testing auto-capture system...\n")
   cat("Current error handler:", toString(options("error")), "\n")
-  cat("Auto-fix mode:", get_auto_fix_status(), "\n")
   
   # Test with a simple error
   cat("Triggering test error...\n")
@@ -2708,7 +2692,7 @@ capture_last_error <- function() {
 remove_error_monitoring <- function() {
   tryCatch({
     removeTaskCallback("error_monitor")
-    cat("✅ Error monitoring removed\n")
+    cat("\u2705 Error monitoring removed\n")
   }, error = function(e) {
     cat("No error monitoring to remove\n")
   })
@@ -3136,7 +3120,7 @@ assemble_simple_context <- function(query) {
       df_info <- sapply(df_names, function(name) {
         info <- workspace_index$data_frames[[name]]
         if (!is.null(info$dimensions)) {
-          paste(name, ":", info$dimensions[1], "rows ×", info$dimensions[2], "cols")
+          paste(name, ":", info$dimensions[1], "rows \u00D7", info$dimensions[2], "cols")
         } else {
           paste(name, ": data frame")
         }
@@ -5667,81 +5651,6 @@ reconstruct_base_plot_command <- function(history_lines, start_line, plot_cmd) {
   })
 }
 
-#' Internal function to check for package updates
-#' This is called from both .onLoad and .onAttach
-.check_for_updates_on_load <- function(quiet = FALSE) {
-  tryCatch({
-    # Quick version check - don't block if it fails
-    installed_version <- as.character(utils::packageVersion("rstudioai"))
-    
-    # Check if remotes or devtools is available
-    if (requireNamespace("remotes", quietly = TRUE) || requireNamespace("devtools", quietly = TRUE)) {
-      if (!isTRUE(quiet)) {
-        cat("Checking for updates...\n")
-      }
-      # Check DESCRIPTION file at root of repository on master branch
-      possible_paths <- c(
-        "https://raw.githubusercontent.com/NathanBresette/Rgent-AI/master/DESCRIPTION"
-      )
-      
-      latest_version <- NULL
-      for (desc_url in possible_paths) {
-        tryCatch({
-          desc_content <- httr::content(httr::GET(desc_url, timeout = 5), as = "text")
-          if (!is.null(desc_content) && nchar(desc_content) > 0) {
-            version_line <- grep("^Version:", strsplit(desc_content, "\n")[[1]], value = TRUE)
-            if (length(version_line) > 0) {
-              latest_version <- gsub("Version: ", "", trimws(version_line))
-              if (nchar(latest_version) > 0) {
-                break  # Found valid version, exit loop
-              }
-            }
-          }
-        }, error = function(e) {
-          # Try next path
-        })
-      }
-      
-      if (!is.null(latest_version)) {
-        # Compare versions
-        if (!isTRUE(quiet)) {
-          cat("Current version:", installed_version, "| Latest version:", latest_version, "\n")
-        }
-        if (utils::compareVersion(installed_version, latest_version) < 0) {
-          # Update available - install it
-          if (!isTRUE(quiet)) {
-            cat("🔄 RgentAI update available (", installed_version, " -> ", latest_version, "). Installing...\n", sep = "")
-          }
-          if (requireNamespace("remotes", quietly = TRUE)) {
-            remotes::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-          } else {
-            devtools::install_github("NathanBresette/Rgent-AI", force = TRUE, upgrade = "never")
-          }
-          if (!isTRUE(quiet)) {
-            cat("✅ Update installed! Please restart RStudio to use the new version.\n")
-          }
-        } else {
-          if (!isTRUE(quiet)) {
-            cat("✅ You're running the latest version (", installed_version, ").\n", sep = "")
-          }
-        }
-      } else {
-        if (!isTRUE(quiet)) {
-          cat("⚠️  Could not check for updates (network issue?). Continuing...\n")
-        }
-      }
-    }
-  }, error = function(e) {
-    # Silently ignore update check errors during package load
-    if (!isTRUE(quiet)) {
-      tryCatch({
-        cat("⚠️  Error checking for updates:", conditionMessage(e), "\n")
-      }, error = function(e2) {
-        # Ignore display errors
-      })
-    }
-  })
-}
 
 #' Package onLoad hook - automatically sets up and starts Rgent
 .onLoad <- function(libname, pkgname) {
