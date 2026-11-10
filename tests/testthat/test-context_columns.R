@@ -13,7 +13,9 @@ test_that("summaries show the codes that trip up a first guess", {
   expect_equal(f(paste0("id", 1:50)), "50 distinct")
   # up to 12 values are listed (a status column with 9 spellings), 13 aren't
   st <- c("shipped", "Shipped", "SHIPPED", "pending", "Pending", "cancelled", "Cancelled", "CANCELLED", "returned")
-  expect_match(f(st), "^9 distinct: 'cancelled' \\(1\\)")
+  s9 <- f(st)                                           # ties sort by the locale (Windows' check uses C: uppercase first)
+  expect_match(s9, "^9 distinct: ")
+  for (v in st) expect_true(grepl(paste0("'", v, "' (1)"), s9, fixed = TRUE), info = v)
   expect_equal(f(paste0("v", 1:13)), "13 distinct")
   expect_equal(f(list(1, 2)), "")                       # list columns: nothing, no error
   expect_equal(f(c(NA_real_, NA_real_)), "2 NA")

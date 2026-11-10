@@ -21,7 +21,7 @@ test_that("the page served is the one loaded with this code, not the file on dis
   on.exit(ld$page <- old, add = TRUE)
   # .onLoad keeps the installed page
   lib <- tempfile("lib"); dir.create(file.path(lib, "pkg", "public"), recursive = TRUE)
-  writeLines("<html>loaded with the code</html>", file.path(lib, "pkg", "public", "websocket_chat.html"))
+  writeBin(charToRaw("<html>loaded with the code</html>\n"), file.path(lib, "pkg", "public", "websocket_chat.html"))   # writeLines writes \r\n on Windows
   rstudioai:::.rgent_remember_page(lib, "pkg")
   expect_equal(rawToChar(ld$page), "<html>loaded with the code</html>\n")
   # an update then replaces the file on disk; the pane still gets the loaded copy
