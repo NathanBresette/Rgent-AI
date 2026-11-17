@@ -5597,6 +5597,17 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
         if (f) return `*Searching the file for \`${f[1].trim().replace(/^(["'`/])(.*)\1$/, '$2').replace(/`/g, '')}\`…*`;
         return null;
       }
+      // Haiku sometimes writes the range on the line after the fence ("```edit",
+      // then "after 481", then the new lines). Move it onto the fence line, but
+      // only when new lines follow: a bare "```edit" / "12-366" / "```" stays
+      // unusable rather than becoming a deletion that Auto-run would apply.
+      function moveEditHeader(block) {
+        if (!/^edit$/i.test(block.lang) || block.body.length < 2) return;
+        const m = block.body[0].trim().match(/^(after\s+(?:line\s+)?\d+|(?:lines?\s+)?\d+\s*(?:[-–]\s*\d+)?)$/i);
+        if (!m) return;
+        block.lang = 'edit ' + m[1];
+        block.body = block.body.slice(1);
+      }
       function splitFencedBlocks(text) {
         const out = [];
         const lines = String(text || '').split('\n');
@@ -5647,6 +5658,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
             if (!info) {
               if (readNote(block)) { pushNote(block); block = null; return; }
               const isR = /^[rR]$/.test(block.lang);
+              moveEditHeader(block);
               out.push({ type: 'code-block', lang: isR ? 'r' : block.lang, content: block.body.join('\n') + (block.body.length ? '\n' : ''), complete: true });
               block = null;
               return;

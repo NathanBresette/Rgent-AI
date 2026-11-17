@@ -30,7 +30,8 @@ edit_instructions <- function(file_name, outline = "", auto_run = FALSE, run_edi
   ) else "The user accepts each edit and can Undo it on its card (point them there to revert). "
   paste0(
     "\n\n(To change the open file", if (nzchar(file_name)) paste0(" ", file_name) else "",
-    ", use ```edit blocks, not ```r: ```edit 12-15 replaces lines 12-15 (empty block = delete); ",
+    ", use ```edit blocks, not ```r. The range goes on the opening fence line itself, never on the next line: ",
+    "```edit 12-15 replaces lines 12-15 (empty block = delete); ",
     "```edit after 12 inserts after line 12 (0 = top). Line numbers from the CURRENT FILE listing",
     " or OUTLINE; one block per change. If the new lines contain ``` fences, wrap the edit in ````. ",
     review,
