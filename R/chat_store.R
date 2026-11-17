@@ -140,7 +140,11 @@ chat_store_open <- function(id) {
   .rgent_chat$current <- ch
   msgs <- ch$messages
   last <- utils::tail(msgs, .rgent_history_n)
-  .rgent_state$conversation_history <- lapply(last, function(m) list(role = m$role, message = m$text, timestamp = Sys.time()))
+  .rgent_state$history_from <- NULL
+  .rgent_state$conversation_history <- lapply(last, function(m) {
+    .rgent_state$history_seq <- (.rgent_state$history_seq %||% 0) + 1
+    list(role = m$role, message = m$text, timestamp = Sys.time(), id = .rgent_state$history_seq)
+  })
   ch
 }
 

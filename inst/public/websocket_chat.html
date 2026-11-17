@@ -3497,6 +3497,9 @@
       // The short message after code runs (2.4.8): the question whose code is
       // running, and whether the reply streaming now is that message
       let wrapupFor = null;
+      // Edits applied to the file for the current question, told to the message after the run
+      // (it only saw the code and output, and said "nothing was added to your document")
+      let wrapupEdits = [];
       let wrapupReplying = false;
       let wrapupScheduled = false;   // between the run finishing and the request going out
       let questionSeq = 0;           // a newer question cancels a pending wrap-up
@@ -5240,6 +5243,7 @@ Code only. Minimal chat. Provide executable R code that can be run directly.`;
           questionSeq++;
           wrapupScheduled = false;
           wrapupFor = (extra && (extra.plot_explain || extra.fix_error)) ? null : { question: message, at: Date.now() };
+          wrapupEdits = [];
         }
         // Add user message (the message after code runs is Rgent's, not yours)
         if (!isWrapup) addMessage(message, "user");
@@ -7558,8 +7562,13 @@ Include comments explaining each step. Code only. Minimal chat.`;
           if (data.undo) {
             e.state = 'pending';
             renderEditState(key, 'Undone');
+            wrapupEdits = wrapupEdits.filter(x => x.key !== key);
           } else {
             e.state = 'applied';
+            if (!wrapupEdits.some(x => x.key === key)) {
+              const n = Array.isArray(e.preview.new) ? e.preview.new.length : 0;
+              wrapupEdits.push({ key: key, text: editLabel(e.preview) + (n ? ` (${n} new line${n === 1 ? '' : 's'})` : ' (lines removed)') });
+            }
             e.appliedAt = data.at;
             e.appliedId = data.id;
             e.appliedPath = data.path;
@@ -8268,7 +8277,8 @@ Include comments explaining each step. Code only. Minimal chat.`;
           wrapupScheduled = false;
           if (isAIResponding || operationStopped) return;
           sendMessage(w.question, { wrapup: true, wrapup_code: lastRunCode || '', wrapup_output: out.slice(-8000),
-                                    wrapup_plots: plots || 0, label: 'Reading the results' });
+                                    wrapup_plots: plots || 0, wrapup_edits: wrapupEdits.map(x => x.text),
+                                    label: 'Reading the results' });
         }, 400);
       }
 

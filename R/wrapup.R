@@ -8,7 +8,7 @@
 
 #' The prompt for the short message after code runs
 #' @keywords internal
-.rgent_wrapup_prompt <- function(question, code, output, plots = 0) {
+.rgent_wrapup_prompt <- function(question, code, output, plots = 0, edits = NULL) {
   one <- function(x) paste(unlist(x, use.names = FALSE), collapse = "\n")
   q <- substr(one(question), 1, 600)
   code <- one(code)
@@ -16,10 +16,16 @@
   out <- trimws(one(output))
   # Long output: the start (headers, call) and the end (the result usually comes last)
   if (nchar(out) > 4000) out <- paste0(substr(out, 1, 1500), "\n...\n", substr(out, nchar(out) - 2499, nchar(out)))
+  # Edits applied to the file for this question (2.4.20): without them the
+  # message only saw the code and said "nothing was added to your document"
+  edits <- unlist(edits, use.names = FALSE)
+  edits <- if (is.character(edits)) utils::head(substr(edits[nzchar(edits)], 1, 200), 10) else character(0)
   plots <- suppressWarnings(as.integer(plots))
   if (length(plots) != 1 || is.na(plots) || plots < 0) plots <- 0L
   paste0(
     "What I asked: ", q, "\n\n",
+    if (length(edits)) paste0("Your edits were applied to the open file: ", paste(edits, collapse = "; "),
+                              ". The file already has them; the code below is what ran.\n\n") else "",
     "=== THE CODE YOU GAVE RAN WITHOUT ERRORS ===\n",
     if (nzchar(code)) paste0("```r\n", code, "\n```\n") else "",
     if (nzchar(out)) paste0("Its output:\n```\n", out, "\n```\n") else "It printed nothing.\n",

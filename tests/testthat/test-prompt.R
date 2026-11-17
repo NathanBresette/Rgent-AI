@@ -30,8 +30,8 @@ test_that("history keeps six exchanges, compacts older replies and stays under t
     add_to_conversation_history("ai", paste0(sprintf("answer %d ", i), strrep("word ", 300)))
   }
   hist <- rstudioai:::.rgent_state$conversation_history
-  expect_length(hist, 12)
-  expect_equal(hist[[1]]$message, "question 3")
+  expect_length(hist, 16)                                 # 2.4.20 keeps up to 40 for the cached history window
+  expect_equal(hist[[1]]$message, "question 1")
   h <- get_conversation_history()
   expect_match(h, "question 3", fixed = TRUE)            # decisions from 6 exchanges ago are still there
   expect_match(h, paste0("answer 8 ", strrep("word ", 300)), fixed = TRUE)   # latest reply whole

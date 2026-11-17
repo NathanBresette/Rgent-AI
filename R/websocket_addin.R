@@ -65,7 +65,15 @@ if (is.null(.rgent_state$operation_stopped)) {
   sub("https://rgent.onrender.com", sub("/$", "", b), url, fixed = TRUE)
 }
 
+# Every request to the backend's chat stream; afterwards the keep-alive timer
+# restarts, and a question becomes the body to ping with (keepalive.R)
 stream_httr_post <- function(url, body, headers = NULL, timeout = 60, chunk_callback) {
+  result <- .rgent_stream_post(url, body, headers, timeout, chunk_callback)
+  tryCatch(.rgent_keepalive_after(.rgent_backend_url(url), body, result), error = function(e) NULL)
+  result
+}
+
+.rgent_stream_post <- function(url, body, headers = NULL, timeout = 60, chunk_callback) {
   url <- .rgent_backend_url(url)
   # Accumulate buffer for incomplete lines (use environment for proper scoping)
   stream_env <- new.env()
@@ -854,10 +862,12 @@ start_websocket_server <- function() {
           list(action = "restart_r", ok = ok)
         },
         "clear_access_code" = {
+          .rgent_keepalive_clear()
           clear_saved_access_code()
           list(action = "access_code_cleared", status = "success")
         },
         "set_access_code" = {
+          .rgent_keepalive_clear()
           # Check if access code is different from what's already stored
           current_code <- if(!is.null(.rgent_state$current_access_code)) .rgent_state$current_access_code else NULL
           if (is.null(current_code) || current_code != request$access_code) {
@@ -1293,7 +1303,8 @@ start_websocket_server <- function() {
           
           # History as it was before this message, so the current request isn't
           # sent twice (once in the history and again as USER REQUEST)
-          prior_history <- get_conversation_history()
+          history_parts <- .rgent_history_parts()
+          history_field <- NULL
           last_user_request <- get_last_user_request()
           
           # Add user message to conversation history
@@ -1342,14 +1353,19 @@ start_websocket_server <- function() {
             enhanced_prompt <- request$message
             if (is_wrapup) {
               enhanced_prompt <- .rgent_wrapup_prompt(request$message, request$wrapup_code,
-                                                      request$wrapup_output, request$wrapup_plots)
+                                                      request$wrapup_output, request$wrapup_plots, request$wrapup_edits)
             } else if (is_fix_request) {
               if (nzchar(last_user_request)) {
                 enhanced_prompt <- paste0("What I originally asked: ", substr(last_user_request, 1, 600),
                                           "\n\n", request$message)
               }
-            } else if (nchar(prior_history) > 0) {
-              enhanced_prompt <- paste0(prior_history, "\n\nUSER REQUEST: ", request$message)
+            } else {
+              # The history goes in its own field, so the backend can cache it
+              # (2.4.20); Claude's last replies come whole, before the question
+              if (length(history_parts$older)) history_field <- as.list(history_parts$older)
+              enhanced_prompt <- paste0(
+                if (nzchar(history_parts$latest)) paste0("YOUR LAST REPLY (whole):\nAI: ", history_parts$latest, "\n\n") else "",
+                "USER REQUEST: ", request$message)
             }
             # Let Claude propose edits to the open file (reviewed in the chat
             # before anything changes). Remember the file as Claude sees it,
@@ -1399,6 +1415,7 @@ start_websocket_server <- function() {
             # produced the code: the backend doesn't count it as a new request
             # (2.4.5; older backends ignore the field)
             if (is_fix_request || is_wrapup) request_body$continuation <- TRUE
+            if (!is.null(history_field)) request_body$history <- history_field
             if (tools_on) request_body$tools <- 1L
 
             # Explain plot: Claude also sees the picture (backend 2026-11 and later
@@ -1653,9 +1670,10 @@ start_websocket_server <- function() {
         "new_conversation" = {
           # Clear conversation history
           if (!is.null(.rgent_state$conversation_history)) {
-            .rgent_state$conversation_history <- list()
+            .rgent_state$conversation_history <- list(); .rgent_state$history_from <- NULL
           }
           chat_store_new()
+          .rgent_keepalive_clear()
           
           list(action = "new_conversation", status = "success", message = "Conversation history cleared. Workspace context refreshed.")
         },
@@ -2023,19 +2041,21 @@ add_to_conversation_history <- function(role, message) {
   # Saved for the History list (on this computer only)
   tryCatch(chat_store_record(role, message), error = function(e) NULL)
 
-  # Add new message
+  # Add new message (with an id, so the cached history window can say where it starts)
+  .rgent_state$history_seq <- (.rgent_state$history_seq %||% 0) + 1
   .rgent_state$conversation_history <- c(.rgent_state$conversation_history, list(
     list(
       role = role,
       message = message,
-      timestamp = Sys.time()
+      timestamp = Sys.time(),
+      id = .rgent_state$history_seq
     )
   ))
   
-  # Keep the last few exchanges (get_conversation_history() compacts the older ones)
+  # Keep enough for the history window (.rgent_history_parts() decides what is sent)
   n <- length(.rgent_state$conversation_history)
-  if (n > .rgent_history_n) {
-    .rgent_state$conversation_history <- .rgent_state$conversation_history[(n - .rgent_history_n + 1L):n]
+  if (n > .rgent_history_keep) {
+    .rgent_state$conversation_history <- .rgent_state$conversation_history[(n - .rgent_history_keep + 1L):n]
   }
 }
 
@@ -2045,6 +2065,50 @@ add_to_conversation_history <- function(role, message) {
 # questions to 600; when it's still too long the oldest messages are dropped.
 .rgent_history_n <- 12L
 .rgent_history_chars <- 9000L
+# The history sent since 2.4.20 (.rgent_history_parts): older messages in a
+# fixed short form, at most 9,000 characters; when over, the oldest are dropped
+# down to 6,000 at once, so the start stays the same for several questions
+.rgent_history_keep <- 40L
+.rgent_history_drop_to <- 6000L
+
+# The conversation for a new question, in a form the backend can cache
+# (2.4.20). Before, the whole history was rebuilt every question (the window
+# slid by one message and each reply's shortening depended on its age), so it
+# never matched what was sent before and was paid in full each time.
+#   older:  every earlier message in a short form fixed when it's written
+#           (questions cut to 600 characters, replies' code blocks as one-line
+#           notes and text cut to 1,500), oldest first. Only ever grows at the
+#           end, until the window is trimmed.
+#   latest: Claude's replies to the last question, whole (follow-ups refer to
+#           their code); they join `older`, shortened, at the next question.
+.rgent_history_parts <- function() {
+  hist <- .rgent_state$conversation_history
+  if (is.null(hist) || !length(hist)) return(list(older = character(0), latest = ""))
+  is_user <- vapply(hist, function(m) identical(m$role, "user"), logical(1))
+  last_user <- if (any(is_user)) max(which(is_user)) else 0L
+  latest_idx <- if (last_user < length(hist)) seq.int(last_user + 1L, length(hist)) else integer(0)
+  older_idx <- setdiff(seq_along(hist), latest_idx)
+  short <- function(m) {
+    text <- paste(as.character(m$message), collapse = "\n")
+    if (identical(m$role, "user")) {
+      if (nchar(text) > 600L) text <- paste0(substr(text, 1, 600), " [...]")
+      paste0("USER: ", text)
+    } else paste0("AI: ", .rgent_compact_reply(text, max_chars = 1500L))
+  }
+  older <- vapply(hist[older_idx], short, "")
+  ids <- vapply(hist[older_idx], function(m) if (is.numeric(m$id)) m$id else NA_real_, numeric(1))
+  from <- .rgent_state$history_from
+  if (is.numeric(from)) {
+    keep <- is.na(ids) | ids >= from
+    older <- older[keep]; ids <- ids[keep]
+  }
+  if (sum(nchar(older)) > .rgent_history_chars) {
+    while (length(older) > 1 && sum(nchar(older)) > .rgent_history_drop_to) { older <- older[-1]; ids <- ids[-1] }
+    if (length(ids) && !is.na(ids[1])) .rgent_state$history_from <- ids[1]
+  }
+  latest <- vapply(hist[latest_idx], function(m) paste(as.character(m$message), collapse = "\n"), "")
+  list(older = unname(older), latest = paste(latest, collapse = "\n\n"))
+}
 
 #' The most recent message the user typed (not an auto-fix request)
 #' @keywords internal
@@ -2092,7 +2156,7 @@ get_conversation_history <- function() {
   if (is.null(.rgent_state$conversation_history) || length(.rgent_state$conversation_history) == 0) {
     return("")
   }
-  hist <- .rgent_state$conversation_history
+  hist <- utils::tail(.rgent_state$conversation_history, .rgent_history_n)
   ai <- which(vapply(hist, function(m) !identical(m$role, "user"), logical(1)))
   last_ai <- if (length(ai)) max(ai) else 0L
 
@@ -2331,6 +2395,7 @@ capture_context <- function() {
 #' Stop WebSocket server
 #' @export
 stop_websocket_server <- function() {
+  .rgent_keepalive_clear()
   if (!is.null(.rgent_state$websocket_server)) {
     tryCatch({
       httpuv::stopServer(.rgent_state$websocket_server)
@@ -4276,18 +4341,11 @@ capture_context_smart <- function(query = NULL) {
         })
       })
       
-      # Filter objects if query provided
-      if (!is.null(query) && nchar(query) > 0) {
-        
-        filtered_objects <- smart_filter_objects(query, all_objects)
-        # Return structured list with filtered objects
-        return(list(
-          workspace_objects = filtered_objects,
-          environment_info = environment_info,
-          file_info = file_info,
-          timestamp = Sys.time()
-        ))
-      } else {
+      # Every object, whatever the question says (2.4.20). It used to keep only the
+      # objects whose names matched words in the question (smart_filter_objects), so
+      # Claude often saw no data frames at all, and the workspace part of the prompt
+      # changed from question to question, so the backend's cache of it never held.
+      {
         # Return structured list with all objects
         return(list(
           workspace_objects = all_objects,

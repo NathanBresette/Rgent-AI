@@ -105,4 +105,10 @@ test_that("the message after code runs gets the question, code and output, trimm
   expect_match(q, "don't mention that you can't see it", fixed = TRUE)
   expect_false(grepl("Plots pane", q, fixed = TRUE))
   expect_match(rstudioai:::.rgent_wrapup_prompt("q", "x", "", NULL), "It printed nothing.", fixed = TRUE)
+  # Edits applied for the question (2.4.20): the message is told, so it doesn't say nothing was added
+  e <- rstudioai:::.rgent_wrapup_prompt("add a model at the end", "fit <- lm(y ~ x)", "Call: lm", 0,
+                                       list("insert after line 69 of report.Rmd (14 new lines)"))
+  expect_match(e, "Your edits were applied to the open file: insert after line 69 of report.Rmd (14 new lines)", fixed = TRUE)
+  expect_false(grepl("edits were applied", rstudioai:::.rgent_wrapup_prompt("q", "x", "y", 0, list())))
+  expect_false(grepl("edits were applied", rstudioai:::.rgent_wrapup_prompt("q", "x", "y", 0, NULL)))
 })
