@@ -656,13 +656,35 @@ run_unit_with_recovery <- function(unit, doc, state, depth, reason, name) {
   character(0)
 }
 
+# What the chat shows above a question: the last 3 lines printed, or, when
+# they end a numbered list printed with cat() (remotes' "1: All / 2: CRAN
+# packages only / 3: None / 4: otel (0.2.0 -> 0.3.0)" before its readline()
+# "Enter one or more numbers"), the whole list and the line above it (2.4.21:
+# only "4:" and "5:" showed, so the answers to type were missing).
+.rgent_question_context <- function(lines, keep = 3, max_list = 30) {
+  lines <- unique(lines)
+  n <- length(lines)
+  if (n == 0) return(character(0))
+  numbered <- grepl("^\\s*\\[?\\d+\\]?[:.)]\\s", lines)
+  start <- max(1, n - keep + 1)
+  # the list, if the last numbered line is among the last lines
+  last_num <- if (any(numbered[start:n])) max(which(numbered[start:n])) + start - 1 else 0
+  if (last_num > 0) {
+    first <- last_num
+    while (first > 1 && numbered[first - 1] && last_num - first + 1 < max_list) first <- first - 1
+    if (first > 1 && !numbered[first - 1]) first <- first - 1   # its heading
+    start <- min(start, first)
+  }
+  lines[start:n]
+}
+
 .rgent_input_needed <- function(state, kind, prompt, choices = NULL) {
   # Drop cli's bullet symbols ("ℹ Would you like ...") for the chat
   tidy <- function(x) gsub("^\\s*[\u2139\u2716\u2714\u2022\u2192!*>-]+\\s+", "", x, perl = TRUE)
   recent <- c(utils::tail(state$recent_messages %||% character(0), 3),
-              tryCatch(.rgent_recent_output(), error = function(e) character(0)))
+              tryCatch(.rgent_recent_output(40), error = function(e) character(0)))
   recent <- tidy(trimws(.rgent_strip_ansi(recent)))
-  recent <- utils::tail(unique(recent[nzchar(recent)]), 3)
+  recent <- .rgent_question_context(recent[nzchar(recent)])
   state$pending_input <- list(
     kind = kind,
     prompt = tidy(trimws(.rgent_strip_ansi(paste(prompt %||% "", collapse = " ")))),
