@@ -28,6 +28,14 @@ pump <- function(seconds) {
   while (Sys.time() < end) later::run_now(0.05)
 }
 
+# Waits for a condition instead of a fixed time: check machines (r-universe's
+# Windows, macOS, Linux) are much slower and more uneven than a laptop
+pump_until <- function(cond, max = 15) {
+  end <- Sys.time() + max
+  while (!isTRUE(cond()) && Sys.time() < end) later::run_now(0.05)
+  isTRUE(cond())
+}
+
 question <- list(access_code = "CODE", prompt = "USER REQUEST: plot it", tools = 1,
                  history = list("USER: hi", "AI: hello"),
                  context_data = list(file_info = list(file_path = "a.R", file_contents = list("x <- 1", "y <- 2"))))
@@ -42,12 +50,12 @@ test_that("after a question, pings carry its exact body to /chat/keepalive and f
   skip_if_not_installed("curl")
   ns <- asNamespace("rstudioai"); setup_ka(); srv <- ka_server(); on.exit(httpuv::stopServer(srv$handle))
   ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
-  pump(2.5)
-  expect_gte(length(srv$bodies), 2)
+  expect_true(pump_until(function() length(srv$bodies) >= 2))
+  srv$mode <- "stop"; n <- length(srv$bodies)     # well under the cap of 6
   expect_true(all(srv$paths == "/chat/keepalive"))
   expect_identical(srv$bodies[1], as.character(jsonlite::toJSON(question, auto_unbox = TRUE)))
-  srv$mode <- "stop"; n <- length(srv$bodies)
-  pump(2)
+  expect_true(pump_until(function() is.null(ns$.rgent_keepalive$body)))
+  pump(0.6)
   expect_equal(length(srv$bodies), n + 1)          # the refused one, then nothing
   expect_null(ns$.rgent_keepalive$body)
 })
@@ -56,7 +64,8 @@ test_that("never more than 6 pings per question, whatever the backend says", {
   skip_if_not_installed("curl")
   ns <- asNamespace("rstudioai"); setup_ka(); srv <- ka_server(); on.exit(httpuv::stopServer(srv$handle))
   ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
-  pump(8)
+  expect_true(pump_until(function() is.null(ns$.rgent_keepalive$body), max = 30))
+  pump(0.6)
   expect_equal(length(srv$bodies), 6)
 })
 
@@ -67,7 +76,8 @@ test_that("a missed ping, a 404 (older backend) or a garbled answer stops them",
     setup_ka(); srv <- ka_server()
     srv$mode <- m
     ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
-    pump(1.5)
+    pump_until(function() is.null(ns$.rgent_keepalive$body))
+    pump(0.4)
     httpuv::stopServer(srv$handle)
     expect_equal(length(srv$bodies), 1, info = m)
     expect_null(ns$.rgent_keepalive$body)
@@ -80,28 +90,36 @@ test_that("tool rounds, lookups, fixes and the message after a run restart the t
   ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
   ns$.rgent_keepalive_after(srv$url, c(question, list(tool_rounds = list(list(assistant = "[]")))), list(success = TRUE))
   ns$.rgent_keepalive_after(srv$url, modifyList(question, list(continuation = TRUE, prompt = "fix")), list(success = TRUE))
-  pump(1.5)
-  expect_gte(length(srv$bodies), 1)
+  expect_true(pump_until(function() length(srv$bodies) >= 1))
   expect_true(all(srv$bodies == as.character(jsonlite::toJSON(question, auto_unbox = TRUE))))
 })
 
 test_that("a newer request replaces the waiting ping; New chat / Log out / the option stop them", {
   skip_if_not_installed("curl")
+  # Calls the timer's function directly instead of racing real timers
   ns <- asNamespace("rstudioai"); setup_ka(); srv <- ka_server(); on.exit(httpuv::stopServer(srv$handle))
-  options(rgent.keepalive_interval = 0.4)
+  options(rgent.keepalive_interval = 600)          # no real timer fires during the test
   ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
-  pump(0.25)
+  old <- ns$.rgent_keepalive$gen
   ns$.rgent_keepalive_after(srv$url, modifyList(question, list(continuation = TRUE)), list(success = TRUE))
-  pump(0.3)                                        # the first timer (0.4 s) has passed: replaced, nothing sent
+  expect_false(is.null(ns$.rgent_keepalive$body)) # the question is still the one to ping with
+  ns$.rgent_keepalive_ping(old)                    # the first timer fires: replaced, nothing sent
+  pump(0.5)
   expect_equal(length(srv$bodies), 0)
+  now <- ns$.rgent_keepalive$gen
   ns$.rgent_keepalive_clear()
-  pump(0.6)
+  ns$.rgent_keepalive_ping(now); ns$.rgent_keepalive_ping(ns$.rgent_keepalive$gen)
+  pump(0.5)
   expect_equal(length(srv$bodies), 0)              # New chat / Log out
   options(rgent.keepalive = FALSE)
   ns$.rgent_keepalive_after(srv$url, question, list(success = TRUE))
-  pump(0.6)
+  ns$.rgent_keepalive_ping(ns$.rgent_keepalive$gen)
+  pump(0.5)
   expect_equal(length(srv$bodies), 0)              # turned off
   options(rgent.keepalive = TRUE)
+  ns$.rgent_keepalive_ping(ns$.rgent_keepalive$gen) # the check: the same call does send when on
+  expect_true(pump_until(function() length(srv$bodies) == 1))
+  ns$.rgent_keepalive_clear()
 })
 
 test_that("no ping while a reply streams or code runs, and none after a failed question", {
@@ -131,8 +149,10 @@ test_that("pings only go where the question went (never another host), and never
   options(rgent.backend = NULL)
   # an unreachable backend: the ping is in the background, so this returns at once
   setup_ka()
+  options(rgent.keepalive_interval = 600)
   ns$.rgent_keepalive_after("http://127.0.0.1:9/chat/stream", question, list(success = TRUE))
-  t <- system.time(pump(0.6))[["elapsed"]]
-  expect_lt(t, 2)
-  expect_null(ns$.rgent_keepalive$body)            # the failure stopped them
+  t <- system.time(ns$.rgent_keepalive_ping(ns$.rgent_keepalive$gen))[["elapsed"]]
+  expect_lt(t, 1)                                  # sending returns at once
+  # (Windows takes ~2 s to give up on a refused connection)
+  expect_true(pump_until(function() is.null(ns$.rgent_keepalive$body), max = 30))  # the failure stopped them
 })
